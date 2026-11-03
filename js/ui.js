@@ -192,7 +192,7 @@ export class UI {
     this.cardCat = null;
     const toy = h.toy ? CONFIG.toys.find((t) => t.id === h.toy) : null;
     $('#cardBody').innerHTML = `
-      <div class="card-kicker">캣타워 놀이터</div>
+      <div class="card-kicker">🐈 고양이서가 캣타워</div>
       <div class="card-title">${esc(p.name)}</div>
       <div class="card-desc">${esc(p.desc)}</div>
       <div class="row">
@@ -495,8 +495,8 @@ export class UI {
     this.sheetKind = 'drinks';
     const guests = this.nearbyGuests?.() || [];
     let target = giftTo;
-    const tabs = (on) => giftTo ? '' : `<div class="tabs"><button type="button" class="tab2 ${on === 'drinks' ? 'on' : ''}" data-ct="drinks">☕ 음료</button><button type="button" class="tab2 ${on === 'toys' ? 'on' : ''}" data-ct="toys">🧸 고양이 장난감 대여</button></div>`;
-    const storeLine = giftTo ? '' : `<p class="note store-line">🐈 이 서점 캣타워는 모두 고양이서가 원목 캣타워예요 · <a href="${esc(CONFIG.store?.url || '#')}" target="_blank" rel="noopener">고양이서가 둘러보기 ↗</a></p>`;
+    const tabs = (on) => giftTo ? '' : `<div class="tabs"><button type="button" class="tab2 ${on === 'drinks' ? 'on' : ''}" data-ct="drinks">☕ 음료</button><button type="button" class="tab2 ${on === 'toys' ? 'on' : ''}" data-ct="toys">🧸 고양이 장난감 대여</button><a class="tab2 store-tab" href="${esc(CONFIG.store?.url || '#')}" target="_blank" rel="noopener">🐈 고양이서가 캣타워 둘러보기 ↗</a></div>`;
+    const storeLine = giftTo ? '' : '<p class="note store-line">🐈 이 서점의 캣타워는 모두 고양이서가 원목 캣타워예요.</p>';
     const renderToys = () => {
       const mine = this.getToy?.();
       this.openSheet(`${tabs('toys')}
