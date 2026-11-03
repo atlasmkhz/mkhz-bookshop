@@ -29,6 +29,60 @@ function boxUV(w, h, d, s = 1.6) {
   return g;
 }
 
+// ---------- 서가 칸 나누기 (과학 밖의 책은 모두 같은 시대 여섯 칸: data/books.json 의 era) ----------
+const ERA_IDS = ['e1', 'e2', 'e3', 'e4', 'e5', 'e0'];
+const ERA_NAME = { e1: '고대', e2: '중세', e3: '근세', e4: '근대', e5: '현대', e0: '시대를 넘어' };
+const ERA_RANGE = { e1: '~918', e2: '918~1392', e3: '1392~1876', e4: '1876~1945', e5: '1945~', e0: '' };
+const GROUPS = [
+  ['읽을거리', (b) => !['route', 'map', 'tool', 'video'].includes(b.kind)],
+  ['이야기 루트', (b) => b.kind === 'route'],
+  ['지도와 도구', (b) => ['map', 'tool', 'video'].includes(b.kind)],
+];
+const ROW_CAP = 30;   // 한 칸에 꽂는 진짜 책 수 (넘치면 다음 칸)
+const chunk = (list, n) => { const out = []; for (let i = 0; i < list.length; i += n) out.push(list.slice(i, i + n)); return out; };
+// 한 시대의 책 → 칸들 (갈래별)
+function eraRows(list) {
+  const rows = [];
+  if (!list.length) return rows;
+  const e = list[0].era;
+  for (const [name, f] of GROUPS) for (const part of chunk(list.filter(f), ROW_CAP)) rows.push({ label: `${ERA_NAME[e]} · ${name}`, books: part, era: e });
+  return rows;
+}
+// 책이 적은 분야 → 시대마다 한 칸 (넘치면 갈래로 나눔)
+function smallRows(list) {
+  const rows = [];
+  for (const e of ERA_IDS) {
+    const l = list.filter((b) => b.era === e);
+    if (!l.length) continue;
+    if (l.length <= ROW_CAP) rows.push({ label: `${ERA_NAME[e]}${ERA_RANGE[e] ? ' · ' + ERA_RANGE[e] : ''}`, books: l, era: e });
+    else rows.push(...eraRows(l));
+  }
+  return rows;
+}
+// 사회: 책 많은 시대는 갈래별, 적은 시대는 한 칸
+function socRows(list) {
+  const rows = [];
+  for (const e of ERA_IDS) {
+    const l = list.filter((b) => b.era === e);
+    if (!l.length) continue;
+    if (l.length > 12) rows.push(...eraRows(l));
+    else rows.push({ label: ERA_NAME[e], books: l, era: e });
+  }
+  return rows;
+}
+// 칸들을 책장 면 n 개에 차례로 (한 면 per 칸)
+function flowRows(rows, n, per) {
+  const faces = [...Array(n)].map(() => []);
+  rows.forEach((r, i) => faces[Math.min(n - 1, Math.floor(i / per))].push(r));
+  return faces;
+}
+function rangeName(rows) {
+  const es = [...new Set(rows.map((r) => r.era))];
+  if (!es.length) return '';
+  if (es.length === 1) return ERA_NAME[es[0]];
+  return es[es.length - 1] === 'e0' ? `${ERA_NAME[es[0]]} 이후` : `${ERA_NAME[es[0]]} ~ ${ERA_NAME[es[es.length - 1]]}`;
+}
+
 export function buildCabin(scene, books) {
   const room = {
     walls: [], seats: [], obstacles: [], beams: [], nightParts: [], benchSpots: [], gardenSpots: [], sunSpots: [],
@@ -266,7 +320,21 @@ export function buildCabin(scene, books) {
   }
   const lo = { fy: LY, lv: 1 };
   const loftStart = room.seats.length;
-  bookcase(loft, room, { x: -8.0, z: -9.68, w: 9.0, h: 0.95, d: 0.36, rows: 2, fy: LY, lv: 1 });
+  // 다락 서가 (2층): 철학 · 문학 · 예술 — 북쪽 벽, 둥근 창 둘을 비켜서. 칸마다 시대 하나 (위 칸이 오래된 시대)
+  {
+    const lc = { fy: LY, lv: 1, d: 0.4, z: -9.64, host: loft };
+    const ph = smallRows(books.filter((b) => b.field === 'philo'));
+    const li = smallRows(books.filter((b) => b.field === 'literature'));
+    const ar = smallRows(books.filter((b) => b.field === 'art'));
+    const half = Math.ceil(li.length / 2);
+    const shelvesUp = [
+      { x: -13.5, w: 1.5, h: 1.9, rows: Math.max(4, ph.length), spec: ph, label: '철학', color: '#1f2c4d' },
+      { x: -10.0, w: 2.4, h: 1.9, rows: Math.max(3, half), spec: li.slice(0, half), label: `문학 · ${rangeName(li.slice(0, half))}`, color: '#8a4b6b' },
+      { x: -7.55, w: 2.4, h: 1.9, rows: Math.max(3, li.length - half), spec: li.slice(half), label: `문학 · ${rangeName(li.slice(half))}`, color: '#8a4b6b' },
+      { x: -3.9, w: 1.6, h: 1.3, rows: Math.max(2, ar.length), spec: ar, label: '예술', color: '#3e8e5a' },
+    ];
+    for (const u of shelvesUp) bookcase(loft, room, { ...lc, x: u.x, w: u.w, h: u.h, rows: u.rows, rowSpec: [u.spec], label: u.label, labelColor: u.color });
+  }
   // 다락 구석: 커튼 친 담요 굴 (서쪽 끝)
   {
     const g = new THREE.Group();
@@ -331,23 +399,34 @@ export function buildCabin(scene, books) {
   // ---------- 다락 아래: 책장 골목 네 줄 (분야별) ----------
   {
     const H2 = LY - 0.2;
-    const fb = (field, ...shelves) => books.filter((b) => b.field === field && (!shelves.length || shelves.includes(b.shelf)));
     const sci = books.filter((b) => b.field === 'science');
+    // 역사는 책장 한 면에 시대 하나 (서쪽에서 동쪽으로 고대 → 중세 → … → 시대를 넘어), 칸은 읽을거리 · 이야기 루트 · 지도와 도구
+    // 끝 책장은 사회. 측면 0 = 동쪽 면, 1 = 서쪽 면
+    const hist = (e) => books.filter((b) => b.field === 'history' && b.era === e);
+    const soc = flowRows(socRows(books.filter((b) => b.field === 'society')), 2, 3);
+    const face = (e) => ({ spec: eraRows(hist(e)), label: `역사 · ${ERA_NAME[e]}` });
     const units = [
-      { x: -13.3, books: [fb('history', 'era', 'sources', 'revisionism', 'memorial'), fb('history', 'world', 'events')], label: ['역사 · 시대연구 · 사료읽기', '역사 · 세계사 · 사건 연표'] },
-      { x: -10.8, books: [fb('history', 'bio', 'people', 'guide', 'damsa'), fb('history', 'routes')], label: ['역사 · 인물 · 길잡이 · 답사', '역사 · 이야기 루트'] },
-      { x: -8.3, books: [fb('literature'), fb('society')], label: ['문학', '사회'] },
-      { x: -5.8, books: [fb('philo'), fb('art')], label: ['철학', '예술'] },
+      { x: -13.3, sides: [face('e2'), face('e1')] },
+      { x: -10.8, sides: [face('e4'), face('e3')] },
+      { x: -8.3, sides: [face('e0'), face('e5')] },
+      { x: -5.8, sides: [{ spec: soc[1], label: `사회 · ${rangeName(soc[1])}` }, { spec: soc[0], label: `사회 · ${rangeName(soc[0])}` }] },
     ];
     for (const u of units) {
-      bookcase(scene, room, { x: u.x, z: -8.35, rotY: Math.PI / 2, w: 2.9, h: H2, d: 0.5, rows: 5, sides: 2, books: u.books });
-      endSign(scene, u.x, -6.85, u.label[0], u.label[1]);
+      bookcase(scene, room, { x: u.x, z: -8.35, rotY: Math.PI / 2, w: 2.9, h: H2, d: 0.5, rows: 5, sides: 2, rowSpec: u.sides.map((sd) => sd.spec), rowOrder: [3, 2, 1, 4, 0], label: u.sides.map((sd) => sd.label), labelColor: u.x > -6 ? '#5f6b2e' : '#7a3b2a' });
+      endSign(scene, u.x, -6.85, u.sides[0].label, u.sides[1].label);
     }
-    // 도서목록 판 (골목 앞, 기둥 사이)
-    const boards = [[-12.05, 'history', '역사', ['시대연구 · 사료읽기', '역사왜곡 · 기억의 뜰', '세계사 · 사건 연표', '인물 · 이야기 루트', '길잡이 · 답사']], [-9.55, 'literature', '문학', ['신화와 서사시', '옛 문학 · 원전과 글자', '일기와 기행 루트', '노벨문학상', '하루 한 말모이']],
-      [-7.05, 'society', '사회', ['정치의 기초', '법과 헌법', '경제와 살림', '권력과 책임의 기록', '아틀라스 투데이 · 기록']], [-4.55, 'philo', '철학 · 예술', ['사상가 117명', '열아홉 개의 질문', '사상가들의 논쟁', '오늘의 필사 · 용어', '음악가와 화가 · 예술사']]];
+    // 도서목록 판 (골목 앞, 기둥 사이) — 시대 차례
+    const cnt = (f, e) => books.filter((b) => b.field === f && b.era === e).length;
+    const hl = (e) => `${ERA_NAME[e]} · ${cnt('history', e)}권`;
+    const up = (f) => books.filter((b) => b.field === f).length;
+    const boards = [
+      [-12.05, 'history', '역사 도서목록 ①', ['서쪽 끝부터 시대 순', hl('e1'), hl('e2'), hl('e3'), '세계사도 같은 칸에']],
+      [-9.55, 'history', '역사 도서목록 ②', [hl('e4'), hl('e5'), hl('e0'), '칸: 읽을거리 · 루트', '· 지도와 도구']],
+      [-7.05, 'society', '사회 도서목록', [...ERA_IDS.filter((e) => cnt('society', e)).map((e) => `${ERA_NAME[e]} · ${cnt('society', e)}권`), '권력 · 법 · 살림', '정당 · 찾아보기'].slice(0, 5)],
+      [-4.55, 'philo', '2층 다락 서가', [`철학 · ${up('philo')}권`, `문학 · ${up('literature')}권`, `예술 · ${up('art')}권`, '칸마다 시대 하나', '서쪽 계단으로 ↑']],
+    ];
     const fcol = { history: '#7a3b2a', literature: '#8a4b6b', society: '#5f6b2e', philo: '#1f2c4d' };
-    for (const [bx, field, title, lines] of boards) catalogBoard(scene, room, bx, -6.15, 0, field, `${title} 도서목록`, lines, fcol[field]);
+    for (const [bx, field, title, lines] of boards) catalogBoard(scene, room, bx, -6.15, 0, field, title, lines, fcol[field]);
     // 골목 끝 의자 (막다른 골목) + 사이 방석
     for (const x of [-12.05, -9.55, -7.05]) armchair(scene, room, x, -9.3, 0, ['#8a5a44', '#5f6b4e', '#7f97a8'][Math.round((x + 12.05) / 2.5)], { name: '책장 골목 끝 의자', nook: true });
     cushion(scene, room, -12.05, -7.3, -Math.PI / 2, '#a9bba0', { name: '책장 사이 방석', nook: true });
@@ -1212,7 +1291,7 @@ export function toolCart(scene, room, x, z, rotY) {
   g.add(mesh(new THREE.TorusGeometry(0.06, 0.012, 8, 20), M.color('#8a7b6c', 0.3, { metalness: 0.6 }), -0.1, 0.83, 0.22));
   g.add(mesh(rbox(0.5, 0.2, 0.4, 0.02), M.color('#c9a77a', 1), -0.3, 0.5, 0));
   const c = document.createElement('canvas'); c.width = 256; c.height = 96;
-  const draw = () => { const p = c.getContext('2d'); p.fillStyle = '#3e3a36'; p.fillRect(0, 0, 256, 96); p.fillStyle = '#f2e7d3'; p.textAlign = 'center'; p.textBaseline = 'middle'; p.font = '700 34px "Gowun Batang", serif'; p.fillText('도구 모음', 128, 36); p.font = '20px "Gowun Dodum", sans-serif'; p.fillText('지도 · 놀이판 · 계보', 128, 72); };
+  const draw = () => { const p = c.getContext('2d'); p.fillStyle = '#3e3a36'; p.fillRect(0, 0, 256, 96); p.fillStyle = '#f2e7d3'; p.textAlign = 'center'; p.textBaseline = 'middle'; p.font = '700 34px "Gowun Batang", serif'; p.fillText('도구 모음', 128, 36); p.font = '20px "Gowun Dodum", sans-serif'; p.fillText('과학 놀이판 · 지도', 128, 72); };
   draw();
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   document.fonts?.ready.then(() => { draw(); t.needsUpdate = true; });

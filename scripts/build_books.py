@@ -6,7 +6,9 @@
 네 저장소는 읽기만 한다(아무것도 쓰지 않는다).
 
 분야: 역사 · 철학 · 문학 · 예술 · 과학 · 사회. 과학은 학년(초등 3~4 · 초등 5~6 · 중학 · 일반)을 더 단다.
-책의 종류(kind): series(여러 편), collection(여러 장을 한 권으로 묶음), single(한 지면), map(지도 위의 글)
+책의 종류(kind): series(여러 편), collection(여러 장을 한 권으로 묶음), single(한 지면), route(이야기 루트), map(지도), tool(찾기 · 검사), video(영상)
+과학 밖의 도구(지도 · 계보도 · 찾기 · 검사 · 영상)도 한 편짜리 책이 되고, 「도구 모음」에는 과학아틀라스 것만 남는다.
+과학 밖의 책은 모두 시대 여섯 칸(ERAS: 고대 · 중세 · 근세 · 근대 · 현대 · 시대를 넘어)에 꽂는다 — shelf 가 시대, 원래 갈래는 tag.
 
 쓰는 법
   python3 scripts/build_books.py                 # 저장소들이 이 폴더 옆(../atlas 등)에 있을 때
@@ -40,13 +42,13 @@ SITE = {a['id']: a['site'] for a in ATLASES}
 
 # 분야 (책등 색은 분야 색을 따른다)
 FIELDS = [
-    {'id': 'history', 'name': '역사', 'ico': '🏯', 'color': '#7a3b2a', 'note': '시대연구 · 사료읽기 · 사건 연표 · 인물 · 이야기 루트 · 답사'},
-    {'id': 'philo', 'name': '철학', 'ico': '🪞', 'color': '#1f2c4d', 'note': '사상가 · 큰 질문 · 논쟁 · 오늘의 필사'},
-    {'id': 'literature', 'name': '문학', 'ico': '📜', 'color': '#8a4b6b', 'note': '신화와 서사시 · 옛 문학 · 일기와 기행 · 노벨문학상 · 말모이'},
-    {'id': 'art', 'name': '예술', 'ico': '🎨', 'color': '#3e8e5a', 'note': '음악가와 화가 · 음악사 · 미술사 · 국악'},
+    {'id': 'history', 'name': '역사', 'ico': '🏯', 'color': '#7a3b2a', 'note': '1층 책장 골목 — 서쪽 끝부터 고대 · 중세 · 근세 · 근대 · 현대 · 시대를 넘어. 칸마다 읽을거리 · 이야기 루트 · 지도와 도구, 세계사도 같은 시대 칸에'},
+    {'id': 'philo', 'name': '철학', 'ico': '🪞', 'color': '#1f2c4d', 'note': '2층 다락 서가 — 칸마다 시대 하나. 사상가 · 큰 질문 · 논쟁 · 사상 지도 · 오늘의 필사'},
+    {'id': 'literature', 'name': '문학', 'ico': '📜', 'color': '#8a4b6b', 'note': '2층 다락 서가 — 칸마다 시대 하나. 신화와 서사시 · 옛 문학 · 일기와 기행 · 노벨문학상 · 말모이'},
+    {'id': 'art', 'name': '예술', 'ico': '🎨', 'color': '#3e8e5a', 'note': '2층 다락 서가 — 음악가와 화가 · 음악사 · 미술사 · 국악'},
     {'id': 'science', 'name': '과학', 'ico': '🔭', 'color': '#1f6f6b', 'note': '자료실 · 발견 카드 · 어린이 과학 · 중학 과학과 수학 · 오늘의 과학',
      'grades': [{'id': 'kids-low', 'name': '초등 3~4학년'}, {'id': 'kids-high', 'name': '초등 5~6학년'}, {'id': 'middle', 'name': '중학교'}, {'id': 'general', 'name': '일반'}]},
-    {'id': 'society', 'name': '사회', 'ico': '🏛️', 'color': '#5f6b2e', 'note': '정치의 기초 · 법과 헌법 · 경제와 부동산 · 권력의 기록 · 아틀라스 투데이'},
+    {'id': 'society', 'name': '사회', 'ico': '🏛️', 'color': '#5f6b2e', 'note': '1층 책장 골목 동쪽 끝 — 시대 순. 정치의 기초 · 법과 헌법 · 경제와 부동산 · 권력의 기록 · 아틀라스 투데이 · 찾아보기'},
 ]
 GRADE_NAME = {'kids-low': '초등 3~4학년', 'kids-high': '초등 5~6학년', 'middle': '중학교', 'general': '일반'}
 
@@ -896,6 +898,147 @@ def build_program(src):
     return items
 
 
+# =====================================================================
+# 시대 (과학 밖의 모든 책을 같은 여섯 칸으로 꽂는다 — 서가 · 도서목록 · 책장 칸이 모두 이 순서)
+# =====================================================================
+ERAS = [
+    {'id': 'e1', 'name': '고대', 'range': '~918', 'hint': '선사 · 고조선 · 삼국 · 남북국', 'y0': -99999, 'y1': 918},
+    {'id': 'e2', 'name': '중세', 'range': '918~1392', 'hint': '고려 · 세계의 중세', 'y0': 918, 'y1': 1392},
+    {'id': 'e3', 'name': '근세', 'range': '1392~1876', 'hint': '조선 · 르네상스에서 제국의 시대까지', 'y0': 1392, 'y1': 1876},
+    {'id': 'e4', 'name': '근대', 'range': '1876~1945', 'hint': '개항 · 일제강점기 · 세계대전', 'y0': 1876, 'y1': 1945},
+    {'id': 'e5', 'name': '현대', 'range': '1945~', 'hint': '광복 이후 · 오늘', 'y0': 1945, 'y1': 2027},
+    {'id': 'e0', 'name': '시대를 넘어', 'range': '', 'hint': '여러 시대를 꿰는 통사 · 주제 · 인물 · 길잡이', 'y0': None, 'y1': None},
+]
+ERA_ORDER = {e['id']: i for i, e in enumerate(ERAS)}
+ERA_SHELF = {e['id']: f"{e['name']}{' · ' + e['range'] if e['range'] else ''}" for e in ERAS}          # 책 카드에 짧게
+ERA_LONG = {e['id']: f"{e['name']}{' · ' + e['range'] if e['range'] else ''} — {e['hint']}" for e in ERAS}   # 서가 목록 머리말
+# 글자로 시대가 드러나는 이름표 (루트의 시대 표지 · 옛 문학 갈래)
+ERA_TAG = [
+    (re.compile(r'고조선|선사|상고|삼국|통일신라|남북국|고대'), 'e1'),
+    (re.compile(r'고려'), 'e2'),
+    (re.compile(r'조선'), 'e3'),
+    (re.compile(r'근대|개항|일제'), 'e4'),
+    (re.compile(r'현대|해방'), 'e5'),
+]
+# 제목 · 소개에 드러나는 시대 (해가 적혀 있지 않을 때만)
+ERA_WORD = [
+    (re.compile(r'신화|서사시|길가메시|일리아스|오디세|헤라클레스|축의 시대|공자의|혜초|고대|삼국|고구려|백제|신라|가야|발해|고조선|고인돌'), 'e1'),
+    (re.compile(r'신앙과 이성|중세|고려'), 'e2'),
+    (re.compile(r'이성의 시대|르네상스|조선|실학|붕당'), 'e3'),
+    (re.compile(r'독립|일제|친일|강제동원|항일|임시정부|근대'), 'e4'),
+    (re.compile(r'현대의 사유|현대|해방|민주화|한국전쟁|현충원|청원|국회|정당|혜택|아틀라스 투데이|오늘'), 'e5'),
+]
+# 손으로 정한 것 (해 범위만으로는 엉뚱한 칸에 가는 책) — 책 제목으로 적는다
+ERA_FIX = {
+    '무령왕': 'e1', '무령왕과 웅진 백제': 'e1',      # 461~1971 (1971년은 무덤을 찾은 해)
+    '로마': 'e1', '제국의 역사 · 로마': 'e1',          # 천 년 제국, 고대의 대표
+    '독도, 기록의 섬': 'e0', '독도, 기록의 섬 루트': 'e0',
+    '흩어진 문화재를 지킨 사람들': 'e4',
+    '환단고기, 무엇을 말하는가': 'e0',
+    '고려·조선 성곽 분포도': 'e0',
+    '현대의 사유 지도': 'e5',
+}
+
+
+def year_span(text, today=True):
+    """기간 글에서 [처음 해, 끝 해]. 못 읽으면 None. today=False 면 「오늘」을 해로 치지 않음(제목용)"""
+    if not text:
+        return None
+    t = text.replace('–', '~').replace('—', '~')
+    ys = []
+    for m in re.finditer(r'(?<![\d,])(기원전|BC|B\.C\.)?\s*(약\s*)?(\d+(?:\.\d+)?)\s*(만\s*년\s*전|세기|년|경)?(?![\d,])', t):
+        bc, num, unit = m.group(1), m.group(3), (m.group(4) or '').replace(' ', '')
+        v = float(num)
+        nxt = t[m.end():m.end() + 1]
+        if unit.startswith('만년전'):
+            y = -v * 10000
+        elif unit == '세기':
+            y = (v - 1) * 100 + 50
+            y = -y if bc else y
+        elif bc:
+            y = -v
+        else:
+            # 해가 아닌 숫자(84편 · 1,005명 · 60문항 · 제1부 · 90일)는 건너뜀
+            if not (100 <= v <= 2100) or (not unit and nxt and nxt in '편명건곳개장권쪽문만%위대부회호번일주종점살km'):
+                continue
+            y = v
+        ys.append(y)
+    if today and re.search(r'현재|오늘', t):
+        ys.append(2026)
+    if re.search(r'구석기|신석기|신화시대', t):
+        ys.append(-10000)
+    if re.search(r'고조선', t):
+        ys.append(-2333)
+    if not ys:
+        return None
+    return min(ys), max(ys)
+
+
+def era_by_span(a, b):
+    if b <= 918:
+        return 'e1'
+    a = max(a, 0)
+    if b <= a:
+        return next(e['id'] for e in ERAS[:5] if e['y0'] <= a < e['y1'])
+    share = [max(0, min(b, e['y1']) - max(a, e['y0'])) for e in ERAS[:5]]
+    tot = sum(share) or 1
+    touched = sum(1 for v in share if v > 0)
+    best = max(range(5), key=lambda i: share[i])
+    if touched >= 3 and share[best] / tot < 0.65:
+        return 'e0'
+    return ERAS[best]['id']
+
+
+def span_of(b):
+    return year_span(b.get('period')) or year_span(b['title'], False) or year_span(b.get('subtitle'), False)
+
+
+def era_of(b):
+    if b['title'] in ERA_FIX:
+        return ERA_FIX[b['title']]
+    for rx, e in ERA_TAG:
+        if b.get('tag') and rx.search(b['tag']) and not re.search(r'인물|역사왜곡|사료|시대연구|기억', b['tag']):
+            return e
+    sp = span_of(b)
+    if sp:
+        return era_by_span(*sp)
+    words = f"{b['title']} {b.get('subtitle') or ''}"
+    for rx, e in ERA_WORD:
+        if rx.search(words):
+            return e
+    if b['field'] == 'society':
+        return 'e5'          # 사회 책은 해가 없어도 지금 이야기
+    return 'e0'
+
+
+TOOL_SHELF = {'map': ('maps', '지도'), 'tool': ('tools', '찾아보기 · 해 보기'), 'video': ('tools', '영상')}
+
+
+def tools_to_books(tools, book_urls):
+    """과학아틀라스 밖의 도구(지도 · 계보도 · 찾기 · 검사 · 영상)를 한 편짜리 책으로. 같은 것이 두 아틀라스에 있으면 한 곳만"""
+    out, keys = [], {}
+    for t in sorted(tools, key=lambda t: HOME_RANK[t['atlas']]):
+        if t['url'] in book_urls:
+            continue
+        name = t['name']
+        main_t, _, sub = name.partition(' — ')
+        main_t = main_t.strip()
+        norm = re.sub(r'[\s·의()\-—「」]', '', main_t)
+        k2 = re.sub(r'[\s,·]', '', sub)[:9] if sub else None
+        dup = keys.get(norm) or (k2 and keys.get('s:' + k2))
+        if dup:
+            continue
+        keys[norm] = True
+        if k2:
+            keys['s:' + k2] = True
+        base = t['id'].split('-', 1)[1]
+        shelf, sname = TOOL_SHELF.get(t['kind'], TOOL_SHELF['tool'])
+        out.append(book(key='tool-' + base, atlas=t['atlas'], field=t['field'], shelf=shelf, shelfName=sname, kind=t['kind'] if t['kind'] in ('map', 'video') else 'tool',
+                        tag=sname, title=main_t, subtitle=sub or t.get('note', ''), blurb=t.get('note', ''), period='', url=t['url'], toc=[(name, t['url'])],
+                        first=''))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--src', default=os.path.dirname(ROOT))
@@ -931,6 +1074,11 @@ def main():
         else:
             seen[k] = b
     books = [b for b in all_books if b['kind'] != 'series' or seen[b['key']] is b]
+    # 과학아틀라스 밖의 도구는 모두 책으로 (과학 도구만 「도구 모음」에 남는다)
+    tool_books = tools_to_books([t for t in all_tools if t['atlas'] != 'science'], {b['url'] for b in books})
+    log(f'도구 → 책: {len(tool_books)}권 (과학 밖의 지도 · 계보도 · 찾기 · 검사 · 영상)')
+    books += tool_books
+    all_tools = [t for t in all_tools if t['atlas'] == 'science']
 
     cover_dir = os.path.join(ROOT, 'assets', 'covers')
     keep = set()
@@ -955,13 +1103,40 @@ def main():
             'parts': len(b['toc']), 'first': b['first'], 'blurb': b['blurb'],
             'url': b['url'], 'cover': cover, 'coverNote': b['heroNote'] if cover else '', 'toc': b['toc'],
         })
+    # 과학 밖의 책은 시대 칸에 꽂는다: shelf = 시대, 원래 갈래(사료읽기 · 이야기 루트 · 제국사 …)는 tag 로
+    for ob in out_books:
+        if ob['field'] == 'science':
+            continue
+        ob['era'] = era_of(ob)
+        old = ob['shelfName']
+        tag = ob['tag'] if ob['tag'] and not any(rx.search(ob['tag']) for rx, _ in ERA_TAG) and ob['tag'] != old else ''
+        ob['tag'] = old + (' · ' + tag if tag else '')
+        ob['shelf'], ob['shelfName'] = ob['era'], ERA_SHELF[ob['era']]
+        sp = span_of(ob)
+        ob['y'] = int(sp[0]) if sp else None
+    # 지도로 옮긴 책이 같은 이름의 시리즈를 가지면 그 곁에 (제국의 역사 · 로마 ↔ 로마)
+    core = lambda t: re.sub(r'^제국의 역사 · ', '', t).replace(' 루트', '').split(',')[0].strip()
+    named = {core(ob['title']): ob for ob in out_books if ob['field'] != 'science' and ob['kind'] != 'map' and ob['kind'] != 'tool'}
+    for ob in out_books:
+        if ob['field'] == 'science' or ob['kind'] not in ('map', 'tool') or ob['title'] in ERA_FIX:
+            continue
+        twin = named.get(core(ob['title']))
+        if twin:
+            ob['era'], ob['y'] = twin['era'], twin['y']
+            ob['shelf'], ob['shelfName'] = ob['era'], ERA_SHELF[ob['era']]
     if not args.no_covers:
         for fn in os.listdir(cover_dir):
             if fn.endswith('.webp') and fn not in keep:
                 os.remove(os.path.join(cover_dir, fn))
 
     forder = {f['id']: i for i, f in enumerate(FIELDS)}
-    out_books.sort(key=lambda b: (forder[b['field']], b['shelf'], {'kids-low': 0, 'kids-high': 1, 'middle': 2, 'general': 3}.get(b['grade'], 9), b['title']))
+    # 과학은 갈래 · 학년 순, 나머지는 시대 순 → 그 안에서 한국 먼저, 해 순
+    def bkey(b):
+        if b['field'] == 'science':
+            return (forder[b['field']], 0, b['shelf'], {'kids-low': 0, 'kids-high': 1, 'middle': 2, 'general': 3}.get(b['grade'], 9), 0, 0, b['title'])
+        world = 1 if re.search(r'세계사|제국|혁명|격변|문명|정신사', b['tag']) or b['tag'].startswith('신화') else 0
+        return (forder[b['field']], ERA_ORDER[b['era']], '', 0, world, b['y'] if b['y'] is not None else 9999, b['title'])
+    out_books.sort(key=bkey)
     shelves = []
     for f in FIELDS:
         names = []
@@ -969,7 +1144,7 @@ def main():
             if b['field'] == f['id'] and (b['shelf'], b['shelfName']) not in names:
                 names.append((b['shelf'], b['shelfName']))
         for sid, sname in names:
-            shelves.append({'field': f['id'], 'id': sid, 'name': sname, 'count': sum(1 for b in out_books if b['field'] == f['id'] and b['shelf'] == sid)})
+            shelves.append({'field': f['id'], 'id': sid, 'name': ERA_LONG.get(sid, sname), 'count': sum(1 for b in out_books if b['field'] == f['id'] and b['shelf'] == sid)})
     # 도구: 분야 순 · 같은 주소는 하나만
     tseen, tools = set(), []
     for t in all_tools:
@@ -979,6 +1154,7 @@ def main():
         tools.append(t)
     tools.sort(key=lambda t: (forder[t['field']], t['atlas'], t['kind'], t['name']))
 
+    ERAS_OUT = [{k: e[k] for k in ('id', 'name', 'range', 'hint')} for e in ERAS]
     data = {
         'generated': date.today().isoformat(),
         'fields': FIELDS,
@@ -987,6 +1163,7 @@ def main():
         'count': len(out_books),
         'parts': sum(b['parts'] for b in out_books),
         'books': out_books,
+        'eras': ERAS_OUT,
         'tools': tools,
     }
     os.makedirs(os.path.join(ROOT, 'data'), exist_ok=True)

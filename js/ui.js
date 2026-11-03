@@ -468,7 +468,7 @@ export class UI {
           ${b.blurb && b.blurb !== b.first ? `<p class="blurb">${esc(b.blurb)}</p>` : ''}
           <div class="row">
             <button class="btn primary" id="bkAdd" type="button">${inBasket ? '✓ 담았어요 (빼기)' : '🧺 담기'}</button>
-            <a class="btn" href="${esc(b.url)}" target="_blank" rel="noopener">시리즈 표지 ↗</a>
+            <a class="btn" href="${esc(b.url)}" target="_blank" rel="noopener">${b.kind === 'map' ? '지도 열기' : b.kind === 'tool' ? '열어 보기' : b.kind === 'video' ? '영상 보기' : '시리즈 표지'} ↗</a>
             ${this.canWalkTo?.(id) ? '<button class="btn ghost" id="bkWalk" type="button">꽂힌 자리로</button>' : ''}
           </div>
           <h3>${b.kind === 'collection' ? '차례' : '목차'} · ${b.parts}${b.kind === 'collection' ? '장' : '편'}${readN ? ` <small style="font-family:var(--sans);font-size:12px;color:var(--ink-soft)">(${readN}편 읽음)</small>` : ''}</h3>
@@ -546,7 +546,7 @@ export class UI {
     } else {
       const byField = {};
       for (const t of tools) (byField[t.field] = byField[t.field] || []).push(t);
-      body = '<p class="note" style="margin:0 0 10px">책이 아니라 눌러서 쓰는 것들 — 지도 · 놀이판 · 계보 · 오늘의 소식. 새 창으로 열려요.</p>' + fields.map((f) => {
+      body = '<p class="note" style="margin:0 0 10px">과학아틀라스의 놀이판 · 지도 · 실험 도구예요. 역사 · 철학 · 정치아틀라스의 지도와 도구는 책이 되어 시대별 책장에 꽂혀 있어요. 새 창으로 열려요.</p>' + fields.map((f) => {
         const list = byField[f.id] || [];
         if (!list.length) return '';
         return `<div class="shelf-h" style="color:${f.color}">${f.ico || ''} ${esc(f.name)} <small>${list.length}</small></div><div class="tools">${list.map((t) => `<a class="tool" href="${esc(t.url)}" target="_blank" rel="noopener"><span class="ico">${t.ico || '🧰'}</span><b>${esc(t.name)}</b><span>${esc(t.note || '')}${t.grade ? ` · ${esc(t.grade)}` : ''}</span></a>`).join('')}</div>`;
