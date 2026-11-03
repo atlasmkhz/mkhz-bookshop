@@ -14,6 +14,7 @@ import { Fires } from './fire.js';
 import { Sky } from './sky.js';
 import { Fireworks, FW_KINDS } from './fireworks.js';
 import { HideSeek } from './hideseek.js';
+import { TRAIL_SPOTS } from './trail.js';
 import { Avatar, LOOKS } from './avatar.js';
 import { FX } from './fx.js';
 import { Sound } from './audio.js';
@@ -338,6 +339,7 @@ function arrive() {
   else if (p.type === 'program') { sendState(true); ui.openProgram(program); }
   else if (p.type === 'place') { sendState(true); ui.toast(`${p.name}에 왔어요`); }
   else if (p.type === 'log') { sendState(true); doToss(p.id); }
+  else if (p.type === 'loop') { if (loopWalk.on) loopArrive(); else sendState(true); }
   else sendState(true);
 }
 
@@ -1109,9 +1111,42 @@ ui.places = [
   { ico: '🏯', name: '정자', note: '다리 건너 등불 아래', to: [38.5, 0, -6.0] },
   { ico: '🌼', name: '들꽃 언덕', note: '돗자리 · 나비', to: [41.0, 0, 7.5] },
   { ico: '🛶', name: '선착장 끝', note: '바다 위 숨은 벤치', to: [40.5, 0, 32.5] },
+  { ico: '🚶', name: '둘레길 한 바퀴', note: '맵 가장자리 숲 둘레길을 천천히 한 바퀴 걸어요', to: [2.0, 0, 25.5], loop: true },
+  ...TRAIL_SPOTS,
   { ico: '🏡', name: '서점 벽난로', note: '돌아가기', to: [-12.5, 0, 3.7] },
 ];
-ui.onGoPlace = (p) => { const to = new THREE.Vector3(...p.to); walkTo(to, { type: 'place', name: p.name }); ripple(to); ui.toast(`${p.name}(으)로 걸어가요`); };
+ui.onGoPlace = (p) => {
+  if (p.loop) { startLoop(); return; }
+  const to = new THREE.Vector3(...p.to); walkTo(to, { type: 'place', name: p.name }); ripple(to); ui.toast(`${p.name}(으)로 걸어가요`);
+};
+// ---------- 둘레길 한 바퀴 ----------
+// 고리 위 점을 두 개씩 묶어 한 구간씩 걸음. 구간마다 목적지 한 번만 보냄 (한 바퀴에 17건쯤)
+const loopWalk = { on: false, i: 0, n: 0, said: new Set() };
+function startLoop() {
+  const R = room.ring;
+  if (!R?.length) return;
+  let bi = 0, bd = Infinity;
+  R.forEach((p, i) => { const d = p.distanceTo(new THREE.Vector3(me.pos.x, 0, me.pos.z)); if (d < bd) { bd = d; bi = i; } });
+  Object.assign(loopWalk, { on: true, i: bi, n: 0, said: new Set() });
+  ui.toast('🚶 둘레길 한 바퀴 — 화면을 누르면 멈춰요');
+  loopLeg();
+}
+function loopLeg() {
+  const R = room.ring;
+  if (!loopWalk.on) return;
+  if (loopWalk.n >= R.length) { loopWalk.on = false; ui.toast('🚶 둘레길 한 바퀴를 다 걸었어요'); return; }
+  const step = Math.min(2, R.length - loopWalk.n);
+  loopWalk.i = (loopWalk.i + step) % R.length;
+  loopWalk.n += step;
+  walkTo(R[loopWalk.i].clone(), { type: 'loop' });
+}
+function loopArrive() {
+  for (const sp of TRAIL_SPOTS) {
+    if (loopWalk.said.has(sp.name)) continue;
+    if (Math.hypot(sp.to[0] - me.pos.x, sp.to[2] - me.pos.z) < 9) { loopWalk.said.add(sp.name); ui.toast(`${sp.ico} ${sp.name} — ${sp.note}`); }
+  }
+  loopLeg();
+}
 // 내 고양이
 ui.onPhoto = async (file) => extractCatColors(file);
 ui.onAdoptCat = (info) => { me.myCatInfo = info; store.set('mycat', { ...info, swatches: undefined }); spawnMyCat(info, true); net.send(helloMsg()); };
@@ -1275,4 +1310,4 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-window.shop = { fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };

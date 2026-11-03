@@ -6,6 +6,7 @@ import { CABIN, WORLD, SEA_Z, PLATFORMS } from './nav.js';
 import { armchair, cushion, beanbag, stool, bench, addSeat, lowTable } from './furniture.js';
 import { campChair, hammock, firebowl, woodpile, readingTent } from './cabin.js';
 import { buildCinema } from './cinema.js';
+import { RING, SPURS, buildTrail } from './trail.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const face = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
@@ -25,12 +26,14 @@ const PATHS = [
   [[31.2, 9.8], [36, 8], [40.5, 7]],                                       // 다리 → 들꽃 언덕
   [[14, 0], [13, 5], [12, 10], [11.5, 15], [12, 20], [12.5, 24.5]],          // → 바닷가
   [[26, 16], [25, 20], [24.5, 24.5]],                                      // 영화관 뒤 → 바닷가
-  [[2, 25.5], [8, 25.2], [12.5, 24.5], [18, 25.2], [24.5, 24.5], [30, 25.3], [36, 25.5], [40, 26.0], [46, 26.2]], // 바닷길
+  [[2, 25.5], [8, 25.2], [12.5, 24.5], [18, 25.2], [24.5, 24.5], [26.4, 21.9], [28.3, 20.6], [30.4, 21.6], [33.4, 24.4], [36, 25.5], [40, 26.0], [46, 26.2]], // 바닷길 (시내는 다리로 건넘)
   [[-1.75, 10.3], [-1.75, 12.2], [3, 13], [8.5, 11.5], [11, 6], [11, 0.2]],  // 현관 → 동쪽으로 돌아 정원 문 앞
   [[-1.75, 12.2], [-8, 13], [-14, 12.5], [-19, 9], [-19.5, 0], [-18.5, -8], [-16, -12.5], [-9, -13.5], [-2, -13.5], [5, -13], [9.5, -10], [11, -5], [11, 0.2]], // 집 둘레 한 바퀴
   [[-14, 12.5], [-12, 16], [-6, 19], [-1, 22], [2, 25.5]],                   // 서쪽 마당 → 바닷가
   [[12, 20], [16, 19.5]],                                                    // → 큰 나무 그네
   [[22, -15], [19, -18], [15, -20]],                                         // 계곡 → 숲 안쪽 숨은 자리
+  RING,                                                                      // 숲 둘레길 (맵 가장자리 한 바퀴)
+  ...SPURS,                                                                  // 둘레길 샛길
 ];
 // 시내 (계곡): 북쪽 폭포에서 남쪽 바다로
 export const streamX = (z) => 30 + Math.sin(z * 0.22) * 1.4 + Math.sin(z * 0.5) * 0.4;
@@ -777,6 +780,9 @@ export function buildForest(scene, room, program) {
     excl.push([x, z, 1.0]);
   }
 
+  // ---------- 숲 둘레길 볼거리 (등대 · 대나무 숲 · 자작나무 길 · 연못 · 억새 언덕) ----------
+  buildTrail(scene, room, { obst, excl, trees, r, signpost, rockMat });
+
   // ---------- 나무 심기 (전보다 성기게) ----------
   const okTree = (x, z, rad = 1.6) => {
     if (x > CABIN.minX - 2.2 && x < CABIN.maxX + 2.4 && z > CABIN.minZ - 2.2 && z < CABIN.maxZ + 2.6) return false;
@@ -787,7 +793,7 @@ export function buildForest(scene, room, program) {
     for (const t of trees) if (Math.hypot(x - t[0], z - t[1]) < 2.6) return false;
     return true;
   };
-  for (let i = 0; i < 4000 && trees.length < 150; i++) {
+  for (let i = 0; i < 6000 && trees.length < 250; i++) {
     const x = WORLD.minX + 1 + r() * (WORLD.maxX - WORLD.minX - 2), z = WORLD.minZ + 1 + r() * (22 - WORLD.minZ - 1);
     if (!okTree(x, z)) continue;
     const kind = x > 20 && x < 27 && z < -12 ? 'birch' : r() < 0.4 ? 'pine' : 'broad';
@@ -802,7 +808,7 @@ export function buildForest(scene, room, program) {
     trees.push([x, z, r() < 0.55 ? 'pine' : 'broad', 0.9 + r() * 0.6, true]);
   }
   for (const [x, z, , s, outside] of trees) if (!outside) obst(x - 0.25 * s, x + 0.25 * s, z - 0.25 * s, z + 0.25 * s);
-  for (let i = 0; i < 1200 && bushes.length < 260; i++) {
+  for (let i = 0; i < 1800 && bushes.length < 380; i++) {
     const x = WORLD.minX + 1 + r() * (WORLD.maxX - WORLD.minX - 2), z = WORLD.minZ + 1 + r() * (22 - WORLD.minZ - 1);
     if (x > CABIN.minX - 1.5 && x < CABIN.maxX + 1.5 && z > CABIN.minZ - 1.5 && z < CABIN.maxZ + 2.5) continue;
     if (distPaths(x, z) < 1.3 || Math.abs(x - streamX(z)) < 2.0) continue;
@@ -841,7 +847,7 @@ export function buildForest(scene, room, program) {
   });
   cones.count = ci; blobs.count = bi;
   for (const im of [trunks, cones, blobs]) { im.castShadow = true; im.receiveShadow = true; im.userData.noHit = true; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(im); }
-  room.canopies = canopyOf;
+  room.canopies = [...(room.canopies || []), ...canopyOf];   // 둘레길 대나무 + 나무 잎
   const bushM = new THREE.InstancedMesh(blobGeo, new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }), bushes.length * 2);
   let k2 = 0;
   for (const [x, z, s] of bushes) for (let j = 0; j < 2; j++) { ps.set(x + (j ? 0.25 : -0.1) * s, 0.35 * s, z + (j ? -0.15 : 0.1) * s); q.setFromEuler(new THREE.Euler(0, r() * 3, 0)); sc.set(0.5 * s, 0.42 * s * (j ? 0.8 : 1.15), 0.5 * s); bushM.setMatrixAt(k2, m4.compose(ps, q, sc)); bushM.setColorAt(k2++, col.set(['#5f8a52', '#6f9a5e', '#7aa261', '#55804c'][Math.floor(r() * 4)])); }
@@ -853,10 +859,10 @@ export function buildForest(scene, room, program) {
     flowers.forEach(([x, z], i) => { ps.set(x, 0.12 + r() * 0.1, z); q.identity(); sc.setScalar(0.7 + r() * 0.8); fm.setMatrixAt(i, m4.compose(ps, q, sc)); fm.setColorAt(i, col.set(cols[Math.floor(r() * cols.length)])); });
     fm.userData.noHit = true;
     scene.add(fm);
-    const N = 1100;
+    const N = 1700;
     const gm = new THREE.InstancedMesh(new THREE.ConeGeometry(0.08, 0.35, 4), new THREE.MeshStandardMaterial({ color: '#7fa35e', roughness: 1 }), N);
     let n = 0;
-    for (let i = 0; i < 6000 && n < N; i++) {
+    for (let i = 0; i < 9000 && n < N; i++) {
       const x = WORLD.minX + r() * (WORLD.maxX - WORLD.minX), z = WORLD.minZ + r() * (23 - WORLD.minZ);
       if (x > CABIN.minX - 1 && x < CABIN.maxX + 1 && z > CABIN.minZ - 1 && z < CABIN.maxZ + 2) continue;
       if (distPaths(x, z) < 0.85 || Math.abs(x - streamX(z)) < 1.3) continue;
@@ -995,7 +1001,7 @@ export function buildForest(scene, room, program) {
 }
 
 // 나무 잎이 나를 가리면 살짝 접어 줌 (카메라와 나 사이)
-const tmpM = new THREE.Matrix4(), tmpS = new THREE.Vector3();
+const tmpM = new THREE.Matrix4(), tmpS = new THREE.Vector3(), tmpP = new THREE.Vector3();
 export function updateCanopies(room, me, camPos, dt) {
   if (!room.canopies) return;
   const dirX = camPos.x - me.x, dirZ = camPos.z - me.z;
@@ -1016,7 +1022,7 @@ export function updateCanopies(room, me, camPos, dt) {
     if (c.k === w) continue;
     c.k += (w - c.k) * (1 - Math.exp(-6 * dt));
     if (Math.abs(c.k - w) < 0.01) c.k = w;
-    for (const p of c.parts) { tmpS.copy(p.s).multiplyScalar(c.k); p.mesh.setMatrixAt(p.i, tmpM.compose(p.p, p.q, tmpS)); dirty.add(p.mesh); }
+    for (const p of c.parts) { tmpS.copy(p.s).multiplyScalar(c.k); const pp = p.drop ? tmpP.set(p.p.x, p.p.y * c.k, p.p.z) : p.p; p.mesh.setMatrixAt(p.i, tmpM.compose(pp, p.q, tmpS)); dirty.add(p.mesh); }
   }
   for (const m of dirty) m.instanceMatrix.needsUpdate = true;
   for (const b of room.bigCanopies || []) b.g.visible = want(b.x, b.z, 2.4) === 1;
