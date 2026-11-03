@@ -307,6 +307,7 @@ const CUSTOMB_NAV = {
   boxes: [
     { floor: [-0.2, 0, 0.7], inside: [-0.25, 0.05, -0.05] },
   ],
+  hides: [[-0.3, 0.33, -0.05], [-0.6, 0.62, -0.05], [-0.52, 0.92, -0.05], [1.044, 1.08, -0.05]],
   bounds: [-1.26, 1.26, -0.24, 0.24],
 };
 
@@ -372,6 +373,7 @@ const CATHOUSE_NAV = {
     [-0.6, 0.84, 0.0],
   ],
   boxes: [{ floor: [-0.6, 0, 0.62], inside: [-0.6, 0.05, -0.03] }],
+  hides: [[-0.6, 0.43, -0.03]],
   bounds: [-0.82, 0.82, -0.22, 0.22],
 };
 
@@ -434,6 +436,7 @@ const JIPSA4_NAV = {
     { floor: [0.403, 0, 0.62], inside: [0.403, 0.05, -0.03] },
     { floor: [0.009, 0, 0.62], inside: [0.009, 0.05, -0.03] },
   ],
+  hides: [[-0.797, 1.44, -0.03], [-0.403, 1.44, -0.03]],
   bounds: [-1.013, 1.013, -0.21, 0.21],
 };
 
@@ -486,6 +489,7 @@ const BELLA4_NAV = {
     [-0.33, 1.45, 0.0],
   ],
   boxes: [{ floor: [0.35, 0, 0.6], inside: [0.35, 0.14, -0.02] }],
+  hides: [[0.349, 0.87, -0.03]],
   bounds: [-0.62, 1.0, -0.24, 0.24],
 };
 
@@ -520,11 +524,13 @@ export function createProduct(key, { x, z, rotY }) {
   root.updateMatrixWorld(true);
   const toWorld = (p) => root.localToWorld(new THREE.Vector3(p[0], p[1], p[2]));
   const product = {
-    key, root, hit, bookSlots: visual.userData.bookSlots || null,
+    key, root, hit, bookSlots: visual.userData.bookSlots || null, navBounds: nav.bounds,
     path: nav.path.map(toWorld),
     boxes: nav.boxes.map((b) => ({ floor: toWorld(b.floor), inside: toWorld(b.inside), rotY })),
     rotY,
     obstacle: worldBounds(root, nav.bounds),
+    // 숨은 고양이 찾기: 숨는 칸(안쪽 자리)과 입구(힌트로 눈이 반짝이는 자리)
+    hides: [...nav.boxes.map((b) => b.inside), ...(nav.hides || [])].map((h) => ({ inside: toWorld([h[0], Math.max(0.06, h[1]), h[2]]), eyes: toWorld([h[0], Math.max(0.06, h[1]) + 0.1, nav.bounds[3] + 0.015]), key })),
   };
 
   // GLB가 지정되어 있으면 불러와서 교체

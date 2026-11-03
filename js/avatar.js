@@ -111,6 +111,17 @@ export class Avatar {
     this.cup.position.set(0, -0.3, 0.05);
     this.cup.visible = false;
     this.arms[0].add(this.cup);
+    // 오른손: 빌린 고양이 장난감 · 불꽃막대
+    this.toyHold = new THREE.Group();
+    this.toyHold.position.set(0, -0.3, 0.03);
+    this.arms[1].add(this.toyHold);
+    this.toy = null;
+    this.playT = 0;
+    this.laserDot = new THREE.Mesh(new THREE.CircleGeometry(0.035, 12).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ff2a2a', transparent: true, opacity: 0.9 }));
+    this.laserDot.visible = false;
+    this.laserDot.userData.noHit = true;
+    this.root.add(this.laserDot);
+    this.sparkT = 0;
     // 누를 수 있는 자리 (다른 손님 카드)
     this.hit = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.7, 4, 8), new THREE.MeshBasicMaterial({ visible: false }));
     this.hit.position.y = 0.7;
@@ -134,6 +145,37 @@ export class Avatar {
   }
 
   wave() { this.waveT = 2.2; }
+
+  // 장난감 들기 (null 이면 내려놓기)
+  setToy(id) {
+    if (this.toy === id) return;
+    this.toy = id || null;
+    this.toyHold.clear();
+    const add = (geo, color, x, y, z, rx = 0, rz = 0) => { const m = new THREE.Mesh(geo, std(color, 0.7)); m.position.set(x, y, z); m.rotation.set(rx, 0, rz); m.castShadow = true; this.toyHold.add(m); return m; };
+    this.feather = null;
+    if (id === 'wand') {
+      add(new THREE.CylinderGeometry(0.007, 0.009, 0.55, 6), '#c4935f', 0, -0.02, 0.2, Math.PI / 2 - 0.5);
+      const f = new THREE.Group();
+      f.position.set(0, 0.2, 0.46);
+      const str = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.3, 4), std('#e8e2d6')); str.position.y = -0.15; f.add(str);
+      const fe = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.12, 6), std('#e86f8a', 0.9)); fe.position.y = -0.32; fe.rotation.x = Math.PI; f.add(fe);
+      const fe2 = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.09, 6), std('#6fb7e8', 0.9)); fe2.position.set(0.02, -0.3, 0); fe2.rotation.set(Math.PI, 0, 0.4); f.add(fe2);
+      this.toyHold.add(f);
+      this.feather = f;
+    } else if (id === 'laser') add(new THREE.CylinderGeometry(0.012, 0.012, 0.11, 8), '#3b3f46', 0, 0, 0.04, Math.PI / 2);
+    else if (id === 'ball') add(new THREE.SphereGeometry(0.045, 12, 10), '#f1c45b', 0, -0.02, 0.04);
+    else if (id === 'mouse') { add(new THREE.SphereGeometry(0.045, 10, 8).scale(1, 0.8, 1.6), '#9a9a96', 0, -0.02, 0.05); add(new THREE.SphereGeometry(0.015, 6, 6), '#f2a5a0', 0, 0.0, 0.12); }
+    else if (id === 'catnip') add(new THREE.BoxGeometry(0.12, 0.05, 0.09), '#9cc58a', 0, -0.02, 0.04);
+    else if (id === 'sparkler') {
+      add(new THREE.CylinderGeometry(0.004, 0.004, 0.4, 4), '#7a7a7a', 0, 0.08, 0.12, 0.6);
+      const glow = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), new THREE.MeshBasicMaterial({ color: '#fff1b0' }));
+      glow.position.set(0, 0.24, 0.24); this.toyHold.add(glow); this.sparkTip = glow;
+    }
+    this.laserDot.visible = false;
+  }
+  // 장난감을 흔드는 몸짓 (몇 초)
+  playToy(sec = 3) { this.playT = sec; }
+  sparkler(sec = 40) { this.sparkT = sec; this.setToy('sparkler'); }
 
   setDrink(d) {
     this.drink = d || null;
@@ -199,7 +241,23 @@ export class Avatar {
     this.arms.forEach((a, i) => {
       a.rotation.x = (i ? sw : -sw) * 0.5 * (1 - s) - s * 0.4;
     });
-    if (this.waveT > 0) {
+    if (this.sparkT > 0) {
+      this.sparkT -= dt;
+      if (this.sparkTip) this.sparkTip.scale.setScalar(0.8 + Math.random() * 0.8);
+      if (this.sparkT <= 0) this.setToy(this.restoreToy || null);
+    }
+    if (this.playT > 0 && this.toy && this.toy !== 'sparkler') {
+      this.playT -= dt;
+      const a = this.arms[1];
+      a.rotation.x = -0.9 + Math.sin(this.t * (this.toy === 'wand' ? 9 : 5)) * 0.45;
+      a.rotation.z = 0.25 + Math.sin(this.t * 3.3) * 0.3;
+      if (this.feather) this.feather.rotation.set(Math.sin(this.t * 11) * 0.6, 0, Math.cos(this.t * 8) * 0.6);
+      if (this.toy === 'laser') {
+        this.laserDot.visible = true;
+        this.laserDot.position.set(Math.sin(this.t * 2.3) * 0.9 + Math.sin(this.t * 5.1) * 0.3, 0.015, 1.2 + Math.cos(this.t * 1.7) * 0.6);
+      }
+      if (this.playT <= 0) this.laserDot.visible = false;
+    } else if (this.waveT > 0) {
       this.waveT -= dt;
       const a = this.arms[1];
       a.rotation.x = -0.2;

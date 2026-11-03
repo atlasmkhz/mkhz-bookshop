@@ -1,7 +1,7 @@
 // 오두막 독립서점 실내 (24 × 20 m): 나무 들보, 벽난로, 높은 책장과 사다리, 책장 골목 네 줄, 비밀 서재,
 // 독서 칸막이, 고양이서가 캣타워 코너(카페를 합침), 2층 다락, 루프탑(바깥 계단)
 import * as THREE from 'three';
-import { M, rbox, mesh, plank, floorTexture, logTexture, stoneTexture, mulberry, footprint, glowSprite } from './kit.js';
+import { M, rbox, mesh, plank, floorTexture, logTexture, stoneTexture, mulberry, footprint, glowSprite, textSprite } from './kit.js';
 import { CABIN, DOOR, FRONT, PLATFORMS } from './nav.js';
 import { armchair, cushion, beanbag, stool, bench, floorLamp, deskLamp, rug, lowTable, chair, addSeat } from './furniture.js';
 import { bookcase, displayTable } from './shelves.js';
@@ -48,6 +48,7 @@ export function buildCabin(scene, books) {
     obst(p.obstacle);
     room.boxes.push(...p.boxes.map((b, i) => ({ ...b, key: `${key}:box${i}`, product: key })));
     room.climbs.push({ key, rotY: p.rotY, path: p.path, product: true });
+    namePlate(p);
     return p;
   };
 
@@ -186,17 +187,17 @@ export function buildCabin(scene, books) {
     g.add(mesh(rbox(0.3, 0.8, 1.2, 0.04), M.color('#1c120c', 1), 0.33, 0.55, 0, { cast: false }));
     const fireMat = new THREE.MeshStandardMaterial({ color: '#2a1408', emissive: '#ff8a2a', emissiveIntensity: 1 });
     for (let i = 0; i < 3; i++) {
-      const l = mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.7, 8).rotateX(Math.PI / 2), M.woodMid(), 0.36, 0.22 + (i === 2 ? 0.1 : 0), (i - 1) * 0.12);
+      const l = mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.7, 8).rotateX(Math.PI / 2), M.woodMid(), 0.56, 0.16 + (i === 2 ? 0.1 : 0), (i - 1) * 0.12);
       l.rotation.y = (i - 1) * 0.3;
       g.add(l);
     }
     const flames = [];
     for (let i = 0; i < 5; i++) {
-      const f = mesh(new THREE.ConeGeometry(0.08 + (i % 2) * 0.04, 0.34, 8), fireMat, 0.38, 0.42, (i - 2) * 0.12, { cast: false });
+      const f = mesh(new THREE.ConeGeometry(0.08 + (i % 2) * 0.04, 0.34, 8).translate(0, 0.17, 0), fireMat, 0.56, 0.18, (i - 2) * 0.12, { cast: false });
       g.add(f); flames.push(f);
     }
     const glow = glowSprite('#ff9a4a', 1.6);
-    glow.position.set(0.6, 0.6, 0);
+    glow.position.set(0.72, 0.5, 0);
     g.add(glow);
     for (const [zz, c] of [[-0.8, '#7a3b2a'], [-0.7, '#1f2c4d'], [-0.62, '#1f6f6b']]) g.add(mesh(rbox(0.22, 0.3, 0.06, 0.01), M.color(c), 0.05, 1.77, zz));
     g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.2, 10), M.color('#f3ead8'), 0.1, 1.72, 0.7));
@@ -208,15 +209,25 @@ export function buildCabin(scene, books) {
     obst({ minX: CABIN.minX - 0.1, maxX: CABIN.minX + 1.0, minZ: fire.z - 1.15, maxZ: fire.z + 1.15 });
     room.stoveSpot = V(CABIN.minX + 1.35, 0, fire.z + 0.3);
     room.fire = V(fire.x + 0.4, 0.4, fire.z);
+    // 벽난로도 장작 넣기 · 불멍이 되는 불 (늘 은은하게 타고, 장작을 넣으면 커짐). 카메라는 방 쪽(동쪽)에서만
+    const hearth = { id: 'hearth', name: '서점 벽난로', g, fuel: 0, flare: 0, level: 0.7, lv: 0, pile: null, face: Math.PI / 2, world: () => V(fire.x + 0.56, 0.12, fire.z) };
+    g.traverse((m) => { if (m.isMesh) m.userData.fireId = 'hearth'; });
+    (room.fires ||= []).push(hearth);
     room.nightParts.push((dt, t, n) => {
+      hearth.fuel = Math.max(0, hearth.fuel - dt * BURN);
+      hearth.flare = Math.max(0, hearth.flare - dt * 0.55);
+      const lvl = Math.min(FUEL_MAX + 0.6, 0.7 + hearth.fuel + hearth.flare * 0.6);
+      hearth.level = lvl;
       const f = 0.85 + Math.sin(t * 7.3) * 0.08 + Math.sin(t * 13.1) * 0.06 + Math.sin(t * 3.1) * 0.05;
-      fireMat.emissiveIntensity = (1.1 + n * 0.9) * f;
-      light.intensity = (1.4 + n * 6) * f;
-      glow.material.opacity = (0.35 + n * 0.4) * f;
-      flames.forEach((fl, i) => { fl.scale.y = 0.8 + Math.sin(t * 9 + i * 1.7) * 0.25; });
+      fireMat.emissiveIntensity = (1.1 + n * 0.9) * f * (0.7 + lvl * 0.4);
+      light.intensity = (1.4 + n * 6) * f * (0.6 + lvl * 0.55);
+      glow.material.opacity = Math.min(0.95, (0.35 + n * 0.4) * f * (0.7 + lvl * 0.4));
+      const tall = 0.6 + lvl * 0.55 + hearth.flare * 0.5;
+      flames.forEach((fl, i) => { fl.scale.set(0.8 + lvl * 0.25, tall * (0.8 + Math.sin(t * 9 + i * 1.7) * 0.25), 0.8 + lvl * 0.25); });
     });
   }
   rug(scene, -13.9, fire.z, 2.4, 2.8, ['#8f4a37', '#e3c79a']);
+  logBasket(scene, room, CABIN.minX + 0.45, fire.z + 1.6, 'hearth');
   const fx = fire.x + 0.4, fz = fire.z;
   cushion(scene, room, -14.4, fz - 0.65, face(-14.4, fz - 0.65, fx, fz), '#c98f6b', { name: '벽난로 앞 방석' });
   cushion(scene, room, -14.4, fz + 0.65, face(-14.4, fz + 0.65, fx, fz), '#a9bba0', { name: '벽난로 앞 방석' });
@@ -534,6 +545,8 @@ export function buildCabin(scene, books) {
     for (const xx of [cxp - 0.9, cxp, cxp + 0.9]) stool(scene, room, xx, CABIN.maxZ - 1.25, 0, 0.72, '#c98f6b', { name: '카운터 걸상', appr: -0.45 });
     for (const xx of [cxp - 0.9, cxp + 0.9]) pendant(scene, room, xx, 2.4, CABIN.maxZ - 0.5);
     room.benchSpots.push(V(cxp + 1.2, 1.05, CABIN.maxZ - 0.5));
+    toyBasket(scene, cxp - 1.25, Hh, CABIN.maxZ - 0.5);
+    storeStand(scene, cxp + 1.32, Hh, CABIN.maxZ - 0.62);
   }
 
   // ---------- 도구 손수레 (현관 옆) ----------
@@ -1213,4 +1226,117 @@ export function toolCart(scene, room, x, z, rotY) {
   room.obstacles.push(footprint(x, z, 1.4, 0.7, rotY));
   room.toolCart = V(x, 0, z);
   return g;
+}
+
+// 캣타워 앞 작은 나무 명판 (이름만 — 광고 문구 없이)
+function namePlate(p) {
+  const name = CONFIG.products[p.key]?.name;
+  if (!name) return;
+  const [x0, x1, , z1] = p.navBounds || [-0.4, 0.4, 0, 0.2];
+  const c = document.createElement('canvas'); c.width = 384; c.height = 72;
+  const draw = () => {
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, 384, 72);
+    g.fillStyle = '#e8cfa6'; g.beginPath(); g.roundRect(2, 2, 380, 68, 12); g.fill();
+    g.strokeStyle = '#8a5a3c'; g.lineWidth = 3; g.stroke();
+    g.fillStyle = '#5a3a26'; g.font = '700 30px "Gowun Batang", serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(name, 192, 38);
+  };
+  draw();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  document.fonts?.ready.then(() => { draw(); t.needsUpdate = true; });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.116), new THREE.MeshStandardMaterial({ map: t, roughness: 0.8 }));
+  m.position.set((x0 + x1) / 2 + Math.min(0.6, (x1 - x0) * 0.3), 0.1, z1 + 0.012);
+  m.userData.product = p.key;
+  p.root.add(m);
+}
+
+// 벽난로 옆 장작 바구니 (등나무 바구니에 장작 아홉 개)
+function logBasket(scene, room, x, z, fireId) {
+  const g = new THREE.Group();
+  const wick = M.color('#b88a52', 0.95);
+  const W = 0.62, D = 0.42, Hb = 0.34;
+  g.add(mesh(rbox(W, 0.04, D, 0.02), wick, 0, 0.02, 0));
+  for (const s of [-1, 1]) { g.add(mesh(rbox(W, Hb, 0.03, 0.01), wick, 0, Hb / 2, s * D / 2)); g.add(mesh(rbox(0.03, Hb, D, 0.01), wick, s * W / 2, Hb / 2, 0)); }
+  for (let i = 0; i < 5; i++) g.add(mesh(rbox(W + 0.01, 0.012, D + 0.01, 0.004), M.color('#8f6436', 0.9), 0, 0.06 + i * 0.065, 0, { cast: false }));
+  for (const s of [-1, 1]) { const h = mesh(new THREE.TorusGeometry(0.07, 0.012, 6, 14, Math.PI), M.color('#8f6436', 0.9), s * (W / 2 - 0.02), Hb + 0.01, 0); h.rotation.y = Math.PI / 2; g.add(h); }
+  const bark = [M.color('#6e4e36', 0.95), M.color('#7d5a3e', 0.95)], cut = M.color('#d9b98c', 0.8);
+  const logs = [];
+  [[4, 0.14], [3, 0.27], [2, 0.39]].forEach(([n, y], r) => {
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.065, 0.55, 8).rotateZ(Math.PI / 2), [bark[(i + r) % 2], cut, cut]);
+      m.position.set(((i * 5 + r) % 3 - 1) * 0.02, y, (i - (n - 1) / 2) * 0.12);
+      m.castShadow = true;
+      g.add(m); logs.push(m);
+    }
+  });
+  g.position.set(x, 0, z);
+  g.rotation.y = Math.PI / 2;
+  g.traverse((m) => { if (m.isMesh) m.userData.woodpile = fireId; });
+  scene.add(g);
+  room.obstacles.push(footprint(x, z, D + 0.08, W + 0.08));
+  const rec = (room.fires || []).find((f) => f.id === fireId);
+  const pile = { g, logs, fireId, lv: 0, restock: 0, world: () => g.getWorldPosition(new THREE.Vector3()) };
+  pile.stand = () => V(x + 0.8, 0, z - 0.1);
+  pile.top = () => { const vis = logs.filter((l) => l.visible); const l = vis[vis.length - 1] || logs[0]; return l.getWorldPosition(new THREE.Vector3()); };
+  if (rec) rec.pile = pile;
+}
+
+// 카운터 왼쪽 끝: 고양이 장난감 바구니 (누르면 장난감 대여)
+function toyBasket(scene, x, y, z) {
+  const g = new THREE.Group();
+  const wick = M.color('#c9a06a', 0.95);
+  g.add(mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.16, 16, 1, true), new THREE.MeshStandardMaterial({ color: '#c9a06a', roughness: 0.95, side: THREE.DoubleSide }), 0, 0.08, 0));
+  g.add(mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.01, 16), wick, 0, 0.005, 0));
+  // 깃털 낚싯대 두 개
+  for (const [a, col] of [[0.35, '#e86f8a'], [-0.25, '#6fb7e8']]) {
+    const w = new THREE.Group();
+    w.add(mesh(new THREE.CylinderGeometry(0.008, 0.01, 0.6, 6), M.woodMid(), 0, 0.3, 0));
+    w.add(mesh(new THREE.ConeGeometry(0.035, 0.12, 6), M.color(col, 0.9), 0, 0.62, 0));
+    w.position.set(a * 0.15, 0.05, 0); w.rotation.z = a;
+    g.add(w);
+  }
+  g.add(mesh(new THREE.SphereGeometry(0.05, 12, 10), M.color('#f1c45b', 0.6, { metalness: 0.3 }), 0.06, 0.17, 0.06));
+  g.add(mesh(new THREE.SphereGeometry(0.05, 10, 8).scale(1, 0.8, 1.6), M.color('#9a9a96', 1), -0.07, 0.17, -0.03));
+  g.add(mesh(rbox(0.12, 0.05, 0.09, 0.02), M.color('#9cc58a', 1), 0.0, 0.18, -0.08));
+  // 작은 이름표
+  const tag = textSprite('🧸 장난감 빌리기', { height: 0.05 });
+  tag.position.set(0, 0.62, 0); tag.userData.noHit = true;
+  g.add(tag);
+  g.position.set(x, y, z);
+  g.traverse((o) => { o.userData.toys = true; });
+  tag.userData.toys = false;
+  scene.add(g);
+}
+
+// 카운터 오른쪽 끝: 「고양이서가」 작은 안내판 (누를 때만 스마트스토어 링크 카드)
+function storeStand(scene, x, y, z) {
+  const g = new THREE.Group();
+  const c = document.createElement('canvas'); c.width = 256; c.height = 320;
+  const draw = () => {
+    const p = c.getContext('2d');
+    p.fillStyle = '#f4ecdf'; p.fillRect(0, 0, 256, 320);
+    p.strokeStyle = '#a8744a'; p.lineWidth = 6; p.strokeRect(6, 6, 244, 308);
+    p.fillStyle = '#6d4630'; p.textAlign = 'center';
+    p.font = '700 34px "Gowun Batang", serif'; p.fillText('고양이서가', 128, 64);
+    p.font = '22px "Gowun Dodum", sans-serif';
+    ['이 서점의 캣타워는', '모두 고양이서가', '원목 캣타워예요', '', '눌러서 둘러보기'].forEach((s2, i) => p.fillText(s2, 128, 122 + i * 34));
+    // 고양이 얼굴
+    p.fillStyle = '#c4935f';
+    p.beginPath(); p.arc(128, 286, 16, 0, Math.PI * 2); p.fill();
+    p.beginPath(); p.moveTo(114, 278); p.lineTo(116, 262); p.lineTo(124, 272); p.fill();
+    p.beginPath(); p.moveTo(142, 278); p.lineTo(140, 262); p.lineTo(132, 272); p.fill();
+  };
+  draw();
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  document.fonts?.ready.then(() => { draw(); tex.needsUpdate = true; });
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.275), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+  board.position.set(0, 0.16, 0.012); board.rotation.x = -0.12;
+  g.add(board);
+  g.add(mesh(rbox(0.24, 0.3, 0.018, 0.006), M.woodMid(), 0, 0.16, 0));
+  const leg = mesh(rbox(0.03, 0.22, 0.02, 0.005), M.woodMid(), 0, 0.12, -0.08); leg.rotation.x = 0.35; g.add(leg);
+  g.position.set(x, y, z);
+  g.rotation.y = 0.25 + Math.PI;
+  g.traverse((o) => { o.userData.store = true; });
+  scene.add(g);
 }

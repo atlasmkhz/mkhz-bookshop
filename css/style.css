@@ -215,3 +215,16 @@ textarea { width: 100%; min-height: 130px; resize: vertical; line-height: 1.6; }
 .tool .ico { font-size: 20px; }
 .tool b { font-family: var(--serif); font-size: 14.5px; }
 .tool span:not(.ico) { font-size: 12px; color: var(--ink-soft); line-height: 1.4; }
+
+/* ---------- 별멍 단추 · 숨은 아깽이 찾기 막대 · 카운터 탭 ---------- */
+.star-chip { position: absolute; right: 12px; bottom: calc(86px + var(--safe-bot)); border: 0; border-radius: 999px; padding: 10px 15px; background: rgba(28, 34, 60, 0.88); color: #e9eeff; font: inherit; font-size: 14px; box-shadow: 0 4px 16px rgba(10, 12, 30, 0.35); pointer-events: auto; cursor: pointer; opacity: 0; visibility: hidden; transition: opacity .4s, visibility .4s; }
+.star-chip.show { opacity: 1; visibility: visible; }
+.game-bar { position: absolute; left: 50%; top: calc(62px + var(--safe-top)); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 20px); padding: 7px 8px 7px 14px; border-radius: 999px; background: rgba(252, 247, 238, 0.96); box-shadow: 0 4px 14px rgba(60, 38, 20, 0.2); font-size: 13.5px; pointer-events: auto; opacity: 0; visibility: hidden; transition: opacity .3s, visibility .3s; }
+.game-bar.show { opacity: 1; visibility: visible; }
+.game-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-bar button { border: 0; border-radius: 999px; padding: 6px 12px; background: var(--wood); color: #fff; font: inherit; font-size: 13px; cursor: pointer; flex: none; }
+body.gazing .star-chip, body.gazing .game-bar { opacity: 0 !important; visibility: hidden !important; }
+.tab2 { border: 1.5px solid var(--line); background: #fffdf9; border-radius: 999px; padding: 7px 13px; font: inherit; font-size: 14px; cursor: pointer; margin: 0 6px 6px 0; }
+.tab2.on { background: var(--wood-dark); color: #fff; border-color: var(--wood-dark); }
+.store-line { margin-top: 16px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 12.5px; }
+.store-line a { color: var(--wood-dark); }

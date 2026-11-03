@@ -52,13 +52,25 @@ export const CONFIG = {
   //   고양이가 오르내리는 자리는 js/products.js 의 *_NAV 에 제품 기준 좌표(m)로 있어 GLB로 바꿔도 그대로 쓰입니다.
   //   url 은 스마트스토어 주소로 바꾸세요.
   // ---------------------------------------------------------
+  // 고양이서가 스마트스토어 — 카운터 한켠의 작은 안내판에서만 엽니다 (캣타워 카드에는 넣지 않음)
+  store: { name: '고양이서가', url: 'https://smartstore.naver.com/withindesign' },
+
+  // 카운터에서 빌리는 고양이 장난감 (무료). 들고 있으면 고양이 · 캣타워에서 놀아 줄 수 있어요
+  toys: [
+    { id: 'wand', ico: '🪶', name: '깃털 낚싯대', note: '카샤카샤 — 흔들면 펄쩍 뛰어올라요' },
+    { id: 'laser', ico: '🔴', name: '레이저 포인터', note: '바닥의 빨간 점을 쫓아 우다다' },
+    { id: 'ball', ico: '🔔', name: '방울 공', note: '굴리면 쫓아가 앞발로 톡톡' },
+    { id: 'mouse', ico: '🐭', name: '쥐 인형', note: '던지면 덮쳐서 꼭 끌어안아요' },
+    { id: 'catnip', ico: '🌿', name: '캣닢 쿠션', note: '킁킁, 뒹굴뒹굴 — 기분이 아주 좋아져요' },
+  ],
+
   products: {
-    jipsa4: { name: '집사4호 원목 캣타워', desc: '책장과 고양이 계단이 하나로 — 200.6 × 40 × 179.8 cm. 왼쪽은 수납장과 고양이 얼굴 칸, 오른쪽은 지그재그 계단과 방석 칸', url: 'https://smartstore.naver.com/', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
-    customB: { name: '커스텀B 월캣타워', desc: '벽을 따라 250 × 46 × 179.8 cm. 흰 숨숨집 상자를 계단처럼 쌓고, 오른쪽은 둥근 창 칸과 지그재그 계단, 투명 해먹 30 cm', url: 'https://smartstore.naver.com/', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
-    bella4: { name: '벨라4호 원목 캣타워', desc: '120 × 45.4 × 165 cm. 40 × 40 선반, 둥근 창 숨숨집, 아치 숨숨집, 스크래쳐 기둥, 투명 해먹과 옆 계단 상자(37 × 30 × 30)', url: 'https://smartstore.naver.com/', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
-    cathouse: { name: '계단형 숨숨집', desc: '상자 넷을 계단처럼 — 맨 위는 아치 문 숨숨집, 아래는 열린 칸, 계단마다 펠트 방석', url: 'https://smartstore.naver.com/', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
-    ormi: { name: '오르미캣타워', desc: '계단 프레임 · 숨숨집 상자 · 옆 수납칸', url: 'https://smartstore.naver.com/', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
-    catwalk: { name: '월스텝 선반', desc: '벽에 붙이는 계단 선반 네 칸과 꼭대기 전망 선반', url: 'https://smartstore.naver.com/', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
+    jipsa4: { name: '집사4호 원목 캣타워', desc: '책장과 고양이 계단이 하나로 — 200.6 × 40 × 179.8 cm. 왼쪽은 수납장과 고양이 얼굴 칸, 오른쪽은 지그재그 계단과 방석 칸', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
+    customB: { name: '커스텀B 월캣타워', desc: '벽을 따라 250 × 46 × 179.8 cm. 흰 숨숨집 상자를 계단처럼 쌓고, 오른쪽은 둥근 창 칸과 지그재그 계단, 투명 해먹 30 cm', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
+    bella4: { name: '벨라4호 원목 캣타워', desc: '120 × 45.4 × 165 cm. 40 × 40 선반, 둥근 창 숨숨집, 아치 숨숨집, 스크래쳐 기둥, 투명 해먹과 옆 계단 상자(37 × 30 × 30)', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
+    cathouse: { name: '계단형 숨숨집', desc: '상자 넷을 계단처럼 — 맨 위는 아치 문 숨숨집, 아래는 열린 칸, 계단마다 펠트 방석', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
+    ormi: { name: '오르미캣타워', desc: '계단 프레임 · 숨숨집 상자 · 옆 수납칸', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
+    catwalk: { name: '월스텝 선반', desc: '벽에 붙이는 계단 선반 네 칸과 꼭대기 전망 선반', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
   },
 
   // 서점 고양이 (카페 고양이들과 합쳤습니다)

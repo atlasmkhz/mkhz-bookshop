@@ -28,6 +28,9 @@ export class UI {
     $('#fireGaze').addEventListener('click', () => { if (this.fireId) this.onFireGaze?.(this.fireId); });
     $('#gazeLog').addEventListener('click', () => this.onGazeLog?.());
     $('#gazeExit').addEventListener('click', () => this.onGazeExit?.());
+    $('#gazeConst').addEventListener('click', () => { const on = this.onConst?.(); $('#gazeConst').textContent = on ? '✨ 별자리 끄기' : '✨ 별자리 보기'; });
+    $('#starChip').addEventListener('click', () => this.onStarGaze?.());
+    $('#gameStop').addEventListener('click', () => this.onGameStop?.());
     $('#nameInput').value = name || '';
     this.swatches('#topSwatches', LOOKS.tops, 'top');
     this.swatches('#hairSwatches', LOOKS.hairs, 'hair');
@@ -175,21 +178,58 @@ export class UI {
     el.classList.add('show');
   }
   // 불멍 화면: 단추들을 숨기고 가장자리를 어둡게
-  setGaze(on, name) {
+  setGaze(on, name, mode = 'fire') {
     document.body.classList.toggle('gazing', !!on);
-    if (on) $('#gazeInfo').textContent = `🔥 ${name} 불멍 중`;
+    $('#gazeLog').style.display = mode === 'fire' ? '' : 'none';
+    $('#gazeConst').style.display = mode === 'star' ? '' : 'none';
+    if (on) $('#gazeInfo').textContent = mode === 'star' ? '🌌 별멍 중' : `🔥 ${name} 불멍 중`;
   }
   gazeInfo(text) { $('#gazeInfo').textContent = text; }
 
   // ---------- 캣타워 제품 카드 ----------
-  showProduct(p) {
+  // 캣타워 놀이터 카드 (제품 이름과 크기만 — 사러 가는 링크는 카운터 한켠 안내판에만)
+  showProduct(p, h = {}) {
     this.cardCat = null;
+    const toy = h.toy ? CONFIG.toys.find((t) => t.id === h.toy) : null;
     $('#cardBody').innerHTML = `
-      <div class="card-kicker">고양이서가 원목 캣타워</div>
+      <div class="card-kicker">캣타워 놀이터</div>
       <div class="card-title">${esc(p.name)}</div>
       <div class="card-desc">${esc(p.desc)}</div>
-      <a class="btn primary" href="${esc(p.url)}" target="_blank" rel="noopener" style="width:100%">이 캣타워 보러 가기 ↗</a>`;
+      <div class="row">
+        <button class="btn primary" id="pHide" type="button">🔍 숨은 아깽이 찾기</button>
+        <button class="btn" id="pCall" type="button">${toy ? `${toy.ico} 고양이 불러 놀기` : '🐾 고양이 불러 놀기'}</button>
+      </div>
+      ${toy ? '' : '<p class="note" style="margin-top:8px">카운터에서 장난감을 빌려 오면 고양이가 캣타워 위에서 더 신나게 뛰어요.</p>'}`;
+    $('#pHide').addEventListener('click', () => { this.hideCard(); h.onHide?.(); });
+    $('#pCall').addEventListener('click', () => { this.hideCard(); h.onCall?.(); });
     this.openCard();
+  }
+  // 카운터 한켠 「고양이서가」 안내판
+  showStore() {
+    this.cardCat = null;
+    const st = CONFIG.store || {};
+    $('#cardBody').innerHTML = `
+      <div class="card-kicker">카운터 한켠</div>
+      <div class="card-title">${esc(st.name || '고양이서가')}</div>
+      <div class="card-desc">이 서점의 캣타워 여섯 가지(집사4호 · 커스텀B · 벨라4호 · 계단형 숨숨집 · 오르미 · 월스텝 선반)는 모두 고양이서가에서 만든 원목 캣타워예요. 고양이들이 매일 오르내리며 써 보고 있어요.</div>
+      <a class="btn" href="${esc(st.url || '#')}" target="_blank" rel="noopener" style="width:100%">고양이서가 둘러보기 ↗</a>`;
+    this.openCard();
+  }
+  // 놀이 안내 막대 (숨은 아깽이 찾기)
+  gameBar(text, onStop) {
+    const el = $('#gameBar');
+    if (!text) { el.classList.remove('show'); return; }
+    $('#gameText').textContent = text;
+    this.onGameStop = onStop || this.onGameStop;
+    el.classList.add('show');
+  }
+  starChip(show) { $('#starChip').classList.toggle('show', !!show); }
+  // 폭죽 고르기
+  openFireworks(kinds, onPick) {
+    this.sheetKind = 'fireworks';
+    this.openSheet(`<h2>🎆 바닷가 폭죽 놀이</h2><p class="note">고르면 발사 통에 불을 붙여 바다 위로 쏘아 올려요. 같은 방의 밤 손님들도 같은 불꽃을 봐요. 한 번 쏘고 3초 쉬어요.</p>
+      <div class="drinks">${kinds.map((k) => `<button type="button" class="drink" data-k="${k.id}"><b>${k.ico} ${esc(k.name)}</b><span>${esc(k.note)}</span></button>`).join('')}</div>`);
+    document.querySelectorAll('#sheetBody [data-k]').forEach((el) => el.addEventListener('click', () => { this.closeSheet(); onPick(el.dataset.k); }));
   }
 
   // ---------- 영화관: 상영표 · 플레이어 ----------
@@ -271,14 +311,19 @@ export class UI {
   }
 
   // ---------- 작은 카드 (고양이 · 손님) ----------
-  showCat(def, onTreat) {
+  showCat(def, onTreat, play = {}) {
     this.cardCat = def.id;
+    const toy = play.toy ? CONFIG.toys.find((t) => t.id === play.toy) : null;
     $('#cardBody').innerHTML = `
       <div class="card-kicker">서점 고양이</div>
       <div class="card-title">${esc(def.name)} <span class="purr">골골…</span></div>
       <div class="card-desc">${esc(def.desc)}</div>
-      <button class="btn primary" id="treatBtn" type="button" style="width:100%">🐟 간식 주기</button>`;
+      <div class="row">
+        <button class="btn primary" id="treatBtn" type="button">🐟 간식 주기</button>
+        ${toy ? `<button class="btn" id="playBtn" type="button">${toy.ico} ${esc(toy.name)}로 놀아 주기</button>` : '<button class="btn ghost" id="playBtn" type="button">🧸 장난감 빌리러 가기</button>'}
+      </div>`;
     $('#treatBtn').addEventListener('click', onTreat);
+    $('#playBtn').addEventListener('click', () => { this.hideCard(); toy ? play.onPlay?.() : play.onRent?.(); });
     this.openCard();
   }
   showDog(def, onPet) {
@@ -446,19 +491,35 @@ export class UI {
   openTools() { this.scrollKeep = 0; this.openBasket('tools'); }
 
   // 음료: 카운터에서 고르기, 또는 다른 손님에게 선물
-  openDrinks({ giftTo = null, current = null } = {}) {
+  openDrinks({ giftTo = null, current = null, tab = 'drinks' } = {}) {
     this.sheetKind = 'drinks';
     const guests = this.nearbyGuests?.() || [];
     let target = giftTo;
+    const tabs = (on) => giftTo ? '' : `<div class="tabs"><button type="button" class="tab2 ${on === 'drinks' ? 'on' : ''}" data-ct="drinks">☕ 음료</button><button type="button" class="tab2 ${on === 'toys' ? 'on' : ''}" data-ct="toys">🧸 고양이 장난감 대여</button></div>`;
+    const storeLine = giftTo ? '' : `<p class="note store-line">🐈 이 서점 캣타워는 모두 고양이서가 원목 캣타워예요 · <a href="${esc(CONFIG.store?.url || '#')}" target="_blank" rel="noopener">고양이서가 둘러보기 ↗</a></p>`;
+    const renderToys = () => {
+      const mine = this.getToy?.();
+      this.openSheet(`${tabs('toys')}
+        <h2>고양이 장난감 대여 (무료)</h2>
+        <p class="note">빌린 장난감은 손에 들려요. 고양이를 누르거나 캣타워 놀이터에서 놀아 줄 수 있어요. 한 번에 하나씩, 다 놀면 반납해 주세요.</p>
+        <div class="drinks">${CONFIG.toys.map((t) => `<button type="button" class="drink ${mine === t.id ? 'on' : ''}" data-y="${t.id}"><b>${t.ico} ${esc(t.name)}</b><span>${esc(t.note)}</span></button>`).join('')}</div>
+        ${mine ? '<p style="margin-top:14px"><button class="btn ghost small" type="button" id="yBack">장난감 반납하기</button></p>' : ''}
+        ${storeLine}`);
+      document.querySelectorAll('#sheetBody [data-ct]').forEach((el) => el.addEventListener('click', () => (el.dataset.ct === 'toys' ? renderToys() : render())));
+      document.querySelectorAll('#sheetBody [data-y]').forEach((el) => el.addEventListener('click', () => { this.onToyPick?.(el.dataset.y); this.closeSheet(); }));
+      document.querySelector('#yBack')?.addEventListener('click', () => { this.onToyPick?.(null); this.closeSheet(); });
+    };
     const render = () => {
       const tgt = guests.find((g) => g.uid === target);
-      this.openSheet(`
+      this.openSheet(`${tabs('drinks')}
         <h2>${target ? `${esc(tgt?.name || '손님')} 님에게 음료 선물` : '오늘의 차 (모두 무료)'}</h2>
         <p class="note">${target ? '고르면 바로 건네져요. 받은 분 손에 컵이 생겨요.' : '고르면 손에 컵을 들어요. 아래에서 가까운 손님에게 선물할 수도 있어요.'}</p>
         <div class="drinks">${CONFIG.drinks.map((d) => `<button type="button" class="drink ${!target && current === d.id ? 'on' : ''}" data-d="${d.id}"><b><i style="background:${d.color}"></i>${esc(d.name)}</b><span>${esc(d.note)}</span></button>`).join('')}</div>
         <h3>선물할 손님 ${guests.length ? '' : '<small style="font-family:var(--sans);font-size:12px;color:var(--ink-soft)">— 가까이 다른 손님이 없어요</small>'}</h3>
         <div class="guests"><button type="button" data-g="" class="${!target ? 'on' : ''}">나에게</button>${guests.map((g) => `<button type="button" data-g="${esc(g.uid)}" class="${target === g.uid ? 'on' : ''}">${esc(g.name)}</button>`).join('')}</div>
-        ${!target && current ? '<p style="margin-top:14px"><button class="btn ghost small" type="button" id="dPut">컵 내려놓기</button></p>' : ''}`);
+        ${!target && current ? '<p style="margin-top:14px"><button class="btn ghost small" type="button" id="dPut">컵 내려놓기</button></p>' : ''}
+        ${storeLine}`);
+      document.querySelectorAll('#sheetBody [data-ct]').forEach((el) => el.addEventListener('click', () => (el.dataset.ct === 'toys' ? renderToys() : render())));
       document.querySelectorAll('#sheetBody [data-g]').forEach((el) => el.addEventListener('click', () => { target = el.dataset.g || null; render(); }));
       document.querySelectorAll('#sheetBody [data-d]').forEach((el) => el.addEventListener('click', () => {
         const d = CONFIG.drinks.find((x) => x.id === el.dataset.d);
@@ -467,7 +528,7 @@ export class UI {
       }));
       document.querySelector('#dPut')?.addEventListener('click', () => { this.onDrinkPick?.(null); this.closeSheet(); });
     };
-    render();
+    if (tab === 'toys') renderToys(); else render();
   }
 
   // 서점지기에게 한마디 (건의함)

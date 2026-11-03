@@ -253,12 +253,29 @@ export class BookRoom extends DurableObject {
       case 'pet': case 'treat': case 'wave':
         this.broadcast(m, ws);
         break;
+      case 'play': {
+        // 장난감으로 고양이와 놀기: 1.5초에 한 번까지 (고양이 담당 브라우저가 계획을 세워 cq 로 퍼뜨림)
+        if (now - (r.play || 0) < 1500) return;
+        r.play = now;
+        const p = Array.isArray(m.p) ? [+m.p[0] || 0, +m.p[1] || 0, +m.p[2] || 0] : null;
+        this.broadcast({ t: 'play', uid: att.uid, id: clean(m.id, 16), y: clean(m.y, 8), tw: m.tw ? clean(m.tw, 10) : null, p }, ws);
+        break;
+      }
+      case 'fw': {
+        // 바닷가 폭죽: 3초에 한 번까지. 멀리서도 보이니 방 전체에
+        if (now - (r.fw || 0) < 3000) return;
+        r.fw = now;
+        const k = clean(m.k, 10);
+        if (!['peony', 'willow', 'heart', 'star', 'ring', 'multi', 'sparkler'].includes(k)) return;
+        this.broadcast({ t: 'fw', uid: att.uid, k, s: (+m.s >>> 0) % 1e9, x: Math.max(-30, Math.min(60, +m.x || 0)) }, ws);
+        break;
+      }
       case 'log': {
         // 모닥불에 장작 넣기: 2.5초에 한 번까지, 20 m 안의 손님에게만
         if (now - (r.log || 0) < 2500) return;
         r.log = now;
         const f = clean(m.f, 8);
-        if (!['camp', 'roof', 'beach'].includes(f)) return;
+        if (!['camp', 'roof', 'beach', 'hearth'].includes(f)) return;
         const msg = JSON.stringify({ t: 'log', uid: att.uid, f });
         const me = this.where(att);
         for (const w of this.sockets()) {
@@ -286,7 +303,7 @@ export class BookRoom extends DurableObject {
       mc.whiteAmount = Math.max(0, Math.min(1, +m.mc.whiteAmount || 0));
       mc.name = cleanText(clean(m.mc.name, 10));
     }
-    return { t: 'hi', uid, n: cleanText(clean(m.n, 12)) || '손님', l, d: m.d ? clean(m.d, 16) : null, mc };
+    return { t: 'hi', uid, n: cleanText(clean(m.n, 12)) || '손님', l, d: m.d ? clean(m.d, 16) : null, mc, y: m.y ? clean(m.y, 8) : null };
   }
 
   ensureHost() {

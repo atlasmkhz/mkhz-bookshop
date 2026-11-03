@@ -89,7 +89,8 @@ export class Fires {
     for (const f of this.list) {
       const w = f.world();
       const d = Math.hypot(w.x - pos.x, w.z - pos.z) + Math.abs(w.y - pos.y) * 2;
-      v = Math.max(v, Math.max(0, 1 - d / 9) * Math.min(1, f.level));
+      const lv = f.id === 'hearth' ? Math.min(1, f.fuel + f.flare) : Math.min(1, f.level);
+      v = Math.max(v, Math.max(0, 1 - d / 9) * lv);
     }
     return v;
   }

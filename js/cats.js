@@ -324,6 +324,103 @@ export class BookCats {
     this.emit(cat);
   }
 
+  // 장난감으로 놀아 주기. 고양이 담당 브라우저만 계획을 세우고(cq 로 퍼짐), 나머지는 소리 · 효과만
+  play(id, fromPos, toy, local = true) {
+    const cat = this.find(id);
+    if (!cat) return;
+    if (local && Math.random() < 0.6) setTimeout(() => this.sound.meow(), 400);
+    setTimeout(() => this.fx.hearts(cat.model.headWorld(), 3), 2600);
+    if (!this.isHost || !fromPos) return;
+    this.interrupt(cat);
+    if (cat.loc.kind !== 'floor') this.exitSteps(cat);
+    const me = fromPos.clone().setY(0);
+    const near = (r, a) => { const v = me.clone().add(V(Math.cos(a) * r, 0, Math.sin(a) * r)); pushOut(this.room, v, 0.15, true); return v; };
+    const a0 = Math.atan2(cat.pos.z - me.z, cat.pos.x - me.x);
+    const q = cat.queue;
+    if (toy === 'wand') {
+      // 깃털 낚싯대: 앞에 와서 펄쩍펄쩍, 앞발로 휘휘
+      const at = near(0.9, a0);
+      q.push({ type: 'walk', to: at, fast: true });
+      q.push({ type: 'face', yaw: yawTo(at, me) });
+      for (let i = 0; i < 3; i++) { q.push({ type: 'pose', anim: 'stretch', dur: 0.5 }); q.push({ type: 'pose', anim: 'jump', dur: 0.55 }); q.push({ type: 'fx', k: 'puff' }); }
+      q.push({ type: 'pose', anim: 'sit', dur: 1.2 });
+      q.push({ type: 'pose', anim: 'jump', dur: 0.6 });
+      q.push({ type: 'pose', anim: 'groom', dur: 4 });
+    } else if (toy === 'laser') {
+      // 레이저: 빨간 점을 따라 이리저리 우다다, 마지막에 덮치기
+      for (let i = 0; i < 4; i++) q.push({ type: 'walk', to: near(1.2 + Math.random() * 1.4, a0 + (i - 1.5) * 1.1), fast: true });
+      q.push({ type: 'pose', anim: 'stretch', dur: 0.6 });
+      q.push({ type: 'pose', anim: 'jump', dur: 0.6 });
+      q.push({ type: 'fx', k: 'question' });
+      q.push({ type: 'pose', anim: 'sit', dur: 3 });
+    } else if (toy === 'ball') {
+      // 방울 공: 굴러간 쪽으로 쫓아가 앞발로 톡톡
+      const roll = near(2.2, a0 + Math.PI + 0.4);
+      q.push({ type: 'walk', to: roll, fast: true });
+      q.push({ type: 'pose', anim: 'stretch', dur: 0.7 });
+      q.push({ type: 'pose', anim: 'jump', dur: 0.5 });
+      const roll2 = near(1.6, a0 + Math.PI - 0.5);
+      q.push({ type: 'walk', to: roll2, fast: true });
+      q.push({ type: 'pose', anim: 'jump', dur: 0.5 });
+      q.push({ type: 'pose', anim: 'loaf', dur: 3 });
+    } else if (toy === 'mouse') {
+      // 쥐 인형: 던진 곳으로 몸을 낮추고 살금살금 → 덮쳐서 꼭 끌어안기
+      const toss = near(1.8, a0 + 0.6);
+      const crouch = toss.clone().lerp(cat.pos.clone().setY(0), 0.35);
+      pushOut(this.room, crouch, 0.15, true);
+      q.push({ type: 'walk', to: crouch });
+      q.push({ type: 'face', yaw: yawTo(crouch, toss) });
+      q.push({ type: 'pose', anim: 'stretch', dur: 1.2 });
+      q.push({ type: 'walk', to: toss, fast: true });
+      q.push({ type: 'pose', anim: 'jump', dur: 0.6 });
+      q.push({ type: 'fx', k: 'puff' });
+      q.push({ type: 'pose', anim: 'petted', dur: 4 });
+    } else {
+      // 캣닢 쿠션: 곁에 와서 킁킁, 뒹굴뒹굴, 꾸벅
+      const at = near(0.7, a0);
+      q.push({ type: 'walk', to: at });
+      q.push({ type: 'face', yaw: yawTo(at, me) });
+      q.push({ type: 'pose', anim: 'eat', dur: 1.6 });
+      q.push({ type: 'pose', anim: 'petted', dur: 4 });
+      q.push({ type: 'pose', anim: 'stretch', dur: 1.5 });
+      q.push({ type: 'pose', anim: 'sleep', dur: 10 });
+    }
+    this.routeWalks(cat);
+    this.emit(cat);
+  }
+
+  // 캣타워 놀이터: 가장 가까운 고양이를 불러 캣타워를 오르게 하고, 꼭대기 근처에서 장난감을 향해 펄쩍
+  playTower(key, fromPos, toy, local = true) {
+    const climb = this.room.climbs.find((c) => c.key === key);
+    if (!climb) return null;
+    const base = climb.path[0];
+    const free = this.cats.filter((c) => c.step?.type !== 'hop');
+    const cat = free.sort((a, b) => a.pos.distanceTo(base) - b.pos.distanceTo(base))[0];
+    if (!cat) return null;
+    if (local) setTimeout(() => this.sound.meow(), 900);
+    if (!this.isHost) return cat;
+    this.interrupt(cat);
+    if (cat.loc.kind !== 'floor') this.exitSteps(cat);
+    const P = climb.path;
+    let target = P.length - 1;
+    while (target > 1 && this.reserved.has(`${key}:${target}`)) target--;
+    const lk = `${key}:${target}`;
+    this.reserved.add(lk);
+    const q = cat.queue;
+    q.push({ type: 'walk', to: P[0].clone(), fast: true });
+    for (let i = 1; i <= target; i++) {
+      q.push({ type: 'hop', to: P[i].clone() });
+      if (toy && i === Math.ceil(target / 2)) { q.push({ type: 'face', yaw: yawTo(P[i], fromPos) }); q.push({ type: 'pose', anim: 'jump', dur: 0.55 }); }
+    }
+    q.push({ type: 'face', yaw: fromPos ? yawTo(P[target], fromPos) : climb.rotY });
+    if (toy) for (let i = 0; i < 3; i++) { q.push({ type: 'pose', anim: 'stretch', dur: 0.5 }); q.push({ type: 'pose', anim: 'jump', dur: 0.55 }); }
+    q.push({ type: 'pose', anim: toy === 'catnip' ? 'petted' : 'loaf', dur: 14 });
+    q.push({ type: 'loc', loc: { kind: 'path', p: climb, index: target, key: lk } });
+    this.routeWalks(cat);
+    this.emit(cat);
+    return cat;
+  }
+
   interrupt(cat) {
     const pendingLoc = cat.queue.filter((s) => s.type === 'loc').pop();
     const hop = cat.step && cat.step.type === 'hop' ? cat.step : null;

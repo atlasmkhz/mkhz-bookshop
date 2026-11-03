@@ -19,11 +19,22 @@ function heartTexture() {
   return t;
 }
 
+// 먼지 · 물방울용 둥글고 가장자리가 흐린 점 (그림이 없으면 네모로 보임)
+function softTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+
 export class FX {
   constructor(scene) {
     this.scene = scene;
     this.items = [];
     this.heartMat = new THREE.SpriteMaterial({ map: heartTexture(), transparent: true, depthWrite: false });
+    this.soft = softTexture();
   }
   hearts(pos, n = 3) {
     for (let i = 0; i < n; i++) {
@@ -60,7 +71,7 @@ export class FX {
   // 먼지 뭉게 (우다다 · 덮치기)
   puff(pos) {
     for (let i = 0; i < 5; i++) {
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({ color: '#d9cfc0', transparent: true, opacity: 0.5, depthWrite: false }));
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.soft, color: '#d9cfc0', transparent: true, opacity: 0.5, depthWrite: false }));
       const sz = 0.12 + Math.random() * 0.1;
       s.scale.set(sz, sz, 1);
       s.position.copy(pos).add(new THREE.Vector3((Math.random() - 0.5) * 0.4, 0.05, (Math.random() - 0.5) * 0.4));
@@ -72,7 +83,7 @@ export class FX {
   // 물 튀김
   splash(pos) {
     for (let i = 0; i < 8; i++) {
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({ color: '#dff2fb', transparent: true, opacity: 0.9, depthWrite: false }));
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.soft, color: '#dff2fb', transparent: true, opacity: 0.9, depthWrite: false }));
       const sz = 0.05 + Math.random() * 0.05;
       s.scale.set(sz, sz, 1);
       s.position.copy(pos).add(new THREE.Vector3((Math.random() - 0.5) * 0.5, 0.05, (Math.random() - 0.5) * 0.5));

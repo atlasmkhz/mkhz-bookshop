@@ -1,7 +1,7 @@
 // 오두막 밖: 집 둘레 마당, 캠핑장, 해먹 숲, 폭포가 있는 계곡, 숲속 영화관, 들꽃 언덕, 정자, 나무 위 오두막, 남쪽 바닷가
 // 오솔길이 갈래로 나뉘고 끝마다 숨은 자리. 낮엔 햇살 · 나비 · 새, 밤엔 등불 · 반딧불 · 풀벌레 · 모닥불
 import * as THREE from 'three';
-import { M, rbox, mesh, plank, mulberry, footprint, glowSprite, stoneTexture } from './kit.js';
+import { M, rbox, mesh, plank, mulberry, footprint, glowSprite, stoneTexture, textSprite } from './kit.js';
 import { CABIN, WORLD, SEA_Z, PLATFORMS } from './nav.js';
 import { armchair, cushion, beanbag, stool, bench, addSeat, lowTable } from './furniture.js';
 import { campChair, hammock, firebowl, woodpile, readingTent } from './cabin.js';
@@ -680,6 +680,28 @@ export function buildForest(scene, room, program) {
       const cxl = 30.5, czl = bz + 1.2;
       firebowl(scene, room, cxl, czl, 0, { range: 9, power: 8, id: 'beach', name: '바닷가 모닥불' });
       woodpile(scene, room, cxl + 1.75, czl + 1.75, 0, Math.PI / 4, 'beach');
+      // 폭죽 상자 + 모래에 꽂은 발사 통 (밤에 누르면 폭죽 놀이)
+      {
+        const bx = 23.6, bzc = 27.9;
+        const g = new THREE.Group();
+        g.add(mesh(rbox(0.7, 0.42, 0.48, 0.03), M.color('#b4462e', 0.8), 0, 0.21, 0));
+        g.add(mesh(rbox(0.74, 0.06, 0.52, 0.02), M.color('#e9c46a', 0.7), 0, 0.44, 0));
+        for (let i = 0; i < 5; i++) { const t = mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.32, 8), M.color(['#ff6f6f', '#ffd34d', '#7bdcff', '#a98bff', '#7dffb0'][i], 0.6), -0.22 + i * 0.11, 0.58, -0.08); t.rotation.z = (i - 2) * 0.08; g.add(t); }
+        const tag = textSprite('🎆 폭죽 놀이 (밤)', { height: 0.11 });
+        tag.position.set(0, 0.95, 0); tag.userData.noHit = true; g.add(tag);
+        g.position.set(bx, 0, bzc);
+        g.rotation.y = 0.2;
+        g.traverse((o) => { if (o.isMesh) o.userData.fwbox = true; });
+        scene.add(g);
+        obst(bx - 0.42, bx + 0.42, bzc - 0.32, bzc + 0.32);
+        const rack = new THREE.Group();
+        for (let i = 0; i < 3; i++) rack.add(mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.45, 10), M.color('#3e3a36', 0.6), (i - 1) * 0.18, 0.2, 0));
+        rack.add(mesh(rbox(0.65, 0.05, 0.2, 0.02), M.woodDark(), 0, 0.03, 0));
+        rack.position.set(bx - 1.3, 0, 29.3);
+        scene.add(rack);
+        obst(bx - 1.65, bx - 0.95, 29.15, 29.45);
+        room.fwBox = { stand: V(bx + 0.1, 0, bzc - 0.75), launchX: bx - 1.3 };
+      }
       room.beachFire = V(cxl, 0, czl);
       for (const a of [Math.PI * 0.75, Math.PI * 1.25, Math.PI * 1.75]) { const lx = cxl + Math.cos(a) * 1.8, lz = czl + Math.sin(a) * 1.8; const rot = face(lx, lz, cxl, czl); const lg = mesh(new THREE.CylinderGeometry(0.2, 0.22, 1.5, 10).rotateZ(Math.PI / 2), M.color('#b89a7a', 1), lx, 0.2, lz); lg.rotation.y = rot; scene.add(lg); obst(...Object.values(footprint(lx, lz, 1.5, 0.44, rot)).slice(0, 4)); for (const s of [-0.35, 0.35]) addSeat(room, lx + Math.cos(rot) * s, 0.44, lz - Math.sin(rot) * s, rot, { name: '바닷가 모닥불 통나무', appr: -0.55 }); }
       excl.push([cxl, czl, 3.5]);

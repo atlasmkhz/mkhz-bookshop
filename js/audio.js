@@ -310,6 +310,56 @@ export class Sound {
     }
   }
 
+  // 아기 고양이 야옹 (작고 높게)
+  mew() {
+    if (!this.enabled || !this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime + 0.02;
+    const o = ctx.createOscillator(); o.type = 'triangle';
+    o.frequency.setValueAtTime(900, t); o.frequency.linearRampToValueAtTime(1350, t + 0.12); o.frequency.linearRampToValueAtTime(1000, t + 0.3);
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 4; f.frequency.value = 1800;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.22, t + 0.04); g.gain.linearRampToValueAtTime(0, t + 0.34);
+    o.connect(f).connect(g).connect(this.master);
+    o.start(t); o.stop(t + 0.36);
+  }
+  // 폭죽: 휘이익 올라가는 소리
+  fwLaunch(vol = 1) {
+    if (!this.enabled || !this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime + 0.01;
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(700, t); o.frequency.exponentialRampToValueAtTime(2400, t + 1.4);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.07 * vol, t + 0.15); g.gain.linearRampToValueAtTime(0, t + 1.5);
+    o.connect(g).connect(this.master); o.start(t); o.stop(t + 1.55);
+    const src = ctx.createBufferSource(); src.buffer = this.pinkBuf;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500;
+    const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.08 * vol, t); g2.gain.linearRampToValueAtTime(0, t + 1.2);
+    src.connect(hp).connect(g2).connect(this.master); src.start(t, Math.random()); src.stop(t + 1.3);
+  }
+  // 폭죽: 펑 (낮고 길게 울림)
+  fwBoom(vol = 1) {
+    if (!this.enabled || !this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const src = ctx.createBufferSource(); src.buffer = this.brownBuf;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(120, t + 1.6);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1.1 * vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
+    src.connect(lp).connect(g).connect(this.master); src.start(t, Math.random()); src.stop(t + 2.1);
+    this.click(t, 90, 0.9 * vol, 0.25, this.master);
+  }
+  // 폭죽: 타다다닥 (버드나무 · 별)
+  fwCrackle(vol = 1) {
+    if (!this.enabled || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    for (let i = 0; i < 26; i++) this.click(t + Math.random() * 1.4, 1800 + Math.random() * 3500, (0.06 + Math.random() * 0.12) * vol, 0.015, this.master);
+  }
+  // 불꽃막대 지글지글
+  sizzle(sec = 40) {
+    if (!this.enabled || !this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const src = ctx.createBufferSource(); src.buffer = this.pinkBuf; src.loop = true;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3500;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.07, t + 0.3); g.gain.setValueAtTime(0.07, t + sec - 1); g.gain.linearRampToValueAtTime(0, t + sec);
+    src.connect(hp).connect(g).connect(this.master); src.start(t); src.stop(t + sec + 0.1);
+  }
+
   crunch() {
     if (!this.enabled || !this.ctx) return;
     const t = this.ctx.currentTime;
