@@ -46,6 +46,7 @@ export class UI {
     this.setNight(night);
     $('#btnNight').addEventListener('click', () => this.setNight(this.onToggleNight?.()));
     $('#btnSound').addEventListener('click', () => this.setSound(this.onToggleSound?.()));
+    $('#btnMusic').addEventListener('click', () => { const on = this.onToggleMusic?.(); this.setMusic(on); this.toast(on ? '🎵 배경 음악을 켰어요 (고양이서가 카페 음악)' : '🎵 배경 음악을 껐어요 — 장작 · 빗소리 · 연필 소리는 그대로'); });
     $('#btnWave').addEventListener('click', () => this.onWave?.());
     $('#btnPlaces').addEventListener('click', () => this.openPlaces());
     $('#btnMyCat').addEventListener('click', () => this.openMyCat());
@@ -121,6 +122,7 @@ export class UI {
   setRoom(n) { $('#roomNo').textContent = n ? `${n}호점` : ''; }
   setRain(on) { $('#btnRain').classList.toggle('off', !on); $('#btnRain').title = on ? '비 그치게 하기' : '빗소리'; }
   setNight(on) { $('#btnNight').textContent = on ? '🌙' : '☀️'; $('#btnNight').title = on ? '밤 (누르면 낮)' : '낮 (누르면 밤)'; }
+  setMusic(on) { $('#btnMusic').classList.toggle('off', !on); $('#btnMusic').title = on ? '배경 음악 끄기' : '배경 음악 켜기'; $('#btnMusic').textContent = on ? '🎵' : '🔇'; }
   setSound(on) { $('#btnSound').textContent = on ? '🔊' : '🔈'; $('#btnSound').classList.toggle('off', !on); }
   soundNudge() {
     if (this.nudged) return;

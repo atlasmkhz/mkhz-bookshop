@@ -9,7 +9,8 @@ export class Sound {
     this.outdoor = false;
     this.rain = false;
     this.focus = 0;
-    this.penVol = 1.0;
+    this.penVol = 0.16;   // 연필 소리 크기 (배경 위로 은은하게)
+    this.musicOn = true;
   }
 
   ensure() {
@@ -317,35 +318,77 @@ export class Sound {
     }
   }
 
-  // 필기: 펜이 종이를 긁는 사각사각 (글자 하나에 짧은 획 두세 번)
-  // 종이 긁는 소리는 1~4 kHz 가 중심. 휴대폰 스피커에서도 들리도록 충분히 크게 (장작 넣는 소리의 절반쯤)
+  // 연필 획 소리 재료: 흑연이 종이 결을 긁는 거친 소리 (처음 한 번 여러 가지를 만들어 둠)
+  // 하얀 잡음 × 종이 결(느리게 출렁이는 거칠기) → 부드럽게 들어갔다 빠지는 한 획
+  pencilBufs() {
+    if (this._pencil) return this._pencil;
+    const ctx = this.ctx, sr = ctx.sampleRate, out = [];
+    for (let v = 0; v < 10; v++) {
+      const dur = 0.07 + Math.random() * 0.16;
+      const n = Math.floor(sr * dur);
+      const b = ctx.createBuffer(1, n, sr), d = b.getChannelData(0);
+      let lp1 = 0, lp2 = 0, grainLp = 0, hp = 0, prev = 0, rms = 0;
+      const grainK = 1 - Math.exp(-2 * Math.PI * (90 + Math.random() * 80) / sr);   // 종이 결 출렁임
+      const toneK = 1 - Math.exp(-2 * Math.PI * (1800 + Math.random() * 700) / sr);  // 위쪽을 둥글게 (날카로움 빼기)
+      const press = 0.7 + Math.random() * 0.3;
+      for (let i = 0; i < n; i++) {
+        const w = Math.random() * 2 - 1;
+        grainLp += (Math.random() * 2 - 1 - grainLp) * grainK;
+        const grain = Math.min(1, 0.35 + Math.abs(grainLp) * 3.2);
+        // 가끔 흑연 알갱이가 톡 걸리는 작은 튐
+        const tick = Math.random() < 0.0016 ? (Math.random() * 2 - 1) * 2.2 : 0;
+        lp1 += (w * grain + tick - lp1) * toneK;
+        lp2 += (lp1 - lp2) * toneK;
+        hp = 0.985 * (hp + lp2 - prev); prev = lp2;      // 낮은 웅웅 빼기
+        const t = i / n;
+        const env = Math.min(1, t / 0.12) ** 1.6 * Math.min(1, (1 - t) / 0.28) ** 1.3 * (1 - 0.25 * t) * press;
+        d[i] = hp * env;
+        rms += d[i] * d[i];
+      }
+      rms = Math.sqrt(rms / n) || 1;
+      for (let i = 0; i < n; i++) d[i] *= 0.12 / rms;
+      out.push(b);
+    }
+    return (this._pencil = out);
+  }
+
+  // 연필 서걱서걱: 글자 하나에 짧은 획 두세 번. 빨리 써도 소리가 겹쳐 쌓이지 않게 차례로 이어 붙임
   pen(n = 1) {
     if (!this.enabled || !this.ctx) return;
-    const ctx = this.ctx;
-    let t = ctx.currentTime + 0.005;
+    const ctx = this.ctx, bufs = this.pencilBufs();
+    const now = ctx.currentTime;
+    let t = Math.max(now + 0.005, this.penUntil || 0);
+    if (t > now + 0.5) return;   // 너무 밀리면 건너뜀
     for (let c = 0; c < n; c++) {
-      const strokes = 2 + Math.floor(Math.random() * 2);
+      const strokes = 2 + (Math.random() < 0.45 ? 1 : 0);
       for (let k = 0; k < strokes; k++) {
-        const dur = 0.045 + Math.random() * 0.07;
-        const src = ctx.createBufferSource(); src.buffer = this.pinkBuf;
-        const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.9;
-        const f0 = 1500 + Math.random() * 1500;
-        bp.frequency.setValueAtTime(f0, t); bp.frequency.linearRampToValueAtTime(f0 * (0.75 + Math.random() * 0.6), t + dur);
-        const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
-        const g = ctx.createGain(); const v = (0.9 + Math.random() * 0.6) * this.penVol;
-        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.01); g.gain.setValueAtTime(v * 0.75, t + dur * 0.7); g.gain.linearRampToValueAtTime(0, t + dur);
-        src.connect(bp).connect(hp).connect(g).connect(this.fxOut);
-        src.start(t, Math.random() * 2, dur + 0.02);
-        t += dur + 0.012 + Math.random() * 0.03;
+        const b = bufs[Math.floor(Math.random() * bufs.length)];
+        const src = ctx.createBufferSource(); src.buffer = b;
+        src.playbackRate.value = 0.85 + Math.random() * 0.3;
+        const body = ctx.createBiquadFilter(); body.type = 'peaking'; body.frequency.value = 1300 + Math.random() * 600; body.Q.value = 0.8; body.gain.value = 4;
+        const soft = ctx.createBiquadFilter(); soft.type = 'lowpass'; soft.frequency.value = 3200 + Math.random() * 600; soft.Q.value = 0.5;
+        const low = ctx.createBiquadFilter(); low.type = 'highpass'; low.frequency.value = 450; low.Q.value = 0.5;
+        const g = ctx.createGain(); g.gain.value = (0.75 + Math.random() * 0.4) * this.penVol;
+        src.connect(low).connect(body).connect(soft).connect(g).connect(this.fxOut);
+        src.start(t);
+        t += b.duration / src.playbackRate.value * (0.75 + Math.random() * 0.2) + 0.01 + Math.random() * 0.03;
       }
-      t += 0.02;
+      t += 0.025 + Math.random() * 0.03;
     }
+    this.penUntil = t;
   }
-  // 마침표 · 쉼표: 펜 끝을 톡
+  // 마침표 · 쉼표: 연필 끝을 종이에 콕 (낮고 부드럽게)
   penDot() {
     if (!this.enabled || !this.ctx) return;
-    const t = this.ctx.currentTime + 0.005;
-    this.click(t, 1800, 0.9 * this.penVol, 0.03, this.fxOut);
+    const ctx = this.ctx, b = this.pencilBufs()[0];
+    const t = Math.max(ctx.currentTime + 0.005, this.penUntil || 0);
+    const src = ctx.createBufferSource(); src.buffer = b; src.playbackRate.value = 1.6;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(3.2 * this.penVol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    src.connect(lp).connect(g).connect(this.fxOut);
+    src.start(t); src.stop(t + 0.06);
+    this.penUntil = t + 0.07;
   }
   // 필사 · 불멍 · 별멍처럼 한곳에 마음 두는 동안 배경 소리를 낮춤 (0 = 평소, 1 = 많이 낮춤)
   setFocus(k) { this.focus = k; this.mix(); }
@@ -474,7 +517,7 @@ export class Sound {
     for (const [k, w] of [['day', 1 - n], ['night', n]]) {
       const mu = this.music?.[k];
       if (!mu) continue;
-      const v = this.enabled ? vol * w : 0;
+      const v = this.enabled && this.musicOn ? vol * w : 0;
       mu.g.gain.setTargetAtTime(v, now, 1.2);
       if (v > 0.001 && !mu.playing) { mu.playing = true; mu.el.play().catch(() => { mu.playing = false; }); }
       if (v <= 0.001 && mu.playing) {
@@ -485,6 +528,8 @@ export class Sound {
   }
 
   setNight(n) { this.night = n; this.mix(); }
+  // 배경 음악만 켜고 끄기 (다른 소리는 그대로)
+  setMusic(on) { this.musicOn = !!on; this.mix(); }
   setOutdoor(o) { if (o === this.outdoor) return; this.outdoor = o; this.mix(); }
   setRain(on) { this.rain = on; this.mix(); }
 

@@ -1290,6 +1290,16 @@ ui.onToggleRain = () => { room.rainOn = !room.rainOn; cats.rain = room.rainOn; s
 cats.birdsPresent = () => room.birdsPresent?.();
 ui.onToggleNight = () => { dayNight.target = dayNight.target > 0.5 ? 0 : 1; sound.setNight(dayNight.target); return dayNight.target > 0.5; };
 ui.onToggleSound = () => { const on = !sound.enabled; sound.setEnabled(on); sound.setNight(dayNight.target); return on; };
+// 배경 음악 켜기 · 끄기 (이 기기에 기억). 소리 전체가 꺼져 있으면 함께 켬
+sound.setMusic(store.get('music', true));
+ui.setMusic(sound.musicOn);
+ui.onToggleMusic = () => {
+  const on = !sound.musicOn;
+  sound.setMusic(on);
+  store.set('music', on);
+  if (on && !sound.enabled) { sound.setEnabled(true); sound.setNight(dayNight.target); ui.setSound(true); }
+  return on;
+};
 // 아이폰: 누를 때마다 멈춘 소리를 다시 켜고(잠금 화면 · 다른 앱에서 돌아왔을 때), 무음 스위치와 상관없이 들리게
 for (const ev of ['pointerdown', 'touchend', 'keydown']) window.addEventListener(ev, () => sound.unlock(), { capture: true, passive: true });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) sound.unlock(); });
