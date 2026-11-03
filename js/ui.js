@@ -18,6 +18,7 @@ export class UI {
     if (server) { $('#roomField').classList.remove('hidden'); this.refreshRooms(); }
     $('#entryInfo').textContent = `가입 없이 닉네임만 · 책 ${lib.count}권 · 앉을 자리 ${this.seatCount || 100}곳`;
     this.setRain(rain);
+    $('#btnLook').addEventListener('click', () => this.onToggleLook?.());
     $('#btnRain').addEventListener('click', () => {
       const on = this.onToggleRain?.();
       this.setRain(on);
@@ -121,6 +122,7 @@ export class UI {
   }
   reopenEntry() { $('#hud').classList.add('hidden'); $('#entry').classList.remove('gone'); this.refreshRooms(); }
   setRoom(n) { $('#roomNo').textContent = n ? `${n}호점` : ''; }
+  setLook(on) { $('#btnLook').classList.toggle('off', !on); $('#btnLook').title = on ? '디오라마 끄기 (기본 화면)' : '디오라마 화면 켜기'; }
   setRain(on) { $('#btnRain').classList.toggle('off', !on); $('#btnRain').title = on ? '비 그치게 하기' : '빗소리'; }
   setNight(on) { $('#btnNight').textContent = on ? '🌙' : '☀️'; $('#btnNight').title = on ? '밤 (누르면 낮)' : '낮 (누르면 밤)'; }
   setMusic(on) { $('#btnMusic').classList.toggle('off', !on); $('#btnMusic').title = on ? '배경 음악 끄기' : '배경 음악 켜기'; $('#btnMusic').textContent = on ? '🎵' : '🔇'; }

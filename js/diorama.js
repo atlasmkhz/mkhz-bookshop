@@ -1,4 +1,4 @@
-// 디오라마 화면 (시험판): 그린 화면 위에 한 번 더 손질
+// 디오라마 화면: 그린 화면 위에 한 번 더 손질
 // - 구석 그늘(깊이로 가까운 곳의 틈을 어둡게), 위아래 가장자리 흐림(틸트시프트), 따뜻한 색 · 채도 · 가장자리 어둡게
 // - 모두 내 화면에서만 그리는 것이라 서버 요청과 상관없음
 import * as THREE from 'three';
@@ -13,7 +13,7 @@ export class Diorama {
       uniforms: {
         tColor: { value: this.rt.texture }, tDepth: { value: this.rt.depthTexture },
         res: { value: size.clone() }, near: { value: 0.1 }, far: { value: 200 },
-        focus: { value: 0.52 }, band: { value: 0.16 }, blur: { value: 3.2 }, ao: { value: 0.75 },
+        focus: { value: 0.52 }, band: { value: 0.2 }, blur: { value: 3.2 }, ao: { value: 0.9 },
       },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
       fragmentShader: /* glsl */`

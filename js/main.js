@@ -47,8 +47,17 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-// 디오라마 화면 시험판 (?look=diorama 일 때만)
-const diorama = new URLSearchParams(location.search).get('look') === 'diorama' ? new Diorama(renderer) : null;
+// 디오라마 화면 (기본으로 켬): 구석 그늘 · 위아래 흐림 · 따뜻한 색 + 조금 좁은 화각
+// 주소 ?look=plain|diorama 가 먼저, 그다음 이 기기에 기억한 것(store 'look'), 없으면 켬. 느린 기기는 처음 몇 초를 재 보고 저절로 끔
+const LOOK_Q = new URLSearchParams(location.search).get('look');
+const look = { on: LOOK_Q ? LOOK_Q !== 'plain' : store.get('look', 'diorama') !== 'plain', chosen: !!LOOK_Q || store.get('look', null) != null, fx: null, frames: 0, time: 0, checked: false };
+const diorama = { render: (sc, c) => { if (!look.fx) look.fx = new Diorama(renderer); look.fx.render(sc, c); } };
+function setLook(on, remember = true) {
+  look.on = on;
+  if (remember) { store.set('look', on ? 'diorama' : 'plain'); look.chosen = true; }
+  ui.setLook?.(on);
+  resize();
+}
 
 const scene = new THREE.Scene();
 const DAY_BG = new THREE.Color('#dfe3d2'), NIGHT_BG = new THREE.Color('#121829');
@@ -112,12 +121,13 @@ fw.listener = me.pos;
 
 // ---------- 카메라 ----------
 const cam = { yaw: 0.3, pitch: 0.8, dist: 15, target: new THREE.Vector3(-4, 1, 2) };
-const fitDist = () => (camera.aspect < 1 ? 9.5 / Math.max(0.6, camera.aspect * 1.2) : 11);
+const fitDist = () => (camera.aspect < 1 ? 9.5 / Math.max(0.6, camera.aspect * 1.2) : 11) * (look?.on ? 1.2 : 1);
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
-  camera.fov = camera.aspect < 1 ? 46 : 36;
+  // 디오라마는 화각을 조금 좁히고 조금 멀리서 — 책상 위 모형을 내려다보는 느낌
+  camera.fov = (camera.aspect < 1 ? 46 : 36) * (look?.on ? 0.82 : 1);
   camera.updateProjectionMatrix();
   cam.maxDist = fitDist() * 2.0;
   if (!cam.userZoomed) cam.dist = fitDist();
@@ -1546,6 +1556,8 @@ ui.onEnter = async ({ name, look, soundOn, room: roomChoice }) => {
   walkTo(room.firstWalk);
 };
 ui.loadRooms = SERVER ? fetchRooms : null;
+ui.onToggleLook = () => { setLook(!look.on); ui.toast(look.on ? '🎞️ 디오라마 화면 — 작은 모형 마을처럼' : '🎞️ 기본 화면 — 더 가볍고 또렷하게'); };
+ui.setLook?.(look.on);
 ui.onToggleRain = () => { room.rainOn = !room.rainOn; cats.rain = room.rainOn; sound.setRain(room.rainOn); store.set('rain', room.rainOn); return room.rainOn; };
 cats.birdsPresent = () => room.birdsPresent?.();
 ui.onToggleNight = () => { dayNight.target = dayNight.target > 0.5 ? 0 : 1; sound.setNight(dayNight.target); return dayNight.target > 0.5; };
@@ -1655,10 +1667,29 @@ function frame() {
   updateStar(dt);
   sun.target.position.set(cam.target.x, 0, cam.target.z);
   sun.position.copy(sun.target.position).add(SUN_OFFSET);
-  if (diorama) diorama.render(scene, camera); else renderer.render(scene, camera);
+  if (look.on) {
+    // 흐림의 초점: 내 캐릭터(또는 카메라가 보는 곳)의 화면 높이. 별멍 · 작품 보기 · 필사 땐 흐림을 줄임
+    const fx = look.fx || (look.fx = new Diorama(renderer));
+    const f = (me.entered && !copy.on && !craft.on && !artLook.on ? me.pos.clone().setY(me.pos.y + 0.8) : cam.target.clone()).project(camera);
+    const u = fx.mat.uniforms;
+    u.focus.value += ((THREE.MathUtils.clamp(f.y * 0.5 + 0.5, 0.25, 0.75)) - u.focus.value) * Math.min(1, dt * 4);
+    const want = star.on || fwView.on ? 0 : copy.on || artLook.on ? 0.8 : craft.on ? 1.6 : 3.2;
+    u.blur.value += (want - u.blur.value) * Math.min(1, dt * 3);
+    diorama.render(scene, camera);
+  } else renderer.render(scene, camera);
+  // 느린 기기: 들어온 뒤 2~8초 사이 평균이 초당 24장보다 적으면 디오라마를 끔 (직접 고른 적이 있으면 그대로)
+  if (me.entered && !look.checked) {
+    look.time += dt; look.frames++;
+    if (look.time < 2) look.frames = 0;
+    else if (look.time > 8) {
+      look.checked = true;
+      const fps = look.frames / (look.time - 2);
+      if (look.on && !look.chosen && fps < 24) { setLook(false, false); ui.toast('화면이 조금 느려서 디오라마 효과를 껐어요 — 위 🎞️ 단추로 다시 켤 수 있어요'); }
+    }
+  }
   placeTags(camera, renderer.domElement.clientWidth || window.innerWidth, renderer.domElement.clientHeight || window.innerHeight, me.entered ? me.pos : cam.target);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-window.shop = { renderer, diorama: () => diorama, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { renderer, look, setLook, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };

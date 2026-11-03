@@ -94,7 +94,7 @@ export function floorTexture() {
   return canvasTex(1024, 1024, (g, w, h) => {
     const rows = 8;
     const rh = h / rows;
-    const tones = ['#c99764', '#d2a26e', '#c08c59', '#d8ab78', '#c6935f'];
+    const tones = ['#bf9467', '#c79e72', '#b88c62', '#cba57b', '#bd9065'];   // 조금 차분하게 (디오라마에서 바닥이 너무 주황으로 뜨지 않게)
     for (let r = 0; r < rows; r++) {
       let x = -rnd() * 300;
       while (x < w) {

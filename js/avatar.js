@@ -29,10 +29,10 @@ export class Avatar {
     this.root = new THREE.Group();
     this.body = new THREE.Group();
     this.root.add(this.body);
-    const skin = std(this.look.skin, 0.7);
+    const skin = std(this.look.skin, 0.86);   // 무광 점토 느낌 (디오라마)
     const top = std(this.look.top, 0.95);
     const pants = std('#6d5a4c', 0.9);
-    const hair = std(this.look.hair, 0.75);
+    const hair = std(this.look.hair, 0.92);
     const S = (o) => { o.castShadow = true; o.receiveShadow = true; return o; };
 
     // 다리
