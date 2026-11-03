@@ -1,9 +1,166 @@
 {
-  "_읽는법": "야외 영화관 상영 목록. items 가 비어 있으면 채널 올린 영상 전체(playlist)를 차례로 틉니다. 대표 영상 모음을 만들면 items 에 적으세요: id = 유튜브 영상 주소의 v= 값, title = 제목, min = 길이(분, 소수 가능). 모든 손님이 같은 장면을 보도록 지금 시각으로 몇 번째 영상의 몇 분 지점인지 각자 계산합니다 (서버를 쓰지 않습니다).",
-  "channel": "UC3kkLB1YF19FKvZbLIseKtA",
-  "channelName": "엠케이아틀라스",
-  "channelUrl": "https://www.youtube.com/channel/UC3kkLB1YF19FKvZbLIseKtA",
-  "playlist": "UU3kkLB1YF19FKvZbLIseKtA",
-  "title": "엠케이아틀라스 채널 상영 중",
-  "items": []
+ "_읽는법": "야외 영화관 상영 목록. items 가 비어 있으면 채널 올린 영상 전체(playlist)를 차례로 틉니다. 대표 영상 모음을 만들면 items 에 적으세요: id = 유튜브 영상 주소의 v= 값, title = 제목, min = 길이(분, 소수 가능). 모든 손님이 같은 장면을 보도록 지금 시각으로 몇 번째 영상의 몇 분 지점인지 각자 계산합니다 (서버를 쓰지 않습니다).",
+ "channel": "UC3kkLB1YF19FKvZbLIseKtA",
+ "channelName": "엠케이아틀라스",
+ "channelUrl": "https://www.youtube.com/channel/UC3kkLB1YF19FKvZbLIseKtA",
+ "playlist": "UU3kkLB1YF19FKvZbLIseKtA",
+ "title": "엠케이아틀라스 채널 상영 중",
+ "items": [
+  {
+   "id": "1PSUhqoBJek",
+   "title": "독립운동가 최재형 일대기 | 안중근을 도운 연해주의 거부 [헌정곡 페치카]",
+   "min": 4.3
+  },
+  {
+   "id": "lGMDwoFm7rc",
+   "title": "초혼(招魂) — 김소월 헌정곡",
+   "min": 4.25
+  },
+  {
+   "id": "XtpELkzX40g",
+   "title": "김홍도 vs 신윤복 | 조선 풍속화와 '미인도'의 해석 〈그림 속의 나〉",
+   "min": 4.42
+  },
+  {
+   "id": "2S7ugqPhHWs",
+   "title": "사람에게 상처받아 마음이 흔들릴 때, 다산 정약용의 문장을 빌려옵니다 (정약용 MV)",
+   "min": 4.25
+  },
+  {
+   "id": "QjMDBgA3Low",
+   "title": "[역사 에세이] 광복 후 3년, 우리가 묻어두었던 비극 Part1",
+   "min": 6.25
+  },
+  {
+   "id": "vtPFPhE1zN8",
+   "title": "여순사건 78년, 왜 우리는 아직도 이 비극을 '이념'이라 부르는가?",
+   "min": 3.82
+  },
+  {
+   "id": "Z-KdZONjImU",
+   "title": "80년의 침묵, 위안부 할머니의 증언 기록 〈바람이 지나간 자리에서〉",
+   "min": 5.52
+  },
+  {
+   "id": "NHwoPJJwEXQ",
+   "title": "독립군가 | 항일 독립운동가 노래 (AI 4K 복원)",
+   "min": 4.88
+  },
+  {
+   "id": "IthyNGuvybk",
+   "title": "[AI 복원] 잊힌 독립군 홍범도 — 100년 전 노래가 깨어나다",
+   "min": 3.67
+  },
+  {
+   "id": "5RmKG_MQAjw",
+   "title": "기미독립선언서 1919 | 3·1운동과 독립운동가 58인 헌정곡",
+   "min": 3.83
+  },
+  {
+   "id": "9xFuCmdf1Mk",
+   "title": "경술국치 1910 | 광복 이후 100년의 그림자 〈경술년 8월29일〉",
+   "min": 3.5
+  },
+  {
+   "id": "ohzms66l0TE",
+   "title": "일제강점기, 펜으로 저항했던 영혼들... 당신이 꼭 들어야 할 5인의 노래",
+   "min": 4.07
+  },
+  {
+   "id": "Aecqgxg_gro",
+   "title": "단재 신채호 | 일제강점기 독립운동과 『조선상고사』 AI 복원",
+   "min": 3.93
+  },
+  {
+   "id": "sXfwsXNtiHE",
+   "title": "한국 독립운동가·민주화 영웅 | 크리스마스 캐롤 〈겨울을 건너〉",
+   "min": 4.73
+  },
+  {
+   "id": "VBRVQL9UI-4",
+   "title": "동학농민운동·우금치 전투 (1894) | 2024 계엄 시나리오와 역사의 반복",
+   "min": 3.95
+  },
+  {
+   "id": "6Fvn3CHixAA",
+   "title": "[역사 에세이] 신념은 어떻게 감옥이 되는가?: 한국 현대사의 굴레 〈길을 묻다〉",
+   "min": 3.42
+  },
+  {
+   "id": "uqOcpnNxv18",
+   "title": "[Playlist] 비 내리는 1920년대 경성, 그 시절의 재즈",
+   "min": 4.8
+  },
+  {
+   "id": "ZpCzZAuQr8k",
+   "title": "[1926년 6월 10일 그날의 함성] 6·10만세운동",
+   "min": 4.07
+  },
+  {
+   "id": "do4aMaDkg2A",
+   "title": "나는 돌아가지 못했다 (조세이탄광)",
+   "min": 3.65
+  },
+  {
+   "id": "PiVxckND7Xw",
+   "title": "잊지 않겠다는 약속: 세월호 참사, 그날의 진심과 우리의 무관심",
+   "min": 4.22
+  },
+  {
+   "id": "UXWZSEloV4E",
+   "title": "흥선대원군은 왜 끝까지 문을 닫았을까? — 병인양요와 쇄국정책의 진실",
+   "min": 4.33
+  },
+  {
+   "id": "ePf3DauENWk",
+   "title": "[AI 판타지 뮤직드라마] 마지막 백제의 노래 - 그들은 뛰어내리지 않았다",
+   "min": 4.25
+  },
+  {
+   "id": "AUKa94wpIag",
+   "title": "한강은 왜 100년 동안 피로 물들었는가? — 백제·고구려 한강패권기",
+   "min": 4.25
+  },
+  {
+   "id": "3HLqfHwfJE8",
+   "title": "처용가(處容歌) | 신라 향가가 2024년을 소환하다 〈부끄러움을 모르는 자들〉",
+   "min": 4.25
+  },
+  {
+   "id": "V00Ydo-E0w8",
+   "title": "공무도하가(公無渡河歌) | 한국 최고 서정시, 고조선 여옥의 노래 (AI 수묵화)",
+   "min": 4.25
+  },
+  {
+   "id": "Uo3BsVcfCDc",
+   "title": "당신이 그리운 날에 듣습니다 - 노무현 대통령의 말과 노래 (1시간 감성 플레이리스트)",
+   "min": 58.25
+  },
+  {
+   "id": "WfZPLe0CkXg",
+   "title": "미니다큐 '76년의 기다림' | 경산코발트광산",
+   "min": 4.25
+  },
+  {
+   "id": "Z-sgwnYysIQ",
+   "title": "핵융합 1분 정리",
+   "min": 4.25
+  },
+  {
+   "id": "djbs9szPJGI",
+   "title": "정약용이 안내하는 수원화성 공사장",
+   "min": 4.25
+  },
+  {
+   "id": "VkvhYA-umnI",
+   "title": "정약용 — 유배지에서 두 아들에게",
+   "min": 4.25
+  },
+  {
+   "id": "5J36FwfFq70",
+   "title": "올리브나무 아래서",
+   "min": 25.15
+  }
+ ],
+ "_items_note": "역사 · 과학 아틀라스에 적힌 채널 영상으로 자동으로 채운 목록. 대표 모음을 만들면 이 items 를 통째로 바꾸면 됩니다."
 }

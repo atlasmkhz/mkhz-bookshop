@@ -306,21 +306,26 @@ export function buildCabin(scene, books) {
   room.hideables.push({ group: loft, rect: LOFT.rect, lv: 1 });
   room.benchSpots.push(V(-6.8, LY + 0.92, LOFT.rect.maxZ - 0.02));
 
-  // ---------- 다락 아래: 책장 골목 네 줄 ----------
+  // ---------- 다락 아래: 책장 골목 네 줄 (분야별) ----------
   {
     const H2 = LY - 0.2;
-    const hist = (s) => byShelf('history', s);
-    const korea = hist('history'), world = hist('world_history');
+    const fb = (field, ...shelves) => books.filter((b) => b.field === field && (!shelves.length || shelves.includes(b.shelf)));
+    const sci = books.filter((b) => b.field === 'science');
     const units = [
-      { x: -13.3, books: [half(korea, 0), hist('biographies')], label: ['역사 · 우리 역사', '역사 · 인물열전'] },
-      { x: -10.8, books: [half(world, 0), half(korea, 1)], label: ['역사 · 세계사', '역사 · 우리 역사'] },
-      { x: -8.3, books: [hist('literature'), half(world, 1)], label: ['역사 · 옛 문학', '역사 · 세계사'] },
-      { x: -5.8, books: [byShelf('politics'), byShelf('philo')], label: ['정치아틀라스', '철학아틀라스'] },
+      { x: -13.3, books: [fb('history', 'era', 'sources', 'revisionism', 'memorial'), fb('history', 'world', 'events')], label: ['역사 · 시대연구 · 사료읽기', '역사 · 세계사 · 사건 연표'] },
+      { x: -10.8, books: [fb('history', 'bio', 'people', 'guide', 'damsa'), fb('history', 'routes')], label: ['역사 · 인물 · 길잡이 · 답사', '역사 · 이야기 루트'] },
+      { x: -8.3, books: [fb('literature'), fb('society')], label: ['문학', '사회'] },
+      { x: -5.8, books: [fb('philo'), fb('art')], label: ['철학', '예술'] },
     ];
     for (const u of units) {
       bookcase(scene, room, { x: u.x, z: -8.35, rotY: Math.PI / 2, w: 2.9, h: H2, d: 0.5, rows: 5, sides: 2, books: u.books });
       endSign(scene, u.x, -6.85, u.label[0], u.label[1]);
     }
+    // 도서목록 판 (골목 앞, 기둥 사이)
+    const boards = [[-12.05, 'history', '역사', ['시대연구 · 사료읽기', '역사왜곡 · 기억의 뜰', '세계사 · 사건 연표', '인물 · 이야기 루트', '길잡이 · 답사']], [-9.55, 'literature', '문학', ['신화와 서사시', '옛 문학 · 원전과 글자', '일기와 기행 루트', '노벨문학상', '하루 한 말모이']],
+      [-7.05, 'society', '사회', ['정치의 기초', '법과 헌법', '경제와 살림', '권력과 책임의 기록', '아틀라스 투데이 · 기록']], [-4.55, 'philo', '철학 · 예술', ['사상가 117명', '열아홉 개의 질문', '사상가들의 논쟁', '오늘의 필사 · 용어', '음악가와 화가 · 예술사']]];
+    const fcol = { history: '#7a3b2a', literature: '#8a4b6b', society: '#5f6b2e', philo: '#1f2c4d' };
+    for (const [bx, field, title, lines] of boards) catalogBoard(scene, room, bx, -6.15, 0, field, `${title} 도서목록`, lines, fcol[field]);
     // 골목 끝 의자 (막다른 골목) + 사이 방석
     for (const x of [-12.05, -9.55, -7.05]) armchair(scene, room, x, -9.3, 0, ['#8a5a44', '#5f6b4e', '#7f97a8'][Math.round((x + 12.05) / 2.5)], { name: '책장 골목 끝 의자', nook: true });
     cushion(scene, room, -12.05, -7.3, -Math.PI / 2, '#a9bba0', { name: '책장 사이 방석', nook: true });
@@ -336,12 +341,19 @@ export function buildCabin(scene, books) {
     lowTable(scene, room, -2.45, -8.2, 0, 0.5, 0.4, 0.42, { cup: true });
     floorLamp(scene, room, -4.1, -9.2, { light: true });
     for (const x of [-14.6, -12.05, -9.55, -7.05, -4.5, -2.4]) pendant(scene, room, x, LY - 0.45, -8.2);
+    // 학년별 과학 책장 (낮은 책장, 앞은 초등 · 뒤는 중학) — 둥근 독서 탁자 옆
+    const kids = sci.filter((b) => b.grade === 'kids-low' || b.grade === 'kids-high');
+    const middle = sci.filter((b) => b.grade === 'middle');
+    bookcase(scene, room, { x: -1.6, z: -3.4, w: 3.0, h: 1.5, d: 0.52, rows: 3, sides: 2, books: [kids, middle], label: '학년별 과학' });
+    catalogBoard(scene, room, -3.6, -3.4, Math.PI / 2, 'science', '학년별 과학', ['초등 3~4학년', '초등 5~6학년', '중학교 과학 · 수학', '과학 대사관', '오늘의 과학'], '#1f6f6b');
+    room.climbs.push({ key: 'kidsShelf', rotY: Math.PI, path: [V(0.1, 0, -3.4), V(-0.1, 0.5, -3.4), V(-1.0, 1.53, -3.4)] });
   }
 
   // ---------- 높은 책장 + 사다리 (과학아틀라스, 북동쪽 벽) ----------
   {
-    const sci = byShelf('science');
-    bookcase(scene, room, { x: 3.4, z: CABIN.minZ + 0.25, w: 6.0, h: 4.8, d: 0.46, rows: 9, books: [sci], label: '과학아틀라스' });
+    const sci = books.filter((b) => b.field === 'science' && (b.grade === 'general' || !b.grade));
+    bookcase(scene, room, { x: 3.4, z: CABIN.minZ + 0.25, w: 6.0, h: 4.8, d: 0.46, rows: 9, books: [sci], label: '과학 · 자료실 · 발견 카드 · 과학자' });
+    catalogBoard(scene, room, 0.0, -9.0, 0.35, 'science', '과학 도서목록', ['수학 · 물리 · 화학', '생물의학 · 천문우주', '지구과학 · 공학', '발견 카드 212장', '과학자 · 용어 · 특집'], '#1f6f6b');
     const g = new THREE.Group();
     const lx = 4.4, z0 = -8.85, z1 = -9.42, top = 4.65;
     const len = Math.hypot(top, z0 - z1);
@@ -517,6 +529,9 @@ export function buildCabin(scene, books) {
     room.benchSpots.push(V(cxp + 1.2, 1.05, CABIN.maxZ - 0.5));
   }
 
+  // ---------- 도구 손수레 (현관 옆) ----------
+  toolCart(scene, room, 0.9, 8.3, 0.3);
+
   // ---------- 건의함 ----------
   {
     const g = new THREE.Group();
@@ -543,16 +558,16 @@ export function buildCabin(scene, books) {
   secretStudy(scene, room, books);
 
   // ---------- 화분 · 고양이 상자 ----------
-  for (const [x, z, s] of [[CABIN.maxX - 0.4, DOOR.z1 + 0.6, 1.0], [CABIN.maxX - 0.4, DOOR.z0 - 0.6, 0.9], [-0.4, CABIN.maxZ - 0.45, 0.8], [-7.6, -6.4, 0.9], [CABIN.minX + 0.4, -2.2, 0.9], [0.2, -3.6, 0.8], [-11.6, 6.0, 1.0]]) plant(scene, room, x, z, s, rnd);
+  for (const [x, z, s] of [[CABIN.maxX - 0.4, DOOR.z1 + 0.6, 1.0], [CABIN.maxX - 0.4, DOOR.z0 - 0.6, 0.9], [-0.4, CABIN.maxZ - 0.45, 0.8], [-7.6, -6.4, 0.9], [CABIN.minX + 0.4, -2.2, 0.9], [1.2, -4.9, 0.8], [-11.6, 6.0, 1.0]]) plant(scene, room, x, z, s, rnd);
   {
     const g = new THREE.Group();
     g.add(mesh(rbox(0.6, 0.32, 0.45, 0.02), M.color('#c9a77a', 1), 0, 0.16, 0));
     g.add(mesh(rbox(0.52, 0.02, 0.38, 0.01), M.color('#3a2a20', 1), 0, 0.31, 0, { cast: false }));
-    g.position.set(1.0, 0, -3.2);
+    g.position.set(1.4, 0, -1.6);
     g.rotation.y = 0.3;
     scene.add(g);
-    obst(footprint(1.0, -3.2, 0.62, 0.5, 0.3));
-    room.boxes.push({ floor: V(1.0, 0, -2.65), inside: V(1.0, 0.12, -3.2), rotY: 0.3, key: 'bookbox' });
+    obst(footprint(1.4, -1.6, 0.62, 0.5, 0.3));
+    room.boxes.push({ floor: V(1.4, 0, -1.05), inside: V(1.4, 0.12, -1.6), rotY: 0.3, key: 'bookbox' });
   }
 
   room.spawn = V((FRONT.x0 + FRONT.x1) / 2, 0, CABIN.maxZ - 0.9);
@@ -1015,3 +1030,67 @@ function plant(scene, room, x, z, s, rnd) {
 
 export { boxUV };
 void CONFIG;
+
+// 도서목록 판: 책장 옆에 세워 둔 액자. 누르면 그 분야의 서가 목록이 열림
+export function catalogBoard(scene, room, x, z, rotY, field, title, lines = [], color = '#3b2a20') {
+  const g = new THREE.Group();
+  const c = document.createElement('canvas'); c.width = 384; c.height = 512;
+  const draw = () => {
+    const p = c.getContext('2d');
+    p.fillStyle = '#f3e6cf'; p.fillRect(0, 0, 384, 512);
+    p.fillStyle = color; p.fillRect(0, 0, 384, 86);
+    p.fillStyle = '#f7ecd8'; p.textAlign = 'center'; p.textBaseline = 'middle';
+    p.font = '700 40px "Gowun Batang", serif'; p.fillText(title, 192, 44);
+    p.fillStyle = '#3f2c20'; p.textAlign = 'left';
+    p.font = '26px "Gowun Dodum", sans-serif';
+    lines.slice(0, 11).forEach((l, i) => p.fillText(l.length > 15 ? l.slice(0, 14) + '…' : l, 22, 122 + i * 34));
+    p.fillStyle = '#7d6553'; p.font = '22px "Gowun Dodum", sans-serif'; p.textAlign = 'center';
+    p.fillText('눌러서 도서목록 보기', 192, 488);
+  };
+  draw();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  document.fonts?.ready.then(() => { draw(); t.needsUpdate = true; });
+  g.add(mesh(rbox(0.9, 1.2, 0.05, 0.015), M.woodDark(), 0, 1.3, 0));
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.07), new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }));
+  face.position.set(0, 1.3, 0.03);
+  g.add(face);
+  for (const s of [-0.3, 0.3]) { const leg = mesh(rbox(0.04, 0.75, 0.04, 0.01), M.woodDark(), s, 0.37, -0.12); leg.rotation.x = 0.3; g.add(leg); g.add(mesh(rbox(0.04, 0.75, 0.04, 0.01), M.woodDark(), s, 0.37, 0.0)); }
+  g.traverse((o) => { o.userData.catalog = field; });
+  g.position.set(x, 0, z);
+  g.rotation.y = rotY;
+  scene.add(g);
+  room.obstacles.push(footprint(x, z, 0.9, 0.3, rotY));
+  return g;
+}
+
+// 도구 손수레: 지도 · 놀이판 · 계보가 놓인 손수레. 누르면 도구 모음이 열림
+export function toolCart(scene, room, x, z, rotY) {
+  const g = new THREE.Group();
+  plank(g, 1.3, 0.05, 0.6, 0, 0.78, 0, M.wood(), 0.02);
+  plank(g, 1.3, 0.05, 0.6, 0, 0.38, 0, M.woodLight(), 0.02);
+  for (const sx of [-0.6, 0.6]) for (const sz of [-0.25, 0.25]) plank(g, 0.04, 0.78, 0.04, sx, 0.39, sz, M.woodMid(), 0.01);
+  for (const sx of [-0.45, 0.45]) g.add(mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 16).rotateZ(Math.PI / 2), M.woodDark(), sx, 0.1, 0.33));
+  g.add(mesh(new THREE.SphereGeometry(0.13, 16, 12), M.color('#7fa36d', 0.6), -0.42, 0.98, 0));
+  g.add(mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.12, 8), M.woodDark(), -0.42, 0.86, 0));
+  g.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 10).rotateZ(Math.PI / 2), M.color('#e8dcc0', 0.9), 0.05, 0.84, -0.15));
+  g.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.46, 10).rotateZ(Math.PI / 2), M.color('#d9c7a5', 0.9), 0.1, 0.84, 0.1));
+  g.add(mesh(rbox(0.3, 0.14, 0.24, 0.02), M.color('#1f6f6b', 0.8), 0.4, 0.88, 0.05));
+  g.add(mesh(rbox(0.28, 0.02, 0.22, 0.01), M.color('#f0b93a', 0.8), 0.4, 0.96, 0.05));
+  g.add(mesh(new THREE.TorusGeometry(0.06, 0.012, 8, 20), M.color('#8a7b6c', 0.3, { metalness: 0.6 }), -0.1, 0.83, 0.22));
+  g.add(mesh(rbox(0.5, 0.2, 0.4, 0.02), M.color('#c9a77a', 1), -0.3, 0.5, 0));
+  const c = document.createElement('canvas'); c.width = 256; c.height = 96;
+  const draw = () => { const p = c.getContext('2d'); p.fillStyle = '#3e3a36'; p.fillRect(0, 0, 256, 96); p.fillStyle = '#f2e7d3'; p.textAlign = 'center'; p.textBaseline = 'middle'; p.font = '700 34px "Gowun Batang", serif'; p.fillText('도구 모음', 128, 36); p.font = '20px "Gowun Dodum", sans-serif'; p.fillText('지도 · 놀이판 · 계보', 128, 72); };
+  draw();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  document.fonts?.ready.then(() => { draw(); t.needsUpdate = true; });
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.22), new THREE.MeshStandardMaterial({ map: t }));
+  sign.position.set(0, 0.62, 0.31);
+  g.add(sign);
+  g.traverse((o) => { o.userData.tools = true; });
+  g.position.set(x, 0, z);
+  g.rotation.y = rotY;
+  scene.add(g);
+  room.obstacles.push(footprint(x, z, 1.4, 0.7, rotY));
+  room.toolCart = V(x, 0, z);
+  return g;
+}

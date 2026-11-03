@@ -375,7 +375,7 @@ export class UI {
           const open = openId === id;
           return `<div class="bitem" data-open="${esc(id)}">${this.mini(b)}<div class="bt"><b>${esc(b.title)}</b><span>${esc(this.atlas[b.atlas].short)} · ${b.parts}편 · ${open ? '목차 접기' : '눌러서 편 고르기'}</span></div><span class="prog">${readN}/${b.parts}</span></div>
             ${open ? `<ol class="toc" style="margin:0 0 10px 58px">${b.toc.map((t) => `<li><a href="${esc(t.u)}" target="_blank" rel="noopener" data-u="${esc(t.u)}"><span>${esc(t.t)}</span>${this.read[t.u] ? '<span class="done">읽음</span>' : ''}</a></li>`).join('')}</ol>
-            <div style="margin:0 0 12px 58px;display:flex;gap:6px"><button class="btn small" type="button" data-book="${esc(id)}">표지 보기</button><button class="btn small ghost" type="button" data-remove="${esc(id)}">빼기</button></div>` : '';
+            <div style="margin:0 0 12px 58px;display:flex;gap:6px"><button class="btn small" type="button" data-book="${esc(id)}">표지 보기</button><button class="btn small ghost" type="button" data-remove="${esc(id)}">빼기</button></div>` : ''}`;
         }).join('') + '</div><p class="note" style="margin-top:12px">편을 누르면 아틀라스의 실제 글이 새 창으로 열려요. 앉아서, 서서, 정원에서도 언제든.</p>';
       }
     } else if (tab === 'shelf') {
