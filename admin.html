@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>서점지기 건의함</title>
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
+  <style>
+    :root { --ink: #3f2c20; --soft: #7d6553; --line: rgba(109, 70, 48, 0.18); --wood: #6d4630; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f3ebdd; color: var(--ink); font-family: 'Gowun Dodum', sans-serif; padding: 16px; }
+    main { max-width: 720px; margin: 0 auto; }
+    h1 { font-family: 'Gowun Batang', serif; font-size: 24px; color: var(--wood); margin: 8px 0 4px; }
+    p { color: var(--soft); font-size: 14px; line-height: 1.6; }
+    .bar { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+    input { flex: 1; min-width: 180px; font: inherit; font-size: 16px; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 10px; background: #fffdf9; }
+    button { font: inherit; border: 0; border-radius: 999px; padding: 10px 16px; background: var(--wood); color: #fbf1e2; cursor: pointer; }
+    button.ghost { background: transparent; color: var(--soft); border: 1.5px solid var(--line); padding: 5px 11px; font-size: 13px; }
+    .item { background: #fffdf9; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 8px 0; }
+    .meta { font-size: 12.5px; color: var(--soft); display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    .text { white-space: pre-wrap; line-height: 1.7; margin-top: 6px; font-size: 15px; overflow-wrap: anywhere; }
+    #status { font-size: 14px; color: var(--soft); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>서점지기 건의함</h1>
+  <p>손님이 「서점지기에게 한마디」에 넣은 글이 새것부터 보여요. 열쇠는 Cloudflare 서버에 넣은 ADMIN_KEY 값이에요. 열쇠는 이 브라우저에만 기억돼요.</p>
+  <div class="bar">
+    <input id="key" type="password" placeholder="열쇠 (ADMIN_KEY)" autocomplete="current-password" />
+    <button id="load" type="button">불러오기</button>
+  </div>
+  <div id="status"></div>
+  <div id="list"></div>
+</main>
+<script type="module">
+  import { CONFIG } from './js/config.js';
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const base = CONFIG.serverUrl.replace(/\/$/, '');
+  try { $('#key').value = localStorage.getItem('mkhzbook.adminKey') || ''; } catch { /* 무시 */ }
+  async function call(path, opts = {}) {
+    const r = await fetch(base + path, { ...opts, headers: { authorization: 'Bearer ' + $('#key').value.trim(), ...(opts.headers || {}) } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || ('응답 ' + r.status));
+    return j;
+  }
+  async function load() {
+    if (!base) { $('#status').textContent = '서버 주소가 아직 없어요. 방 서버 배포 워크플로를 먼저 돌려 주세요 (js/config.js 의 serverUrl).'; return; }
+    try { localStorage.setItem('mkhzbook.adminKey', $('#key').value.trim()); } catch { /* 무시 */ }
+    $('#status').textContent = '불러오는 중…';
+    try {
+      const { items } = await call('/admin/suggestions');
+      $('#status').textContent = `모두 ${items.length}건`;
+      $('#list').innerHTML = items.map((it) => `<div class="item"><div class="meta"><span>${esc(it.n || '익명')} · ${it.room ? it.room + '호점 · ' : ''}${new Date(it.at).toLocaleString('ko-KR')}</span><button class="ghost" data-id="${esc(it.id)}" type="button">지우기</button></div><div class="text">${esc(it.m)}</div></div>`).join('') || '<p>아직 들어온 글이 없어요.</p>';
+      document.querySelectorAll('[data-id]').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm('이 글을 지울까요?')) return;
+        await call('/admin/delete', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ id: b.dataset.id }) });
+        load();
+      }));
+    } catch (e) { $('#status').textContent = '못 불러왔어요: ' + e.message; }
+  }
+  $('#load').addEventListener('click', load);
+  $('#key').addEventListener('keydown', (e) => { if (e.key === 'Enter') load(); });
+  if ($('#key').value) load();
+</script>
+</body>
+</html>

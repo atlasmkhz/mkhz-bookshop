@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <title>엠케이아틀라스 서점</title>
+  <meta name="description" content="역사 · 철학 · 과학 · 정치 아틀라스의 자료실 시리즈가 한 권씩 책이 된 숲속 오두막 독립서점. 숨어서 읽는 자리가 곳곳에 있어요." />
+  <meta name="theme-color" content="#e9dcc6" />
+  <meta property="og:title" content="엠케이아틀라스 서점" />
+  <meta property="og:description" content="숲속 오두막 독립서점. 책장 사이 막다른 골목, 다락 구석, 나무 위 오두막에 숨어서 읽어요." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📚%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    { "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+    } }
+  </script>
+  <script src="vendor/peerjs/peerjs.min.js" defer></script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <div id="loading">서점 문을 여는 중…</div>
+
+  <!-- 입장 -->
+  <div id="entry">
+    <form id="enterForm" class="panel" autocomplete="off">
+      <div class="logo">엠케이아틀라스 <span>서점</span></div>
+      <p class="sub">숲속 오두막 독립서점. 책장 사이 막다른 골목, 다락 구석,<br />나무 위 오두막에 숨어서 읽다 가세요.</p>
+      <label class="field">
+        <span>닉네임</span>
+        <input id="nameInput" maxlength="12" placeholder="서점에서 쓸 이름" enterkeyhint="go" />
+      </label>
+      <div class="field"><span>옷</span><div id="topSwatches" class="swatches"></div></div>
+      <div class="field"><span>머리</span><div id="hairSwatches" class="swatches"></div></div>
+      <div class="field"><span>피부</span><div id="skinSwatches" class="swatches"></div></div>
+      <div class="field hidden" id="roomField"><span>방</span>
+        <select id="roomSelect"><option value="">빈자리 있는 방으로</option></select>
+      </div>
+      <label class="check"><input type="checkbox" id="soundOnEnter" checked /> 음악 · 장작 · 책장 소리와 함께</label>
+      <button class="btn primary big" type="submit">서점 문 열고 들어가기</button>
+      <p class="tiny" id="entryInfo">가입 없이 닉네임만 · 같은 시간에 온 손님들과 함께 보여요</p>
+    </form>
+  </div>
+
+  <!-- 화면 위 UI -->
+  <div id="hud" class="hidden">
+    <div class="topbar">
+      <div class="chip brand"><b>MK 서점</b><em id="roomNo"></em><i id="statusDot" class="dot"></i><span id="count">혼자 머무는 중</span></div>
+      <div class="buttons">
+        <button id="btnRain" class="round off" title="빗소리" type="button" aria-label="빗소리">☔</button>
+        <button id="btnNight" class="round" title="낮 · 밤" type="button" aria-label="낮 밤 바꾸기">☀️</button>
+        <button id="btnSound" class="round off" title="소리 켜기" type="button" aria-label="소리">🔈</button>
+      </div>
+    </div>
+    <div id="hint" class="hint"></div>
+    <div id="toast" class="toast"></div>
+    <div id="card" class="card">
+      <button id="cardClose" class="x" type="button" aria-label="닫기">×</button>
+      <div id="cardBody"></div>
+    </div>
+    <div id="chatLog" class="chat-log"></div>
+    <form id="chatBar" class="chat-bar hidden" autocomplete="off">
+      <input id="chatInput" maxlength="80" placeholder="가까이 있는 사람에게만 보여요" enterkeyhint="send" />
+      <button class="btn primary" type="submit">말하기</button>
+    </form>
+    <div class="bottombar">
+      <button id="btnBasket" class="tab" type="button"><span class="ico">🧺</span><span>책바구니</span><i id="basketCount" class="badge hidden">0</i></button>
+      <button id="btnChat" class="tab" type="button"><span class="ico">💬</span><span>말하기</span></button>
+      <button id="btnDrink" class="tab" type="button"><span class="ico">☕</span><span>음료</span></button>
+      <button id="btnWave" class="tab" type="button"><span class="ico">👋</span><span>인사</span></button>
+    </div>
+    <button id="petBubble" class="pet-bubble" type="button">🤚 <span>쓰다듬기</span></button>
+  </div>
+
+  <!-- 펼친 책 · 책바구니 · 음료 · 건의함 (아래에서 올라오는 판) -->
+  <div id="sheet" class="sheet-wrap hidden">
+    <div class="sheet panel" role="dialog" aria-modal="true">
+      <button id="sheetClose" class="x" type="button" aria-label="닫기">×</button>
+      <div id="sheetBody"></div>
+    </div>
+  </div>
+
+  <noscript>이 서점은 자바스크립트가 필요해요.</noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
