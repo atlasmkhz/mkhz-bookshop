@@ -49,6 +49,7 @@ export class UI {
     $('#btnChat').addEventListener('click', () => this.toggleChat());
     $('#cardClose').addEventListener('click', () => this.hideCard());
     $('#sheetClose').addEventListener('click', () => this.closeSheet());
+    $('#sheetBody').addEventListener('scroll', (e) => { if (this.sheetKind === 'basket') this.scrollKeep = e.target.scrollTop; }, { passive: true });
     $('#sheet').addEventListener('click', (e) => { if (e.target.id === 'sheet') this.closeSheet(); });
     $('#chatBar').addEventListener('submit', (e) => {
       e.preventDefault();
@@ -297,7 +298,7 @@ export class UI {
   openSheet(html) {
     $('#sheetBody').innerHTML = html;
     $('#sheet').classList.remove('hidden');
-    $('#sheet .sheet').scrollTop = 0;
+    $('#sheetBody').scrollTop = 0;
     this.hideCard();
     this.onSheet?.(true);
   }
@@ -418,9 +419,7 @@ export class UI {
     document.querySelectorAll('#sheetBody [data-book]').forEach((el) => el.addEventListener('click', () => this.openBook(el.dataset.book)));
     document.querySelectorAll('#sheetBody [data-remove]').forEach((el) => el.addEventListener('click', () => { this.toggleBasket(el.dataset.remove); this.openBasket('basket'); }));
     this.bindReadLinks();
-    const sheet = document.querySelector('#sheet .sheet');
-    if (tab !== 'basket' && this.scrollKeep) sheet.scrollTop = this.scrollKeep;
-    sheet.addEventListener('scroll', () => { this.scrollKeep = sheet.scrollTop; }, { passive: true });
+    if (tab !== 'basket' && this.scrollKeep) $('#sheetBody').scrollTop = this.scrollKeep;
   }
   openCatalog(field, grade = null) { this.scrollKeep = 0; this.openBasket('shelf', null, field, grade); }
   openTools() { this.scrollKeep = 0; this.openBasket('tools'); }
