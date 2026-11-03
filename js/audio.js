@@ -1,6 +1,19 @@
 // Web Audio로 만드는 소리: 빗소리, 장작 타는 소리, 책장 넘기는 소리, 시냇물, 새 · 풀벌레, 골골송, 야옹 + 배경 음악
 import { CONFIG } from './config.js';
 
+// 필사 연필 소리 종류 (config.js 의 pencil 로 고름)
+// density: 1초에 종이 결 '톡' 수 · tau: 톡 하나가 사그라드는 시간(ms) · grit: 톡의 거칠기 · hiss: 옅은 마찰음
+// stroke: 한 획 길이(ms) · shape: 속도 곡선 뾰족함 · curve: 굽은 획 비율 · per: 글자당 획 수 · gap/charGap: 쉬는 틈(ms)
+// hp · lp: 낮은 · 높은 소리 자르기(Hz) · peak/peakGain: 몸통 소리 · vol: 크기 · jitter: 획마다 빠르기 흔들림
+export const PENCILS = {
+  hb:     { name: '연필 HB · 기본',      density: 2600, tau: 0.35, grit: 1.6, hiss: 0.10, stroke: [70, 150],  shape: 0.8, curve: 0.35, per: [2, 3], gap: [10, 30], charGap: [25, 55], hp: 700,  lp: 5200, peak: 2400, peakGain: 3, vol: 1.0,  jitter: 0.25 },
+  soft4b: { name: '부드러운 4B 연필',    density: 4200, tau: 0.6,  grit: 0.9, hiss: 0.18, stroke: [100, 210], shape: 0.6, curve: 0.45, per: [2, 3], gap: [15, 35], charGap: [35, 70], hp: 380,  lp: 2900, peak: 1300, peakGain: 4, vol: 1.0,  jitter: 0.2 },
+  coarse: { name: '서걱서걱 · 거친 종이', density: 900,  tau: 0.9,  grit: 3.0, hiss: 0.04, stroke: [80, 170],  shape: 0.7, curve: 0.3,  per: [2, 3], gap: [12, 30], charGap: [30, 60], hp: 550,  lp: 4200, peak: 1800, peakGain: 5, vol: 1.05, jitter: 0.3 },
+  sharp:  { name: '가는 샤프',           density: 1500, tau: 0.22, grit: 1.2, hiss: 0.06, stroke: [45, 100],  shape: 1.0, curve: 0.25, per: [2, 4], gap: [8, 22],  charGap: [20, 45], hp: 1400, lp: 6500, peak: 3200, peakGain: 2, vol: 0.75, jitter: 0.3 },
+  asmr:   { name: '아주 작게 · 속삭이듯', density: 3200, tau: 0.5,  grit: 1.0, hiss: 0.14, stroke: [90, 190],  shape: 0.6, curve: 0.4,  per: [2, 3], gap: [15, 35], charGap: [35, 70], hp: 300,  lp: 3600, peak: 900,  peakGain: 5, vol: 0.5,  jitter: 0.2 },
+  fountain: { name: '만년필 · 사르륵',   density: 300,  tau: 0.4,  grit: 0.5, hiss: 0.55, stroke: [90, 220],  shape: 0.5, curve: 0.5,  per: [1, 2], gap: [20, 45], charGap: [40, 80], hp: 900,  lp: 3400, peak: 2000, peakGain: 6, vol: 0.7,  jitter: 0.15 },
+};
+
 export class Sound {
   constructor() {
     this.ctx = null;
@@ -10,6 +23,7 @@ export class Sound {
     this.rain = false;
     this.focus = 0;
     this.penVol = 0.16;   // 연필 소리 크기 (배경 위로 은은하게)
+    this.pencil = CONFIG.pencil || 'hb';
     this.musicOn = true;
   }
 
@@ -318,77 +332,81 @@ export class Sound {
     }
   }
 
-  // 연필 획 소리 재료: 흑연이 종이 결을 긁는 거친 소리 (처음 한 번 여러 가지를 만들어 둠)
-  // 하얀 잡음 × 종이 결(느리게 출렁이는 거칠기) → 부드럽게 들어갔다 빠지는 한 획
+  // 연필 획 소리 재료 (처음 한 번, 고른 종류로 열 가지 획을 만들어 둠)
+  // 진짜 연필 소리 = 종이 결에 흑연이 걸리는 아주 작은 '톡'들이 촘촘히 이어진 것(알갱이) + 옅은 마찰 쉬익.
+  // 한 획 안에서 손이 빨라졌다 느려지는 만큼 소리도 커졌다 작아짐 (속도 곡선, 굽은 획은 두 번 부풂)
   pencilBufs() {
-    if (this._pencil) return this._pencil;
+    const P = PENCILS[this.pencil] || PENCILS.hb;
+    if (this._pencil && this._pencilKey === this.pencil) return this._pencil;
     const ctx = this.ctx, sr = ctx.sampleRate, out = [];
     for (let v = 0; v < 10; v++) {
-      const dur = 0.07 + Math.random() * 0.16;
+      const dur = (P.stroke[0] + Math.random() * (P.stroke[1] - P.stroke[0])) / 1000;
       const n = Math.floor(sr * dur);
       const b = ctx.createBuffer(1, n, sr), d = b.getChannelData(0);
-      let lp1 = 0, lp2 = 0, grainLp = 0, hp = 0, prev = 0, rms = 0;
-      const grainK = 1 - Math.exp(-2 * Math.PI * (90 + Math.random() * 80) / sr);   // 종이 결 출렁임
-      const toneK = 1 - Math.exp(-2 * Math.PI * (1800 + Math.random() * 700) / sr);  // 위쪽을 둥글게 (날카로움 빼기)
-      const press = 0.7 + Math.random() * 0.3;
+      const decay = Math.exp(-1 / (sr * P.tau / 1000));
+      const hump2 = Math.random() < P.curve;
+      let g = 0, rms = 0, smooth = 0;
+      const sk = 1 - Math.exp(-2 * Math.PI * 9000 / sr);
       for (let i = 0; i < n; i++) {
-        const w = Math.random() * 2 - 1;
-        grainLp += (Math.random() * 2 - 1 - grainLp) * grainK;
-        const grain = Math.min(1, 0.35 + Math.abs(grainLp) * 3.2);
-        // 가끔 흑연 알갱이가 톡 걸리는 작은 튐
-        const tick = Math.random() < 0.0016 ? (Math.random() * 2 - 1) * 2.2 : 0;
-        lp1 += (w * grain + tick - lp1) * toneK;
-        lp2 += (lp1 - lp2) * toneK;
-        hp = 0.985 * (hp + lp2 - prev); prev = lp2;      // 낮은 웅웅 빼기
         const t = i / n;
-        const env = Math.min(1, t / 0.12) ** 1.6 * Math.min(1, (1 - t) / 0.28) ** 1.3 * (1 - 0.25 * t) * press;
-        d[i] = hp * env;
+        // 손 속도: 들어가며 빨라지고 끝에서 느려짐 (굽은 획은 가운데서 한 번 느려짐)
+        let vel = Math.sin(Math.PI * Math.min(1, t * 1.05)) ** P.shape;
+        if (hump2) vel *= 0.55 + 0.45 * Math.abs(Math.cos(Math.PI * t * 1.6));
+        // 알갱이: 속도가 빠를수록 촘촘
+        if (Math.random() < (P.density * (0.3 + vel)) / sr) g += 0.4 + Math.random() ** 2 * P.grit;
+        g *= decay;
+        const w = Math.random() * 2 - 1;
+        smooth += (w - smooth) * sk;
+        d[i] = smooth * (P.hiss + g) * vel;
         rms += d[i] * d[i];
       }
       rms = Math.sqrt(rms / n) || 1;
       for (let i = 0; i < n; i++) d[i] *= 0.12 / rms;
       out.push(b);
     }
+    this._pencilKey = this.pencil;
     return (this._pencil = out);
   }
 
-  // 연필 서걱서걱: 글자 하나에 짧은 획 두세 번. 빨리 써도 소리가 겹쳐 쌓이지 않게 차례로 이어 붙임
+  // 연필 소리: 글자 하나에 두세 획. 빨리 써도 소리가 겹쳐 쌓이지 않게 차례로 이어 붙임
   pen(n = 1) {
     if (!this.enabled || !this.ctx) return;
+    const P = PENCILS[this.pencil] || PENCILS.hb;
     const ctx = this.ctx, bufs = this.pencilBufs();
     const now = ctx.currentTime;
     let t = Math.max(now + 0.005, this.penUntil || 0);
     if (t > now + 0.5) return;   // 너무 밀리면 건너뜀
     for (let c = 0; c < n; c++) {
-      const strokes = 2 + (Math.random() < 0.45 ? 1 : 0);
+      const strokes = P.per[0] + Math.floor(Math.random() * (P.per[1] - P.per[0] + 1));
       for (let k = 0; k < strokes; k++) {
         const b = bufs[Math.floor(Math.random() * bufs.length)];
         const src = ctx.createBufferSource(); src.buffer = b;
-        src.playbackRate.value = 0.85 + Math.random() * 0.3;
-        const body = ctx.createBiquadFilter(); body.type = 'peaking'; body.frequency.value = 1300 + Math.random() * 600; body.Q.value = 0.8; body.gain.value = 4;
-        const soft = ctx.createBiquadFilter(); soft.type = 'lowpass'; soft.frequency.value = 3200 + Math.random() * 600; soft.Q.value = 0.5;
-        const low = ctx.createBiquadFilter(); low.type = 'highpass'; low.frequency.value = 450; low.Q.value = 0.5;
-        const g = ctx.createGain(); g.gain.value = (0.75 + Math.random() * 0.4) * this.penVol;
+        src.playbackRate.value = 1 + (Math.random() - 0.5) * P.jitter;
+        const low = ctx.createBiquadFilter(); low.type = 'highpass'; low.frequency.value = P.hp; low.Q.value = 0.6;
+        const body = ctx.createBiquadFilter(); body.type = 'peaking'; body.frequency.value = P.peak * (0.85 + Math.random() * 0.3); body.Q.value = 0.8; body.gain.value = P.peakGain;
+        const soft = ctx.createBiquadFilter(); soft.type = 'lowpass'; soft.frequency.value = P.lp; soft.Q.value = 0.55;
+        const g = ctx.createGain(); g.gain.value = (0.8 + Math.random() * 0.35) * P.vol * this.penVol;
         src.connect(low).connect(body).connect(soft).connect(g).connect(this.fxOut);
         src.start(t);
-        t += b.duration / src.playbackRate.value * (0.75 + Math.random() * 0.2) + 0.01 + Math.random() * 0.03;
+        t += b.duration / src.playbackRate.value + (P.gap[0] + Math.random() * (P.gap[1] - P.gap[0])) / 1000;
       }
-      t += 0.025 + Math.random() * 0.03;
+      t += (P.charGap[0] + Math.random() * (P.charGap[1] - P.charGap[0])) / 1000;
     }
     this.penUntil = t;
   }
-  // 마침표 · 쉼표: 연필 끝을 종이에 콕 (낮고 부드럽게)
+  // 마침표 · 쉼표: 연필 끝을 종이에 콕
   penDot() {
     if (!this.enabled || !this.ctx) return;
+    const P = PENCILS[this.pencil] || PENCILS.hb;
     const ctx = this.ctx, b = this.pencilBufs()[0];
     const t = Math.max(ctx.currentTime + 0.005, this.penUntil || 0);
-    const src = ctx.createBufferSource(); src.buffer = b; src.playbackRate.value = 1.6;
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
+    const src = ctx.createBufferSource(); src.buffer = b; src.playbackRate.value = 1.5;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(P.lp, 2600);
     const g = ctx.createGain();
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(3.2 * this.penVol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(2.2 * P.vol * this.penVol, t + 0.005); g.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
     src.connect(lp).connect(g).connect(this.fxOut);
     src.start(t); src.stop(t + 0.06);
-    this.penUntil = t + 0.07;
+    this.penUntil = t + 0.08;
   }
   // 필사 · 불멍 · 별멍처럼 한곳에 마음 두는 동안 배경 소리를 낮춤 (0 = 평소, 1 = 많이 낮춤)
   setFocus(k) { this.focus = k; this.mix(); }
