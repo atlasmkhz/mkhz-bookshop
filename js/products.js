@@ -83,7 +83,7 @@ function squarePanel(w, h, sw, sh, mat, sx = 0) {
   m.castShadow = m.receiveShadow = true;
   return m;
 }
-const white = () => (white._m ||= new THREE.MeshStandardMaterial({ color: '#f4f0e8', roughness: 0.82 }));
+const white = () => (white._m ||= new THREE.MeshStandardMaterial({ color: '#faf8f4', roughness: 0.55 }));
 const pine = () => M.woodLight();
 // 상자 하나: 바닥 · 뒤 · 양옆 · 위 + 앞판(아치 · 네모 구멍 · 막힘 · 없음). x0~x1, y0~y1, 깊이 D(앞이 +z)
 function box(g, x0, x1, y0, y1, D, mat, front = 'open', o = {}) {
@@ -128,6 +128,66 @@ function zigzag(g, steps, D, w, mat, dir = -1) {
 function felt(g, x, y, color = '#d9d2c6') {
   const m = mesh(rbox(U - 0.06, 0.018, U - 0.06, 0.008), M.fabric(color), x, y + 0.009, 0);
   g.add(m);
+}
+
+
+// ---------- 구멍 뚫린 판 (공통) ----------
+// cuts: [{ t: 'arch'|'circle'|'square'|'paw'|'cat'|'slot'|'notch', x, y, w, h, r }] — 판 가운데 기준 좌표(m). 아치 · 네모는 y 가 아래 끝
+function cutPanel(w, h, mat, cuts = [], thick = T, bevel = 0.003) {
+  const s = new THREE.Shape();
+  s.moveTo(-w / 2, -h / 2); s.lineTo(w / 2, -h / 2); s.lineTo(w / 2, h / 2); s.lineTo(-w / 2, h / 2); s.lineTo(-w / 2, -h / 2);
+  for (const c of cuts) {
+    const hl = new THREE.Path();
+    if (c.t === 'arch') { const r = c.w / 2; hl.moveTo(c.x - r, c.y); hl.lineTo(c.x - r, c.y + c.h - r); hl.absarc(c.x, c.y + c.h - r, r, Math.PI, 0, true); hl.lineTo(c.x + r, c.y); hl.lineTo(c.x - r, c.y); }
+    else if (c.t === 'circle') hl.absarc(c.x, c.y, c.r, 0, Math.PI * 2, true);
+    else if (c.t === 'square') { const rr = 0.012; hl.moveTo(c.x - c.w / 2 + rr, c.y); hl.lineTo(c.x + c.w / 2 - rr, c.y); hl.quadraticCurveTo(c.x + c.w / 2, c.y, c.x + c.w / 2, c.y + rr); hl.lineTo(c.x + c.w / 2, c.y + c.h - rr); hl.quadraticCurveTo(c.x + c.w / 2, c.y + c.h, c.x + c.w / 2 - rr, c.y + c.h); hl.lineTo(c.x - c.w / 2 + rr, c.y + c.h); hl.quadraticCurveTo(c.x - c.w / 2, c.y + c.h, c.x - c.w / 2, c.y + c.h - rr); hl.lineTo(c.x - c.w / 2, c.y + rr); hl.quadraticCurveTo(c.x - c.w / 2, c.y, c.x - c.w / 2 + rr, c.y); }
+    else if (c.t === 'slot') { const r = c.w / 2; hl.moveTo(c.x - r, c.y + r); hl.lineTo(c.x - r, c.y + c.h - r); hl.absarc(c.x, c.y + c.h - r, r, Math.PI, 0, true); hl.lineTo(c.x + r, c.y + r); hl.absarc(c.x, c.y + r, r, 0, Math.PI, true); }
+    else if (c.t === 'paw') {
+      // 발자국: 큰 타원 하나 + 발가락 넷 (구멍 다섯)
+      const r = c.r || 0.02;
+      const pad = new THREE.Path(); pad.absellipse(c.x, c.y, r * 1.1, r * 0.95, 0, Math.PI * 2, true); s.holes.push(pad);
+      for (const [dx, dy, k] of [[-1.55, 1.05, 0.46], [-0.55, 1.65, 0.5], [0.55, 1.65, 0.5], [1.55, 1.05, 0.46]]) { const t = new THREE.Path(); t.absarc(c.x + dx * r, c.y + dy * r, r * k, 0, Math.PI * 2, true); s.holes.push(t); }
+      continue;
+    } else if (c.t === 'cat') {
+      // 고양이 얼굴: 둥근 머리 + 귀 둘
+      const r = c.r || 0.085, cy = c.y, cx = c.x;
+      hl.moveTo(cx - r * 0.92, cy + r * 0.38); hl.lineTo(cx - r * 0.98, cy + r * 1.28); hl.lineTo(cx - r * 0.42, cy + r * 0.9); hl.lineTo(cx + r * 0.42, cy + r * 0.9); hl.lineTo(cx + r * 0.98, cy + r * 1.28); hl.lineTo(cx + r * 0.92, cy + r * 0.38);
+      hl.absarc(cx, cy, r, Math.asin(0.38), Math.PI - Math.asin(0.38), true);
+    } else if (c.t === 'notch') { hl.absarc(c.x, c.y, c.r, 0, Math.PI * 2, true); }
+    s.holes.push(hl);
+  }
+  const geo = new THREE.ExtrudeGeometry(s, { depth: thick, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 1, curveSegments: 22 });
+  geo.translate(0, 0, -thick / 2);
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 1.6, uv.getY(i) * 1.6);
+  const m = new THREE.Mesh(geo, mat);
+  m.castShadow = m.receiveShadow = true;
+  return m;
+}
+// 흰 상자 (앞판에 구멍 목록). x0~x1, y0~y1, 깊이 D(앞이 +z). 뒤판은 o.back !== false 일 때
+function whiteBox(g, x0, x1, y0, y1, D, cuts = [], o = {}) {
+  const wh = white(), w = x1 - x0, h = y1 - y0, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  plank(g, w, T, D, cx, y0 + T / 2, 0, o.floorMat || pine(), 0.003);
+  plank(g, w, T, D, cx, y1 - T / 2, 0, o.topMat || pine(), 0.003);
+  plank(g, T, h - T * 2, D, x0 + T / 2, cy, 0, wh, 0.003);
+  plank(g, T, h - T * 2, D, x1 - T / 2, cy, 0, wh, 0.003);
+  if (o.back !== false) plank(g, w - T * 2, h - T * 2, T, cx, cy, -D / 2 + T / 2, wh, 0.003);
+  if (o.front !== false) { const f = cutPanel(w - T * 2 + 0.002, h - T * 2 + 0.002, wh, cuts); f.position.set(cx, cy, D / 2 - T / 2); g.add(f); }
+  return { cx, cy, w, h };
+}
+// 투명 해먹 (지름 30 cm 반구 그릇, 위판에 끈 셋으로 매달림)
+function hammock(g, x, yTop, z = 0, r = 0.15) {
+  const mat = new THREE.MeshPhysicalMaterial({ color: '#e8f3f7', transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false });
+  const bowl = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), mat);
+  bowl.position.set(x, yTop - 0.05, z); g.add(bowl);
+  g.add(mesh(new THREE.TorusGeometry(r, 0.006, 8, 32).rotateX(Math.PI / 2), M.color('#d9d2c6', 0.8), x, yTop - 0.05, z));
+  for (const a of [0.3, 2.4, 4.4]) g.add(mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.05, 4), M.color('#c9bfae', 1), x + Math.cos(a) * r, yTop - 0.025, z + Math.sin(a) * r));
+  return bowl;
+}
+// 매달린 장난감 (끈 + 나무 원반)
+function hangToy(g, x, yTop, len, z = 0) {
+  g.add(mesh(new THREE.CylinderGeometry(0.0025, 0.0025, len, 4), M.color('#d8cdb8', 1), x, yTop - len / 2, z));
+  g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.012, 16), M.woodMid(), x, yTop - len, z));
 }
 
 // ---------- 오르미캣타워 (실제 치수: 가로 120 × 폭 40 × 높이 144.2 cm) ----------
@@ -276,84 +336,92 @@ const ORMI_NAV = {
 export function buildCustomBModel() {
   const g = new THREE.Group();
   const D = 0.46, H = 1.798, wd = pine(), wh = white();
-  // 왼쪽 기둥 (x -1.25 ~ -0.85)
+  const hs = (x0, x1, yTop, d = D, z = 0) => plank(g, x1 - x0, T, d, (x0 + x1) / 2, yTop - T / 2, z, wd, 0.003);
+  const vs = (x, y0, y1, d = D, z = 0) => plank(g, T, y1 - y0, d, x, (y0 + y1) / 2, z, wd, 0.003);
+  // ===== 왼쪽 기둥 40 (x -1.25 ~ -0.85): 위부터 해먹 칸 23.8 · 서랍 26 · 서랍 29.2 · 열린 칸 29.2 · 문 60.4 =====
   {
-    const x0 = -1.25, x1 = -0.85;
-    plank(g, T, H, D, x0 + T / 2, H / 2, 0, wd, 0.004);
-    plank(g, T, H, D, x1 - T / 2, H / 2, 0, wd, 0.004);
-    plank(g, x1 - x0 - T * 2, H - T * 2, T, (x0 + x1) / 2, H / 2, -D / 2 + T / 2, wd, 0.004);
-    for (const y of [0.009, 0.635, 0.945, 1.255, 1.533, 1.789]) plank(g, x1 - x0, T, D, (x0 + x1) / 2, y, 0, wd, 0.004);
-    // 흰 문(맨 아래) · 흰 서랍 둘
-    const fw = x1 - x0 - T * 2 - 0.004;
-    plank(g, fw, 0.6, T, (x0 + x1) / 2, 0.018 + 0.3, D / 2 - T / 2, wh, 0.004);
-    plank(g, fw, 0.28, T, (x0 + x1) / 2, 0.644 + 0.14, D / 2 - T / 2, wh, 0.004);
-    plank(g, fw, 0.28, T, (x0 + x1) / 2, 0.954 + 0.14, D / 2 - T / 2, wh, 0.004);
-    for (const y of [0.32, 0.784, 1.094]) plank(g, 0.05, 0.012, 0.01, (x0 + x1) / 2, y, D / 2 + 0.004, M.woodMid(), 0.003);
-    pad(g, (x0 + x1) / 2, 1.264, 0.34, 0.38);
+    const x0 = -1.25, x1 = -0.85, xi0 = x0 + T, xi1 = x1 - T, cx = (x0 + x1) / 2;
+    vs(x0 + T / 2, 0, H); vs(x1 - T / 2, 0, H);
+    plank(g, x1 - x0 - T * 2, H - T * 2, T, cx, H / 2, -D / 2 + T / 2, wd, 0.003);
+    for (const y of [T, 0.64, 0.95, 1.26, 1.538, H]) hs(x0, x1, y);
+    const fw = xi1 - xi0 - 0.004, fz = D / 2 - T / 2;
+    // 문 (60.4) — 아래 가운데 발자국
+    { const f = cutPanel(fw, 0.622 - T - 0.004, wh, [{ t: 'paw', x: 0, y: -0.2, r: 0.02 }]); f.position.set(cx, (T + 0.622) / 2, fz); g.add(f); }
+    plank(g, 0.012, 0.09, 0.012, cx + 0.14, 0.38, D / 2 + 0.004, M.woodMid(), 0.003);   // 문 손잡이
+    // 열린 칸 (29.2) 펠트
+    pad(g, cx, 0.64, fw - 0.03, D - 0.1);
+    // 서랍 둘 — 위 가운데 손가락 구멍
+    for (const [y0, y1] of [[0.95, 1.242], [1.26, 1.52]]) { const f = cutPanel(fw, y1 - y0 - 0.006, wh, [{ t: 'notch', x: 0, y: (y1 - y0) / 2 - 0.035, r: 0.016 }]); f.position.set(cx, (y0 + y1) / 2, fz); g.add(f); }
+    // 해먹 칸 (23.8): 투명 해먹
+    hammock(g, cx, H - T, 0.02, 0.15);
   }
-  // 가운데 흰 상자들 (x -0.85 ~ 0.05)
+  // ===== 가운데 90 (x -0.85 ~ 0.05): 흰 상자를 계단처럼 =====
   {
     const x0 = -0.85, x1 = 0.05;
-    box(g, x0, x1, 0.0, 0.31, D, wh, 'square', { sw: 0.18, sh: 0.17, sx: -0.3 });          // 맨 아래: 네모 입구
-    const f1 = archPanel(0.3, 0.27, 0.18, 0.22, wh, 0.0);                                 // 맨 아래 오른쪽 아치
-    f1.position.set(x1 - 0.2, 0.155, D / 2 - T / 2 + 0.001); g.add(f1);
-    box(g, x0, x1, 0.31, 0.60, D, wh, 'arch', { aw: 0.19, ah: 0.24, ax: 0.1 });
-    pad(g, x0 + 0.25, 0.60, 0.3, 0.2, '#d9d2c6', D / 2 + 0.08);                          // 튀어나온 발판
-    plank(g, 0.3, T, 0.2, x0 + 0.25, 0.60 - T / 2, D / 2 + 0.08, wd, 0.004);
-    box(g, x0, x1, 0.60, 0.90, D, wh, 'arch', { aw: 0.19, ah: 0.24, ax: -0.2 });
-    pad(g, x1 - 0.2, 0.90, 0.3, 0.2, '#d9d2c6', D / 2 + 0.08);
-    plank(g, 0.3, T, 0.2, x1 - 0.2, 0.90 - T / 2, D / 2 + 0.08, wd, 0.004);
-    box(g, x0, x0 + 0.5, 0.90, 1.20, D, wh, 'arch', { aw: 0.18, ah: 0.23, ax: 0.08, paw: [-0.17, -0.06] });
-    plank(g, 0.4, T, D, x1 - 0.2, 1.20 - T / 2, 0, wd, 0.004);                           // 오른쪽 위 나무 선반 (46 cm)
-    box(g, x0, x0 + 0.4, 1.20, 1.50, D, wh, 'solid', { paw: [-0.12, -0.08] });            // 맨 위 흰 상자
-    plank(g, x1 - x0, T, D, (x0 + x1) / 2, 1.789, 0, wd, 0.004);                         // 상판
-    plank(g, T, H, D, x1 - T / 2, H / 2, 0, wd, 0.004);                                   // 가운데·오른쪽 사이 기둥
-    pad(g, x0 + 0.2, 1.50, 0.34, 0.38, '#cfc6b8');
+    vs(x1 - T / 2, 0, H);                                                                         // 가운데 · 오른쪽 사이 기둥
+    hs(x0, x1, T); hs(x0, x1, H);
+    whiteBox(g, x0, x1, T, 0.31, D, [{ t: 'square', x: -0.3, y: -0.12, w: 0.18, h: 0.17 }, { t: 'arch', x: 0.25, y: -0.135, w: 0.19, h: 0.24 }]);     // 1층: 네모 입구 · 아치
+    whiteBox(g, x0, x1, 0.31, 0.60, D, [{ t: 'arch', x: 0.1, y: -0.13, w: 0.19, h: 0.24 }]);                                                      // 2층
+    hs(x0 + 0.1, x0 + 0.4, 0.60, 0.2, D / 2 + 0.08); pad(g, x0 + 0.25, 0.60, 0.27, 0.17, '#d9d2c6', D / 2 + 0.08);                              // 튀어나온 발판 30 × 20
+    whiteBox(g, x0, x1 - 0.2, 0.60, 0.90, D, [{ t: 'arch', x: -0.15, y: -0.13, w: 0.19, h: 0.24 }]);                                              // 3층 (70)
+    hs(x1 - 0.35, x1 - 0.05, 0.90, 0.2, D / 2 + 0.08); pad(g, x1 - 0.2, 0.90, 0.27, 0.17, '#d9d2c6', D / 2 + 0.08);
+    whiteBox(g, x0, x0 + 0.55, 0.90, 1.20, D, [{ t: 'arch', x: 0.12, y: -0.13, w: 0.18, h: 0.23 }, { t: 'paw', x: -0.17, y: -0.06, r: 0.016 }]);   // 4층 (55)
+    hs(x0 + 0.55, x1, 1.20);                                                                      // 나무 선반 46 (계단 도착)
+    pad(g, x0 + 0.55 + 0.17, 1.20, 0.3, D - 0.12);
+    whiteBox(g, x0, x0 + 0.40, 1.20, 1.50, D, [{ t: 'paw', x: -0.1, y: -0.07, r: 0.018 }]);                                                       // 5층 (40) 막힌 앞판
+    pad(g, x0 + 0.2, 1.50, 0.34, D - 0.1, '#cfc6b8');
+    vs(x0 + 0.55, 1.20, 1.46, D - 0.02); hs(x0 + 0.55, x0 + 0.8, 1.46, D - 0.02);                // 26 단 (선반 위 작은 디딤)
+    pad(g, x0 + 0.675, 1.46, 0.2, D - 0.14);
+    hangToy(g, x0 + 0.68, H - T, 0.62);                                                           // 매달린 장난감
   }
-  // 오른쪽 세 줄 (x 0.05 ~ 1.25)
+  // ===== 오른쪽 120 (x 0.05 ~ 1.25): 37.6 칸 세 줄 =====
   {
     const x0 = 0.05, x1 = 1.25;
     const div = [0.059, 0.453, 0.847, 1.241];
     const cols = [0.256, 0.65, 1.044];
-    for (const x of div) plank(g, T, H, D, x, H / 2, 0, wd, 0.004);
-    plank(g, x1 - x0, T, D, (x0 + x1) / 2, 0.009, 0, wd, 0.004);
-    plank(g, x1 - x0, T, D, (x0 + x1) / 2, 1.789, 0, wd, 0.004);
-    plank(g, x1 - x0, T, D, (x0 + x1) / 2, 1.415, 0, wd, 0.004);
-    // 맨 윗칸 뒤판 둥근 구멍
-    for (const cx of cols) { const bp = holePanel(0.376, 0.356, 0.1, 0, wd); bp.position.set(cx, 1.602, -D / 2 + T / 2); g.add(bp); }
-    // 그 아래 뒤판(열린 느낌으로 얇게)
-    plank(g, x1 - x0 - T * 2, 1.4, T, (x0 + x1) / 2, 0.72, -D / 2 + T / 2, wd, 0.004);
-    plank(g, 0.376, T, D, cols[0], 0.947, 0, wd, 0.004);                                  // 1열 선반 (계단 도착)
-    plank(g, 0.376, T, D, cols[1], 1.059, 0, wd, 0.004);
-    plank(g, 0.376, T, D, cols[2], 1.059, 0, wd, 0.004);
-    plank(g, 0.376, T, D, cols[2], 0.703, 0, wd, 0.004);
-    // 오른쪽 위 흰 숨숨집 (33.8)
-    box(g, 0.856, 1.232, 1.068, 1.406, D - 0.02, wh, 'arch', { aw: 0.17, ah: 0.24, ax: 0.03, paw: [-0.13, -0.08], back: false });
-    pad(g, cols[1], 1.068, 0.3, 0.38);
-    // 지그재그 계단 (오른쪽 아래 → 1열 선반)
-    zigzag(g, [[1.14, 0.18], [0.95, 0.36], [0.76, 0.54], [0.57, 0.72], [0.38, 0.90]], D, 0.19, wd);
-    pad(g, cols[0], 0.018, 0.3, 0.38, '#e5d9c6');
+    for (const x of div) vs(x, 0, H);
+    hs(x0, x1, T); hs(x0, x1, H);
+    // 맨 윗칸 (33.8 · 45 · 33.8) 뒤판 둥근 구멍
+    for (const [cx, y0] of [[cols[0], 1.442], [cols[1], 1.33], [cols[2], 1.442]]) {
+      hs(cx - 0.188, cx + 0.188, y0);
+      const bp = cutPanel(0.376, H - T - y0 - 0.002, wd, [{ t: 'circle', x: 0, y: 0.0, r: 0.1 }], T, 0);
+      bp.position.set(cx, (y0 + H - T) / 2, -D / 2 + T / 2); g.add(bp);
+    }
+    // 1열: 아래 칸 29.2 · 흰 상자 29.4 (0.5~0.794, 아치 · 발자국) · 위는 트임
+    hs(cols[0] - 0.188, cols[0] + 0.188, 0.31);
+    whiteBox(g, 0.068, 0.444, 0.5, 0.794, D - 0.02, [{ t: 'arch', x: 0.09, y: -0.13, w: 0.17, h: 0.23 }, { t: 'paw', x: -0.11, y: -0.07, r: 0.015 }], { back: false });
+    pad(g, cols[0], 0.794, 0.3, D - 0.12);
+    pad(g, cols[0], T, 0.3, D - 0.1, '#e5d9c6');
+    // 2열: 낮은 선반 16
+    hs(cols[1] - 0.188, cols[1] + 0.188, 0.178);
+    // 3열: 흰 숨숨집 33.8 (1.086~1.424, 아치 · 발자국) · 아래 열린 칸 펠트
+    whiteBox(g, 0.856, 1.232, 1.086, 1.424, D - 0.02, [{ t: 'arch', x: 0.05, y: -0.135, w: 0.17, h: 0.24 }, { t: 'paw', x: -0.12, y: -0.08, r: 0.015 }], { back: false });
+    hs(cols[2] - 0.188, cols[2] + 0.188, 0.73); pad(g, cols[2], 0.73, 0.3, D - 0.12);
+    // 지그재그 계단: 3열 오른쪽 반(0.2) → 3열 왼쪽 반(0.38) → 2열 오른쪽(0.56) → 2열 왼쪽(0.74) → 1열 흰 상자 위(0.794)
+    hs(1.044, 1.232, 0.2); pad(g, 1.138, 0.2, 0.16, D - 0.12); vs(1.044, 0.2, 0.38, D - 0.01);
+    hs(0.856, 1.044, 0.38); pad(g, 0.95, 0.38, 0.16, D - 0.12);
+    hs(0.65, 0.838, 0.56); pad(g, 0.744, 0.56, 0.16, D - 0.12); vs(0.65, 0.56, 0.74, D - 0.01);
+    hs(0.462, 0.65, 0.74); pad(g, 0.556, 0.74, 0.16, D - 0.12);
   }
   return g;
 }
 const CUSTOMB_NAV = {
   path: [
     [1.14, 0, 0.7],
-    [1.14, 0.2, 0.05],
+    [1.138, 0.2, 0.0],
     [0.95, 0.38, 0.0],
-    [0.76, 0.56, 0.0],
-    [0.57, 0.74, 0.0],
-    [0.38, 0.92, 0.0],
-    [0.2, 0.97, 0.0],
-    [-0.15, 1.23, 0.0],
-    [-0.6, 1.23, 0.0],
-    [-0.65, 1.53, 0.0],
-    [-1.05, 1.29, 0.0],
+    [0.744, 0.56, 0.0],
+    [0.556, 0.74, 0.0],
+    [0.256, 0.794, 0.0],
+    [-0.13, 1.20, 0.0],
+    [-0.175, 1.46, 0.0],
+    [-0.65, 1.50, 0.0],
+    [-1.05, 1.26, 0.0],
   ],
   boxes: [
     { floor: [-0.2, 0, 0.7], inside: [-0.25, 0.05, -0.05] },
   ],
-  hides: [[-0.3, 0.33, -0.05], [-0.6, 0.62, -0.05], [-0.52, 0.92, -0.05], [1.044, 1.08, -0.05]],
+  hides: [[-0.3, 0.33, -0.05], [-0.6, 0.62, -0.05], [-0.52, 0.92, -0.05], [0.256, 0.52, -0.05], [1.044, 1.1, -0.05]],
   bounds: [-1.26, 1.26, -0.24, 0.24],
 };
 
@@ -430,59 +498,63 @@ const CATHOUSE_NAV = {
 export function buildJipsa4Model() {
   const g = new THREE.Group();
   const D = 0.4, H = 1.798, wd = pine();
+  const hs = (x0, x1, yTop, d = D, z = 0) => plank(g, x1 - x0, T, d, (x0 + x1) / 2, yTop - T / 2, z, wd, 0.003);
+  const vs = (x, y0, y1, d = D, z = 0) => plank(g, T, y1 - y0, d, x, (y0 + y1) / 2, z, wd, 0.003);
+  // 왼쪽 몸체 80.6 (x -1.003 ~ -0.197) · 오른쪽 몸체 120 (x -0.197 ~ 1.003) — 둘이 나란히 붙어 세로판이 겹침
   const cA = -0.797, cB = -0.403, c1 = 0.009, c2 = 0.403, c3 = 0.797;
-  // 세로판
-  for (const x of [-0.994, -0.6, -0.206, 0.206, 0.6, 0.994]) plank(g, T, H, D, x, H / 2, 0, wd, 0.004);
-  // 바닥 · 상판
-  plank(g, 2.006, T, D, 0, 0.009, 0, wd, 0.004);
-  plank(g, 2.006, T, D, 0, 1.789, 0, wd, 0.004);
-  // 왼쪽 선반
-  for (const y of [0.703, 1.059, 1.415]) plank(g, 0.806, T, D, -0.6, y, 0, wd, 0.004);
-  // 수납장 문 둘 + 손잡이
+  for (const x of [-0.994, -0.6, -0.206, -0.188, 0.206, 0.6, 0.994]) vs(x, 0, H);
+  hs(-1.003, -0.197, T); hs(-1.003, -0.197, H);
+  hs(-0.197, 1.003, T); hs(-0.197, 1.003, H);
+  // ---- 왼쪽: 수납장 69.4 · 33.8 칸 셋 ----
+  for (const y of [0.73, 1.086, 1.442]) hs(-0.994, -0.206, y);
+  // 수납장 문 둘 (77) + 세로 손잡이
   for (const s of [-1, 1]) {
-    plank(g, 0.383, 0.676, T, -0.6 + s * 0.1965, 0.018 + 0.338, D / 2 - T / 2, wd, 0.004);
-    plank(g, 0.014, 0.08, 0.012, -0.6 + s * 0.03, 0.4, D / 2 + 0.004, M.woodMid(), 0.004);
+    plank(g, 0.383, 0.694 - 0.006, T, -0.6 + s * 0.1965, T + 0.347, D / 2 - T / 2, wd, 0.003);
+    plank(g, 0.016, 0.1, 0.014, -0.6 + s * 0.035, 0.42, D / 2 + 0.006, M.woodMid(), 0.004);
   }
-  // 왼쪽 위 칸: 고양이 얼굴 구멍판 (둥근 구멍 + 귀)
-  const face = holePanel(0.376, 0.338, 0.1, -0.01, wd);
-  face.position.set(cA, 1.602, D / 2 - T / 2); g.add(face);
-  for (const s of [-1, 1]) { const ear = mesh(new THREE.ConeGeometry(0.035, 0.06, 3), wd, cA + s * 0.075, 1.602 + 0.11, D / 2 - T / 2); ear.rotation.y = Math.PI / 6; g.add(ear); }
-  // 오른쪽 선반
-  plank(g, 1.2, T, D, 0.6, 1.415, 0, wd, 0.004);
-  plank(g, 0.376, T, D, c1, 1.059, 0, wd, 0.004);
-  plank(g, 0.376, T, D, c1, 0.365, 0, wd, 0.004);
-  plank(g, 0.376, T, D, c2, 1.059, 0, wd, 0.004);
-  plank(g, 0.376, T, D, c3, 1.059, 0, wd, 0.004);
-  plank(g, 0.376, T, D, c3, 0.703, 0, wd, 0.004);
-  // 지그재그 계단 (오른쪽 아래 → 1열 선반 1.068)
-  zigzag(g, [[0.89, 0.196], [0.70, 0.374], [0.51, 0.552], [0.32, 0.73], [0.13, 0.908]], D, 0.19, wd);
-  plank(g, T, 0.16, D - 0.01, 0.035, 0.99, 0, wd, 0.004);
-  // 아래 칸 방석 셋
-  for (const [cx, col] of [[c1, '#e8d2cf'], [c2, '#efe3d2'], [c3, '#e4d9c8']]) g.add(mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.03, 20), M.fabric(col), cx, 0.033, 0.02));
+  // 왼쪽 위 칸 뒤판: 고양이 얼굴 · 발자국 구멍
+  { const bp = cutPanel(0.376, 0.338, wd, [{ t: 'cat', x: -0.07, y: 0.0, r: 0.07 }, { t: 'paw', x: 0.1, y: -0.07, r: 0.018 }], T, 0); bp.position.set(cA, 1.442 + 0.169, -D / 2 + T / 2); g.add(bp); }
+  // 둘째 줄 둘째 칸: ㄱ자 단 (위 선반 가운데서 내려와 오른쪽 반 선반)
+  vs(cB, 1.26, 1.442, D - 0.01); hs(cB, -0.206, 1.26, D - 0.01); pad(g, (cB - 0.206) / 2, 1.26, 0.16, D - 0.12);
+  // ---- 오른쪽: 맨 윗줄 33.8 · 1열 1.07 선반 + ㄱ자 단 · 2열 1.07 · 3열 1.07 · 0.73 ----
+  hs(-0.188, 0.994, 1.442);
+  for (const cx of [c1, c2, c3]) hs(cx - 0.188, cx + 0.188, 1.07);
+  hs(c1 - 0.188, c1 + 0.188, 0.54);
+  hs(c3 - 0.188, c3 + 0.188, 0.73);
+  // 지그재그 계단 (단 17.8 · 디딤판 18.8, 맨 아래 40 · 19.6): 3열 오른쪽 아래 → 1열 ㄱ자 단 → 1.07 선반
+  hs(0.609, 0.985, 0.196); pad(g, 0.797, 0.196, 0.34, D - 0.12); vs(0.797, 0.196, 0.374, D - 0.01);
+  hs(0.609, 0.797, 0.374); pad(g, 0.703, 0.374, 0.16, D - 0.12);
+  hs(0.403, 0.591, 0.552); pad(g, 0.497, 0.552, 0.16, D - 0.12); vs(0.403, 0.552, 0.73, D - 0.01);
+  hs(0.215, 0.403, 0.73); pad(g, 0.309, 0.73, 0.16, D - 0.12);
+  hs(0.009, 0.197, 0.908); pad(g, 0.103, 0.908, 0.16, D - 0.12); vs(0.009, 0.908, 1.07, D - 0.01);
+  // 아래 칸 둥근 방석 셋
+  for (const [cx, col] of [[c1, '#e8d2cf'], [c2, '#efe3d2'], [c3, '#e4d9c8']]) g.add(mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.03, 20), M.fabric(col), cx, T + 0.015, 0.02));
   // 책 꽂을 칸 (앞면 +z): x, y0(칸 바닥), w, h, d, front
   const front = D / 2 - 0.015;
-  const slot = (x, y0, h = 0.33) => ({ x, y0, w: 0.36, h, d: 0.24, front });
+  const slot = (x, y0, h = 0.33, w = 0.36) => ({ x, y0, w, h, d: 0.24, front });
   g.userData.bookSlots = [
-    slot(cA, 0.715), slot(cB, 0.715), slot(cA, 1.07), slot(cB, 1.07), slot(cB, 1.427),
-    slot(c1, 1.427), slot(c2, 1.427), slot(c3, 1.427), slot(c2, 1.07), slot(c3, 1.07), slot(c3, 0.715),
+    slot(cA, 0.73), slot(cB, 0.73), slot(cA, 1.086), slot(cB - 0.1, 1.086, 0.17, 0.17), slot(cB, 1.442),
+    slot(c1, 1.442), slot(c2, 1.442), slot(c3, 1.442), slot(c2, 1.07), slot(c3, 1.07), slot(c3, 0.73), slot(c1, 0.54, 0.3),
   ];
   return g;
 }
 const JIPSA4_NAV = {
   path: [
-    [0.89, 0, 0.62],
-    [0.89, 0.21, 0.02],
-    [0.70, 0.39, 0.0],
-    [0.51, 0.57, 0.0],
-    [0.32, 0.75, 0.0],
-    [0.13, 0.93, 0.0],
-    [-0.05, 1.09, 0.0],
+    [0.8, 0, 0.62],
+    [0.797, 0.196, 0.02],
+    [0.703, 0.374, 0.0],
+    [0.497, 0.552, 0.0],
+    [0.309, 0.73, 0.0],
+    [0.103, 0.908, 0.0],
+    [0.009, 1.07, 0.0],
+    [-0.3, 1.26, 0.0],
+    [-0.5, 1.442, 0.0],
   ],
   boxes: [
     { floor: [0.403, 0, 0.62], inside: [0.403, 0.05, -0.03] },
     { floor: [0.009, 0, 0.62], inside: [0.009, 0.05, -0.03] },
   ],
-  hides: [[-0.797, 1.44, -0.03], [-0.403, 1.44, -0.03]],
+  hides: [[-0.797, 1.46, -0.03], [-0.403, 1.46, -0.03]],
   bounds: [-1.013, 1.013, -0.21, 0.21],
 };
 
