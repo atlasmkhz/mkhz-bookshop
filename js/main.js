@@ -810,6 +810,7 @@ async function startCopy() {
   const ok = await copy.open(me.seat);
   if (!ok) { ui.toast('필사 문장을 불러오지 못했어요'); return; }
   if (me.avatar) me.avatar.root.visible = false;
+  sound.setFocus(1);   // 배경 소리를 낮춰 필기 소리가 또렷하게
   ui.hideCard();
   if (!sound.enabled) ui.soundNudge();
   if (!IS_MOBILE) setTimeout(() => document.querySelector('#cpInput')?.focus(), 400);
@@ -817,6 +818,7 @@ async function startCopy() {
 function exitCopy() {
   if (!copy.on) return;
   copy.close();
+  sound.setFocus(0);
   if (me.avatar) me.avatar.root.visible = true;
   if (copySaved) { cam.yaw = copySaved.yaw; cam.pitch = copySaved.pitch; cam.dist = copySaved.dist; cam.userZoomed = copySaved.zoomed; }
   copySaved = null;
@@ -1288,6 +1290,9 @@ ui.onToggleRain = () => { room.rainOn = !room.rainOn; cats.rain = room.rainOn; s
 cats.birdsPresent = () => room.birdsPresent?.();
 ui.onToggleNight = () => { dayNight.target = dayNight.target > 0.5 ? 0 : 1; sound.setNight(dayNight.target); return dayNight.target > 0.5; };
 ui.onToggleSound = () => { const on = !sound.enabled; sound.setEnabled(on); sound.setNight(dayNight.target); return on; };
+// 아이폰: 누를 때마다 멈춘 소리를 다시 켜고(잠금 화면 · 다른 앱에서 돌아왔을 때), 무음 스위치와 상관없이 들리게
+for (const ev of ['pointerdown', 'touchend', 'keydown']) window.addEventListener(ev, () => sound.unlock(), { capture: true, passive: true });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) sound.unlock(); });
 ui.onWave = () => { if (!me.entered) return; me.avatar?.wave(); net.send({ t: 'wave' }); };
 ui.init({ name: me.name, look: me.look, night: dayNight.target > 0.5, server: SERVER, rain: store.get('rain', false), lib: LIB });
 room.rainOn = cats.rain = store.get('rain', false);
@@ -1383,4 +1388,4 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-window.shop = { copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };

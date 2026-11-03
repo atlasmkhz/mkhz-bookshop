@@ -8,6 +8,8 @@ export class Sound {
     this.night = 0;
     this.outdoor = false;
     this.rain = false;
+    this.focus = 0;
+    this.penVol = 1.0;
   }
 
   ensure() {
@@ -17,7 +19,12 @@ export class Sound {
     const ctx = this.ctx = new AC();
     this.master = ctx.createGain();
     this.master.gain.value = 0;
-    this.master.connect(ctx.destination);
+    // 큰 소리(폭죽 · 장작)가 찢어지지 않게 마지막에 살짝 눌러 줌
+    this.limiter = ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -10; this.limiter.knee.value = 8; this.limiter.ratio.value = 6; this.limiter.attack.value = 0.003; this.limiter.release.value = 0.2;
+    this.master.connect(this.limiter).connect(ctx.destination);
+    // 효과음(필기 · 책장 · 야옹 · 폭죽 …)은 배경 소리보다 또렷하게 한 단계 크게
+    this.fxOut = ctx.createGain(); this.fxOut.gain.value = 2.2; this.fxOut.connect(this.master);
 
     // 노이즈 버퍼 (핑크 · 브라운)
     const len = ctx.sampleRate * 3;
@@ -187,9 +194,9 @@ export class Sound {
     g.gain.linearRampToValueAtTime(0.22 * vol, t + 0.05);
     g.gain.linearRampToValueAtTime(0.12 * vol, t + 0.25);
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
-    src.connect(bp).connect(g).connect(this.master);
+    src.connect(bp).connect(g).connect(this.fxOut);
     src.start(t, Math.random() * 2, 0.45);
-    this.click(t + 0.38, 2400, 0.08 * vol, 0.03, this.master);
+    this.click(t + 0.38, 2400, 0.08 * vol, 0.03, this.fxOut);
   }
 
   setSea(v) {
@@ -210,8 +217,8 @@ export class Sound {
   thud() {
     if (!this.enabled || !this.ctx) return;
     const t = this.ctx.currentTime;
-    this.click(t, 180, 0.5, 0.09, this.master);
-    this.click(t + 0.02, 600, 0.2, 0.05, this.master);
+    this.click(t, 180, 0.5, 0.09, this.fxOut);
+    this.click(t + 0.02, 600, 0.2, 0.05, this.fxOut);
   }
 
   // 바깥 불 소리 크기 (0~1): 가까운 불 · 불 세기 · 불멍 중이면 더 크게
@@ -232,21 +239,21 @@ export class Sound {
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.2;
     bp.frequency.setValueAtTime(400, t); bp.frequency.exponentialRampToValueAtTime(1400, t + 0.35); bp.frequency.exponentialRampToValueAtTime(600, t + 0.6);
     const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.18, t + 0.2); g.gain.linearRampToValueAtTime(0, t + 0.65);
-    src.connect(bp).connect(g).connect(this.master);
+    src.connect(bp).connect(g).connect(this.fxOut);
     src.start(t, Math.random() * 2); src.stop(t + 0.7);
   }
   // 장작이 불에 툭 + 불길이 화르르 + 타닥타닥
   logIn(vol = 1) {
     if (!this.enabled || !this.ctx) return;
     const ctx = this.ctx, t = ctx.currentTime;
-    this.click(t, 130, 0.6 * vol, 0.12, this.master);
-    this.click(t + 0.015, 420, 0.25 * vol, 0.06, this.master);
+    this.click(t, 130, 0.6 * vol, 0.12, this.fxOut);
+    this.click(t + 0.015, 420, 0.25 * vol, 0.06, this.fxOut);
     const src = ctx.createBufferSource(); src.buffer = this.brownBuf;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(300, t); lp.frequency.linearRampToValueAtTime(1600, t + 0.25); lp.frequency.linearRampToValueAtTime(500, t + 1.4);
     const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5 * vol, t + 0.2); g.gain.linearRampToValueAtTime(0, t + 1.5);
-    src.connect(lp).connect(g).connect(this.master);
+    src.connect(lp).connect(g).connect(this.fxOut);
     src.start(t, Math.random()); src.stop(t + 1.6);
-    for (let i = 0; i < 9; i++) this.click(t + 0.15 + i * (0.06 + Math.random() * 0.1), 900 + Math.random() * 2600, (0.15 + Math.random() * 0.3) * vol, 0.02 + Math.random() * 0.03, this.master);
+    for (let i = 0; i < 9; i++) this.click(t + 0.15 + i * (0.06 + Math.random() * 0.1), 900 + Math.random() * 2600, (0.15 + Math.random() * 0.3) * vol, 0.02 + Math.random() * 0.03, this.fxOut);
   }
 
   setWater(v) {
@@ -284,7 +291,7 @@ export class Sound {
     const g2 = ctx.createGain(); g2.gain.value = 0.4;
     o.connect(f1).connect(g);
     o.connect(f2).connect(g2).connect(g);
-    g.connect(this.master);
+    g.connect(this.fxOut);
     o.start(t); o.stop(t + 0.55);
   }
 
@@ -305,12 +312,13 @@ export class Sound {
       g.gain.setValueAtTime(0, t);
       g.gain.linearRampToValueAtTime(0.32 * (this.outdoor ? 1 : 0.45), t + 0.015);
       g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-      o.connect(f).connect(g).connect(this.master);
+      o.connect(f).connect(g).connect(this.fxOut);
       o.start(t); o.stop(t + 0.17);
     }
   }
 
-  // 필기: 펜이 종이를 긁는 사각사각 (글자 수만큼 짧은 획 두세 번)
+  // 필기: 펜이 종이를 긁는 사각사각 (글자 하나에 짧은 획 두세 번)
+  // 종이 긁는 소리는 1~4 kHz 가 중심. 휴대폰 스피커에서도 들리도록 충분히 크게 (장작 넣는 소리의 절반쯤)
   pen(n = 1) {
     if (!this.enabled || !this.ctx) return;
     const ctx = this.ctx;
@@ -318,27 +326,29 @@ export class Sound {
     for (let c = 0; c < n; c++) {
       const strokes = 2 + Math.floor(Math.random() * 2);
       for (let k = 0; k < strokes; k++) {
-        const dur = 0.03 + Math.random() * 0.05;
+        const dur = 0.045 + Math.random() * 0.07;
         const src = ctx.createBufferSource(); src.buffer = this.pinkBuf;
-        const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.4;
-        const f0 = 2600 + Math.random() * 2400;
-        bp.frequency.setValueAtTime(f0, t); bp.frequency.linearRampToValueAtTime(f0 * (0.8 + Math.random() * 0.5), t + dur);
-        const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1200;
-        const g = ctx.createGain(); const v = 0.05 + Math.random() * 0.05;
-        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.008); g.gain.setValueAtTime(v * 0.8, t + dur * 0.7); g.gain.linearRampToValueAtTime(0, t + dur);
-        src.connect(bp).connect(hp).connect(g).connect(this.master);
+        const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.9;
+        const f0 = 1500 + Math.random() * 1500;
+        bp.frequency.setValueAtTime(f0, t); bp.frequency.linearRampToValueAtTime(f0 * (0.75 + Math.random() * 0.6), t + dur);
+        const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
+        const g = ctx.createGain(); const v = (0.9 + Math.random() * 0.6) * this.penVol;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.01); g.gain.setValueAtTime(v * 0.75, t + dur * 0.7); g.gain.linearRampToValueAtTime(0, t + dur);
+        src.connect(bp).connect(hp).connect(g).connect(this.fxOut);
         src.start(t, Math.random() * 2, dur + 0.02);
-        t += dur + 0.01 + Math.random() * 0.025;
+        t += dur + 0.012 + Math.random() * 0.03;
       }
-      t += 0.015;
+      t += 0.02;
     }
   }
   // 마침표 · 쉼표: 펜 끝을 톡
   penDot() {
     if (!this.enabled || !this.ctx) return;
     const t = this.ctx.currentTime + 0.005;
-    this.click(t, 2200, 0.12, 0.025, this.master);
+    this.click(t, 1800, 0.9 * this.penVol, 0.03, this.fxOut);
   }
+  // 필사 · 불멍 · 별멍처럼 한곳에 마음 두는 동안 배경 소리를 낮춤 (0 = 평소, 1 = 많이 낮춤)
+  setFocus(k) { this.focus = k; this.mix(); }
 
   // 아기 고양이 야옹 (작고 높게)
   mew() {
@@ -348,7 +358,7 @@ export class Sound {
     o.frequency.setValueAtTime(900, t); o.frequency.linearRampToValueAtTime(1350, t + 0.12); o.frequency.linearRampToValueAtTime(1000, t + 0.3);
     const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 4; f.frequency.value = 1800;
     const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.22, t + 0.04); g.gain.linearRampToValueAtTime(0, t + 0.34);
-    o.connect(f).connect(g).connect(this.master);
+    o.connect(f).connect(g).connect(this.fxOut);
     o.start(t); o.stop(t + 0.36);
   }
   // 폭죽: 휘이익 올라가는 소리
@@ -358,11 +368,11 @@ export class Sound {
     const o = ctx.createOscillator(); o.type = 'sine';
     o.frequency.setValueAtTime(700, t); o.frequency.exponentialRampToValueAtTime(2400, t + 1.4);
     const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.07 * vol, t + 0.15); g.gain.linearRampToValueAtTime(0, t + 1.5);
-    o.connect(g).connect(this.master); o.start(t); o.stop(t + 1.55);
+    o.connect(g).connect(this.fxOut); o.start(t); o.stop(t + 1.55);
     const src = ctx.createBufferSource(); src.buffer = this.pinkBuf;
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500;
     const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.08 * vol, t); g2.gain.linearRampToValueAtTime(0, t + 1.2);
-    src.connect(hp).connect(g2).connect(this.master); src.start(t, Math.random()); src.stop(t + 1.3);
+    src.connect(hp).connect(g2).connect(this.fxOut); src.start(t, Math.random()); src.stop(t + 1.3);
   }
   // 폭죽: 펑 (낮고 길게 울림)
   fwBoom(vol = 1) {
@@ -371,14 +381,14 @@ export class Sound {
     const src = ctx.createBufferSource(); src.buffer = this.brownBuf;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(120, t + 1.6);
     const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1.1 * vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
-    src.connect(lp).connect(g).connect(this.master); src.start(t, Math.random()); src.stop(t + 2.1);
-    this.click(t, 90, 0.9 * vol, 0.25, this.master);
+    src.connect(lp).connect(g).connect(this.fxOut); src.start(t, Math.random()); src.stop(t + 2.1);
+    this.click(t, 90, 0.9 * vol, 0.25, this.fxOut);
   }
   // 폭죽: 타다다닥 (버드나무 · 별)
   fwCrackle(vol = 1) {
     if (!this.enabled || !this.ctx) return;
     const t = this.ctx.currentTime;
-    for (let i = 0; i < 26; i++) this.click(t + Math.random() * 1.4, 1800 + Math.random() * 3500, (0.06 + Math.random() * 0.12) * vol, 0.015, this.master);
+    for (let i = 0; i < 26; i++) this.click(t + Math.random() * 1.4, 1800 + Math.random() * 3500, (0.06 + Math.random() * 0.12) * vol, 0.015, this.fxOut);
   }
   // 불꽃막대 지글지글
   sizzle(sec = 40) {
@@ -387,13 +397,13 @@ export class Sound {
     const src = ctx.createBufferSource(); src.buffer = this.pinkBuf; src.loop = true;
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3500;
     const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.07, t + 0.3); g.gain.setValueAtTime(0.07, t + sec - 1); g.gain.linearRampToValueAtTime(0, t + sec);
-    src.connect(hp).connect(g).connect(this.master); src.start(t); src.stop(t + sec + 0.1);
+    src.connect(hp).connect(g).connect(this.fxOut); src.start(t); src.stop(t + sec + 0.1);
   }
 
   crunch() {
     if (!this.enabled || !this.ctx) return;
     const t = this.ctx.currentTime;
-    for (let i = 0; i < 6; i++) this.click(t + i * 0.16 + Math.random() * 0.04, 1800 + Math.random() * 1500, 0.25, 0.05, this.master);
+    for (let i = 0; i < 6; i++) this.click(t + i * 0.16 + Math.random() * 0.04, 1800 + Math.random() * 1500, 0.25, 0.05, this.fxOut);
   }
 
   // 새 지저귐: 짧게 위아래로 미끄러지는 높은 음 몇 개
@@ -456,10 +466,11 @@ export class Sound {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
     const n = this.night;
-    this.fireGain.gain.setTargetAtTime(this.outdoor ? 0.05 : 0.3 + n * 0.45, now, 0.6);
-    this.rainGain.gain.setTargetAtTime(this.rain ? (this.outdoor ? 0.75 : 0.4) : 0, now, 0.8);
-    this.natureGain.gain.setTargetAtTime(this.outdoor ? 1 : 0.15, now, 0.8);
-    const vol = CONFIG.music?.volume ?? 0.35;
+    const duck = 1 - (this.focus || 0) * 0.7;
+    this.fireGain.gain.setTargetAtTime((this.outdoor ? 0.05 : 0.3 + n * 0.45) * duck, now, 0.6);
+    this.rainGain.gain.setTargetAtTime((this.rain ? (this.outdoor ? 0.75 : 0.4) : 0) * duck, now, 0.8);
+    this.natureGain.gain.setTargetAtTime((this.outdoor ? 1 : 0.15) * duck, now, 0.8);
+    const vol = (CONFIG.music?.volume ?? 0.35) * duck;
     for (const [k, w] of [['day', 1 - n], ['night', n]]) {
       const mu = this.music?.[k];
       if (!mu) continue;
@@ -477,11 +488,32 @@ export class Sound {
   setOutdoor(o) { if (o === this.outdoor) return; this.outdoor = o; this.mix(); }
   setRain(on) { this.rain = on; this.mix(); }
 
+  // 아이폰에서 소리를 살리는 일 — 화면을 누를 때마다 부름 (가벼움)
+  // 1) 무음(진동) 스위치: 웹 오디오는 무음 모드면 소리가 안 남 → 「재생」 오디오로 바꿔 무음 스위치와 상관없이 들리게
+  //    (iOS 17 이상은 navigator.audioSession, 그 아래는 소리 없는 audio 를 같이 틀어 두는 방법)
+  // 2) 잠금 화면 · 다른 앱 · 전화로 멈춘(suspended · interrupted) 소리를 다시 켬
+  unlock() {
+    if (!this.enabled || !this.ctx) return;
+    try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch { /* 무시 */ }
+    if (!this.silentEl) {
+      const rate = 8000, n = rate / 2, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+      const w = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+      w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+      const el = new Audio(URL.createObjectURL(new Blob([buf], { type: 'audio/wav' })));
+      el.loop = true; el.setAttribute('playsinline', ''); el.preload = 'auto';
+      this.silentEl = el;
+    }
+    if (this.silentEl.paused) this.silentEl.play().catch(() => {});
+    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+  }
+
   setEnabled(on) {
     this.ensure();
     if (!this.ctx) return false;
     this.enabled = on;
-    if (on && this.ctx.state === 'suspended') this.ctx.resume();
+    if (on) this.unlock();
+    else this.silentEl?.pause();
     const now = this.ctx.currentTime;
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setTargetAtTime(on ? 0.8 : 0, now, 0.4);
