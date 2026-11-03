@@ -240,6 +240,28 @@ export class Sound {
     o.start(t); o.stop(t + 0.55);
   }
 
+  // 강아지 왈! (짧고 높게, n번)
+  yip(n = 1) {
+    if (!this.enabled || !this.ctx) return;
+    const ctx = this.ctx;
+    for (let i = 0; i < n; i++) {
+      const t = ctx.currentTime + 0.02 + i * 0.2 + Math.random() * 0.03;
+      const f0 = 640 + Math.random() * 120;
+      const o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(f0, t);
+      o.frequency.linearRampToValueAtTime(f0 * 1.7, t + 0.04);
+      o.frequency.exponentialRampToValueAtTime(f0 * 0.9, t + 0.13);
+      const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 3;
+      f.frequency.setValueAtTime(1400, t); f.frequency.linearRampToValueAtTime(2100, t + 0.05);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.32 * (this.outdoor ? 1 : 0.45), t + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      o.connect(f).connect(g).connect(this.master);
+      o.start(t); o.stop(t + 0.17);
+    }
+  }
+
   crunch() {
     if (!this.enabled || !this.ctx) return;
     const t = this.ctx.currentTime;

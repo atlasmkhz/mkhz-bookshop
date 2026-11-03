@@ -66,6 +66,11 @@ export const CONFIG = {
     { id: 'samsaek', name: '삼색이', pattern: 'calico', desc: '삼색 얼룩, 서점 터줏대감. 평대 위 책을 떨어뜨린다' },
     { id: 'godeung', name: '고등어', pattern: 'mackerel', desc: '회색 고등어무늬, 캣타워 꼭대기 담당. 나비를 쫓는다' },
   ],
+  // 서점 밖을 돌아다니는 진돗개 강아지 (coat: white 백구 · fawn 황구). 이름 · 소개는 여기서 바꿉니다.
+  dogs: [
+    { id: 'baekgu', name: '백구', coat: 'white', desc: '하얀 진돗개 강아지. 형 노릇을 하며 앞장서 걷고, 들꽃 언덕에서 땅 파기를 좋아한다' },
+    { id: 'hwanggu', name: '황구', coat: 'fawn', desc: '누런 진돗개 강아지. 백구 뒤를 졸졸 따라다니다 바닷가에서 같이 뛰어논다' },
+  ],
 };
 
 // 책바구니 · 이름 · 설정을 이 브라우저에 저장

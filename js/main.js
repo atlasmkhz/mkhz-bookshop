@@ -9,6 +9,7 @@ import { buildForest, updateCanopies } from './forest.js';
 import { Program } from './cinema.js';
 import { setAtlases, finalizeBooks } from './shelves.js';
 import { BookCats } from './cats.js';
+import { Puppies } from './dogs.js';
 import { Avatar, LOOKS } from './avatar.js';
 import { FX } from './fx.js';
 import { Sound } from './audio.js';
@@ -67,6 +68,7 @@ buildNav(room);
 const fx = new FX(scene);
 const sound = new Sound();
 const cats = new BookCats(scene, room, fx, sound);
+const dogs = new Puppies(scene, room, fx, sound, CONFIG.dogs || []);
 const ui = new UI();
 ui.seatCount = room.seats.length;
 room.seats.forEach((s, i) => { s.idx = i; });
@@ -83,6 +85,7 @@ const me = {
 };
 const remotes = new Map();
 cats.listener = me.pos;
+dogs.listener = me.pos;
 
 // ---------- 카메라 ----------
 const cam = { yaw: 0.3, pitch: 0.8, dist: 15, target: new THREE.Vector3(-4, 1, 2) };
@@ -164,6 +167,7 @@ function updateDayNight(dt, t) {
   sun.color.set('#ffe0b0').lerp(new THREE.Color('#9fb3ff'), n);
   fill.intensity = 0.4 - n * 0.28;
   cats.night = n;
+  dogs.night = n;
   for (const fn of room.nightParts) fn(dt, t, n);
 }
 
@@ -286,7 +290,7 @@ raycaster.camera = camera;
 const ndc = new THREE.Vector2();
 function usable(o) {
   if (o.isSprite || o.isPoints || o.isLine || o.isLineSegments || o.userData.noHit) return false;
-  if (o.userData.catId || o.userData.followerOf) return false;
+  if (o.userData.catId || o.userData.followerOf || o.userData.dogId) return false;
   for (let p = o; p; p = p.parent) if (!p.visible) return false;
   if (o.material && o.material.visible === false && !o.userData.product) return false;
   return true;
@@ -300,17 +304,19 @@ function followerHits() {
 function pick(x, y) {
   ndc.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-  const catHits = raycaster.intersectObjects([...cats.hitObjects(), ...followerHits()], false);
-  if (catHits.length) { const o = catHits[0].object; return o.userData.catId ? { kind: 'cat', id: o.userData.catId } : { kind: 'follower', obj: o, point: catHits[0].point }; }
+  const animalHit = (o, point) => (o.userData.catId ? { kind: 'cat', id: o.userData.catId } : o.userData.dogId ? { kind: 'dog', id: o.userData.dogId } : { kind: 'follower', obj: o, point });
+  const animals = [...cats.hitObjects(), ...dogs.hitObjects(), ...followerHits()];
+  const catHits = raycaster.intersectObjects(animals, false);
+  if (catHits.length) return animalHit(catHits[0].object, catHits[0].point);
   const tol = IS_MOBILE ? 44 : 30;
   let best = null, bd = tol;
-  for (const h of [...cats.hitObjects(), ...followerHits()]) {
+  for (const h of animals) {
     const v = h.getWorldPosition(new THREE.Vector3()).project(camera);
     if (v.z > 1) continue;
     const d = Math.hypot((v.x + 1) / 2 * window.innerWidth - x, (1 - v.y) / 2 * window.innerHeight - y);
     if (d < bd) { bd = d; best = h; }
   }
-  if (best) return best.userData.catId ? { kind: 'cat', id: best.userData.catId } : { kind: 'follower', obj: best, point: best.getWorldPosition(new THREE.Vector3()) };
+  if (best) return animalHit(best, best.getWorldPosition(new THREE.Vector3()));
   const hits0 = [];
   for (const [id, r] of remotes) if (r.avatar.root.visible) { r.avatar.hit.userData.guest = id; hits0.push(r.avatar.hit); }
   const gh = raycaster.intersectObjects(hits0, false);
@@ -341,6 +347,7 @@ function onTap(x, y) {
   const hit = pick(x, y);
   if (!hit) return;
   if (hit.kind === 'cat') { petCat(hit.id); return; }
+  if (hit.kind === 'dog') { petDog(hit.id); return; }
   if (hit.kind === 'follower') { fx.hearts(hit.point, 3); sound.purr(3.5); ui.toast(hit.obj.userData.followerOf === me.name ? '우리 집 고양이가 골골거려요' : `${hit.obj.userData.followerOf} 님의 고양이예요`); return; }
   if (hit.kind === 'guest') { openGuest(hit.id); return; }
   if (hit.kind === 'book') { ui.openBook(hit.id); return; }
@@ -402,6 +409,24 @@ function petCat(id) {
   if (!me.seat && d.length() > 1.3 && c.pos.y < 0.5 && levelOf(me.pos) === 0) {
     walkTo(c.pos.clone().setY(0).sub(d.normalize().multiplyScalar(0.75)), { type: 'faceCat', id });
   } else if (!me.seat) me.yaw = Math.atan2(c.pos.x - me.pos.x, c.pos.z - me.pos.z);
+}
+// 강아지 쓰다듬기 — 내 화면에서만 반응하고 아무것도 보내지 않음
+let lastDogPet = 0;
+function petDog(id) {
+  const d = dogs.find(id);
+  if (!d) return;
+  const pet = () => {
+    if (performance.now() - lastDogPet < 700) return;
+    lastDogPet = performance.now();
+    dogs.pet(id, me.pos.clone());
+    ui.toast(`${d.def.name}가 꼬리를 흔들어요 🐾`);
+  };
+  ui.showDog(d.def, pet);
+  pet();
+  if (!sound.enabled) ui.soundNudge();
+  const v = d.pos.clone().setY(0).sub(me.pos.clone().setY(0));
+  if (!me.seat && v.length() > 1.3 && levelOf(me.pos) === 0) walkTo(d.pos.clone().setY(0).sub(v.normalize().multiplyScalar(0.8)), { type: 'place', name: d.def.name + ' 곁' });
+  else if (!me.seat) me.yaw = Math.atan2(d.pos.x - me.pos.x, d.pos.z - me.pos.z);
 }
 let lastTreat = 0;
 function giveTreat(id) {
@@ -850,6 +875,7 @@ function frame() {
     if (shouldHost) sendCatSync();
   }
   cats.update(dt, t);
+  dogs.update(dt);
   updateRemotes(dt);
   updateDoors(dt);
   fx.update(dt);
@@ -878,4 +904,4 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-window.shop = { scene, camera, room, me, cats, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { scene, camera, room, me, cats, dogs, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };

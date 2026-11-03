@@ -259,6 +259,16 @@ export class UI {
     $('#treatBtn').addEventListener('click', onTreat);
     this.openCard();
   }
+  showDog(def, onPet) {
+    this.cardCat = null;
+    $('#cardBody').innerHTML = `
+      <div class="card-kicker">서점 마당 강아지 · 진돗개</div>
+      <div class="card-title">${esc(def.name)} <span class="purr">왈!</span></div>
+      <div class="card-desc">${esc(def.desc)}</div>
+      <button class="btn primary" id="dogPetBtn" type="button" style="width:100%">🐾 한 번 더 쓰다듬기</button>`;
+    $('#dogPetBtn').addEventListener('click', onPet);
+    this.openCard();
+  }
   showGuest(g, h) {
     this.cardCat = null;
     $('#cardBody').innerHTML = `
