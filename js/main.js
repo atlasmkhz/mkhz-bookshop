@@ -19,6 +19,7 @@ import { CopyDesk } from './copydesk.js';
 import { Workshop, SHOP_CAP, inShop } from './woodshop.js';
 import { GalleryClient, inHall } from './gallery.js';
 import { Craft, CRAFTS } from './craft.js';
+import { Diorama } from './diorama.js';
 import { Avatar, LOOKS, placeTags } from './avatar.js';
 import { FX } from './fx.js';
 import { Sound } from './audio.js';
@@ -46,6 +47,8 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// 디오라마 화면 시험판 (?look=diorama 일 때만)
+const diorama = new URLSearchParams(location.search).get('look') === 'diorama' ? new Diorama(renderer) : null;
 
 const scene = new THREE.Scene();
 const DAY_BG = new THREE.Color('#dfe3d2'), NIGHT_BG = new THREE.Color('#121829');
@@ -1652,10 +1655,10 @@ function frame() {
   updateStar(dt);
   sun.target.position.set(cam.target.x, 0, cam.target.z);
   sun.position.copy(sun.target.position).add(SUN_OFFSET);
-  renderer.render(scene, camera);
+  if (diorama) diorama.render(scene, camera); else renderer.render(scene, camera);
   placeTags(camera, renderer.domElement.clientWidth || window.innerWidth, renderer.domElement.clientHeight || window.innerHeight, me.entered ? me.pos : cam.target);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-window.shop = { workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { renderer, diorama: () => diorama, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
