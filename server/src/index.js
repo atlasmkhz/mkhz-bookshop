@@ -253,6 +253,15 @@ export class BookRoom extends DurableObject {
       case 'pet': case 'treat': case 'wave':
         this.broadcast(m, ws);
         break;
+      case 'em': {
+        // 춤추기 · 목공 도구 들기/내려놓기: 1초에 한 번까지 (보내는 쪽도 30 m 안에 손님이 있을 때만)
+        if (now - (r.em || 0) < 1000) return;
+        r.em = now;
+        const k = clean(m.k, 8);
+        if (!['dance', 'saw', 'plane', 'chisel', 'nail', ''].includes(k)) return;
+        this.broadcast({ t: 'em', uid: att.uid, k, s: Math.max(0, Math.min(3, m.s | 0)) }, ws);
+        break;
+      }
       case 'play': {
         // 장난감으로 고양이와 놀기: 1.5초에 한 번까지 (고양이 담당 브라우저가 계획을 세워 cq 로 퍼뜨림)
         if (now - (r.play || 0) < 1500) return;

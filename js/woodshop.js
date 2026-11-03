@@ -368,7 +368,7 @@ export class Workshop {
       beat = Math.floor(u / 0.9); beatKind = 'chisel';
     }
     // 공방 소리 (가까이 있을 때만, 박자마다 한 번)
-    const v = this.loud() * (this.focus ? 1.25 : 1);
+    const v = this.loud() * (this.focus ? 1.25 : 1) * (this.quiet ? 0.3 : 1);   // 내가 나무를 다듬는 동안은 공방지기 소리를 줄임
     if (beat !== this.lastBeat) { this.lastBeat = beat; if (v > 0.02) this.sound.wood?.(beatKind, v); }
   }
 }

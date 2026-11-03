@@ -115,6 +115,9 @@ export class Avatar {
     this.toyHold = new THREE.Group();
     this.toyHold.position.set(0, -0.3, 0.03);
     this.arms[1].add(this.toyHold);
+    // 목공 도구 (오른손 · 왼손)
+    this.toolR = new THREE.Group(); this.toolR.position.set(0, -0.3, 0.03); this.arms[1].add(this.toolR);
+    this.toolL = new THREE.Group(); this.toolL.position.set(0, -0.3, 0.03); this.arms[0].add(this.toolL);
     this.toy = null;
     this.playT = 0;
     this.laserDot = new THREE.Mesh(new THREE.CircleGeometry(0.035, 12).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ff2a2a', transparent: true, opacity: 0.9 }));
@@ -192,6 +195,37 @@ export class Avatar {
   }
   // 장난감을 흔드는 몸짓 (몇 초)
   playToy(sec = 3) { this.playT = sec; }
+  // 춤추기 (style 0 흔들흔들 · 1 만세 · 2 빙글빙글 · 3 로봇)
+  dance(style = 0, sec = 6) { this.danceT = sec; this.danceS = style % 4; this.danceT0 = this.t; }
+  stopDance() { this.danceT = 0; }
+  // 목공: kind = 'saw' 톱 · 'plane' 대패 · 'chisel' 끌과 나무망치 · 'nail' 망치 (null 이면 내려놓기). auto 면 스스로 계속 (다른 손님 화면)
+  craft(kind, auto = false) {
+    this.craftAuto = auto;
+    if (this.craftKind === (kind || null)) return;
+    this.craftKind = kind || null;
+    this.toolR.clear(); this.toolL.clear();
+    const add = (grp, geo, color, x, y, z, rx = 0, ry = 0, rz = 0, metal = 0) => { const m = new THREE.Mesh(geo, metal ? new THREE.MeshStandardMaterial({ color, roughness: 0.45, metalness: Math.min(0.35, metal) }) : std(color, 0.7)); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; grp.add(m); return m; };
+    const R = this.toolR, L = this.toolL;
+    if (kind === 'saw') {
+      add(R, new THREE.BoxGeometry(0.035, 0.08, 0.05), '#8a5a3a', 0, 0, 0.03);
+      add(R, new THREE.BoxGeometry(0.004, 0.07, 0.34), '#c9ced3', 0, -0.01, 0.22, 0, 0, 0, 0.8);
+    } else if (kind === 'plane') {
+      add(R, new THREE.BoxGeometry(0.06, 0.055, 0.2), '#b9875a', 0, -0.03, 0.07);
+      add(R, new THREE.CylinderGeometry(0.018, 0.018, 0.05, 8), '#6b4a30', 0, 0.01, 0.02, Math.PI / 2);
+      add(R, new THREE.BoxGeometry(0.04, 0.012, 0.03), '#c9ced3', 0, 0.0, 0.1, 0.5, 0, 0, 0.8);
+    } else if (kind === 'chisel') {
+      add(R, new THREE.CylinderGeometry(0.01, 0.01, 0.2, 6), '#8a5a3a', 0, 0.0, 0.08, Math.PI / 2);
+      add(R, new THREE.BoxGeometry(0.07, 0.05, 0.05), '#d9b07c', 0, 0.0, 0.18);
+      add(L, new THREE.CylinderGeometry(0.012, 0.012, 0.09, 8), '#8a5a3a', 0, 0.0, 0.0);
+      add(L, new THREE.BoxGeometry(0.018, 0.08, 0.006), '#c9ced3', 0, -0.08, 0, 0, 0, 0, 0.8);
+    } else if (kind === 'nail') {
+      add(R, new THREE.CylinderGeometry(0.009, 0.009, 0.22, 6), '#8a5a3a', 0, 0.0, 0.09, Math.PI / 2);
+      add(R, new THREE.BoxGeometry(0.09, 0.03, 0.03), '#6f757b', 0, 0.0, 0.2, 0, 0, 0, 0.7);
+    }
+    this.toyHold.visible = !this.craftKind;
+    this.strokeT = 0;
+  }
+  stroke() { this.strokeT = 1; }
   writing(sec = 0.5) { this.writeT = Math.max(this.writeT || 0, sec); }
   sparkler(sec = 40) { this.sparkT = sec; this.setToy('sparkler'); }
 
@@ -271,7 +305,7 @@ export class Avatar {
       a.rotation.x = -1.05 + Math.sin(this.t * 22) * 0.05;
       a.rotation.z = 0.32 + Math.cos(this.t * 17) * 0.05;
       this.head.rotation.x = 0.28;
-    } else if (this.head.rotation.x > 0.001) this.head.rotation.x *= 0.9;
+    }
     if (this.writeT > 0) { /* 위에서 처리 */ } else if (this.playT > 0 && this.toy && this.toy !== 'sparkler') {
       this.playT -= dt;
       const a = this.arms[1];
@@ -291,10 +325,55 @@ export class Avatar {
     } else {
       this.arms[1].rotation.z = lerp(this.arms[1].rotation.z, 0.12, 1 - Math.exp(-10 * dt));
     }
+    this.arms[0].rotation.z = lerp(this.arms[0].rotation.z, -0.12, 1 - Math.exp(-10 * dt));
     // 앉으면 엉덩이 높이(0.38)를 자리 높이에 맞춤 → 바깥에서 root.y 조절
     this.body.position.y = Math.abs(sw) * 0.03 + Math.sin(this.t * 2) * 0.004 * (1 - (walking ? 1 : 0));
     this.body.rotation.z = sw * 0.04;
+    this.body.rotation.x = 0;
+    this.body.rotation.y = 0;
     this.head.rotation.y = Math.sin(this.t * 0.5) * 0.12 * (walking ? 0 : 1);
+    // 목공: 앉아 있을 때만. 한 번 누를 때마다 한 동작(stroke), 다른 손님 화면에선 스스로 되풀이
+    if (this.craftKind && s > 0.5) {
+      if (this.craftAuto) { this.autoT = (this.autoT || 0) + dt; if (this.autoT > 0.8) { this.autoT = 0; this.strokeT = 1; } }
+      const k = this.craftKind, R = this.arms[1], L = this.arms[0];
+      const dur = k === 'plane' ? 0.6 : k === 'saw' ? 0.42 : 0.32;
+      const u = this.strokeT > 0 ? 1 - this.strokeT : 0;          // 0 → 1 동작 진행
+      if (this.strokeT > 0) this.strokeT = Math.max(0, this.strokeT - dt / dur);
+      const wave = Math.sin(u * Math.PI);                          // 0 → 1 → 0
+      this.head.rotation.x = 0.32;
+      if (k === 'saw') { R.rotation.x = -1.05 - wave * 0.3; R.rotation.z = 0.2; L.rotation.x = -0.9; L.rotation.z = -0.35; this.body.rotation.x = wave * 0.08; }
+      else if (k === 'plane') { R.rotation.x = -1.0 - wave * 0.45; R.rotation.z = 0.12; L.rotation.x = -1.0 - wave * 0.45; L.rotation.z = -0.12; this.body.rotation.x = wave * 0.16; }
+      else if (k === 'chisel') { L.rotation.x = -1.15; L.rotation.z = -0.15; const up = u < 0.55 ? u / 0.55 : 1 - (u - 0.55) / 0.45; R.rotation.x = -1.2 - up * 0.9; R.rotation.z = 0.3; }
+      else if (k === 'nail') { L.rotation.x = -1.05; L.rotation.z = -0.3; const up = u < 0.6 ? u / 0.6 : 1 - (u - 0.6) / 0.4; R.rotation.x = -1.05 - up * 1.15; R.rotation.z = 0.25; }
+    } else if (this.writeT <= 0 && this.head.rotation.x > 0.001) this.head.rotation.x *= 0.9;
+    // 춤추기
+    if (this.danceT > 0) {
+      this.danceT -= dt;
+      const tt = this.t - (this.danceT0 || 0), b = Math.sin(tt * 7), up = Math.abs(Math.sin(tt * 3.5));
+      const L = this.arms[0], R = this.arms[1], fade = Math.min(1, this.danceT / 0.4, tt / 0.3);
+      const standing = 1 - s;
+      if (this.danceS === 0) {         // 흔들흔들: 몸을 좌우로, 팔은 머리 위에서 흔듦
+        this.body.rotation.z = b * 0.2 * fade;
+        this.body.position.y += up * 0.05 * fade * standing;
+        L.rotation.z = -(2.3 + b * 0.35) * fade; R.rotation.z = (2.3 - b * 0.35) * fade; L.rotation.x = R.rotation.x = 0;
+        this.legs.forEach((l, i) => { l.rotation.x += (i ? b : -b) * 0.25 * standing * fade; });
+      } else if (this.danceS === 1) {  // 만세 점프
+        const j = Math.max(0, Math.sin(tt * 8));
+        this.body.position.y += j * 0.12 * fade * standing;
+        L.rotation.z = -(0.4 + j * 2.4) * fade; R.rotation.z = (0.4 + j * 2.4) * fade; L.rotation.x = R.rotation.x = 0;
+        this.legs.forEach((l) => { l.rotation.x -= j * 0.35 * standing * fade; });
+      } else if (this.danceS === 2) {  // 빙글빙글
+        this.body.rotation.y = tt * 6.5 * fade;
+        L.rotation.z = -1.5 * fade; R.rotation.z = 1.5 * fade; L.rotation.x = R.rotation.x = 0;
+        this.body.position.y += up * 0.03 * standing;
+      } else {                         // 로봇 춤: 딱딱 끊어지는 팔
+        const step = Math.floor(tt * 3) % 4;
+        const poses = [[-1.57, 0, 0, -1.57], [0, -1.57, -1.57, 0], [-1.57, -1.57, 0, 0], [0, 0, -1.57, -1.57]][step];
+        L.rotation.x = poses[0] * fade; R.rotation.x = poses[1] * fade; L.rotation.z = -0.1; R.rotation.z = 0.1;
+        this.head.rotation.y = (step % 2 ? 0.35 : -0.35) * fade;
+        this.body.position.y += (step % 2 ? 0.02 : 0) * standing;
+      }
+    }
     // 깜빡
     this.blinkT -= dt;
     if (this.blinkT < 0) this.blinkT = 2.5 + Math.random() * 3;

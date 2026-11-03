@@ -74,6 +74,7 @@
       <button id="btnChat" class="tab" type="button"><span class="ico">💬</span><span>말하기</span></button>
       <button id="btnDrink" class="tab" type="button"><span class="ico">☕</span><span>음료</span></button>
       <button id="btnWave" class="tab" type="button"><span class="ico">👋</span><span>인사</span></button>
+      <button id="btnDance" class="tab" type="button"><span class="ico">💃</span><span>춤추기</span></button>
       <button id="btnPlaces" class="tab" type="button"><span class="ico">🧭</span><span>가볼 곳</span></button>
     </div>
     <div id="player" class="player hidden">
@@ -88,7 +89,16 @@
     <div id="gazeVeil" class="gaze-veil"></div>
     <button id="starChip" class="star-chip" type="button">🌌 별멍</button>
     <button id="copyChip" class="copy-chip" type="button">✍️ 필사하기</button>
-    <button id="woodChip" class="copy-chip" type="button">🪚 목공 멍</button>
+    <button id="woodChip" class="copy-chip" type="button">🪵 나무 다듬기</button>
+    <div id="craftPanel" class="craft-panel panel" role="dialog" aria-label="나무 다듬기">
+      <button id="crClose" class="x" type="button" aria-label="그만하기">×</button>
+      <div class="cr-tools" id="crTools"></div>
+      <div class="cr-title"><b id="crTitle">톱질 · 판자 자르기</b> <span id="crCount" class="cr-count">0 / 24</span></div>
+      <div class="cr-meter" aria-hidden="true"><i class="zone"></i><i id="crNeedle" class="needle"></i></div>
+      <div class="cp-prog"><i id="crProg"></i></div>
+      <div class="cr-row"><span id="crCombo" class="cr-combo">초록 칸에서 누르면 「좋아요!」 — 두 칸씩</span><button id="crHit" class="btn primary cr-hit" type="button">🪚 쓱싹</button></div>
+      <div class="cr-foot"><span id="crMade"></span><button id="crGaze" class="cr-link" type="button">👀 공방지기 구경 (목공 멍)</button></div>
+    </div>
     <div id="copyPanel" class="copy-panel panel" role="dialog" aria-label="필사">
       <button id="cpClose" class="x" type="button" aria-label="필사 그만하기">×</button>
       <div class="cp-scroll">

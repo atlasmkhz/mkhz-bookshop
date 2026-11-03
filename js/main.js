@@ -18,6 +18,7 @@ import { TRAIL_SPOTS } from './trail.js';
 import { CopyDesk } from './copydesk.js';
 import { Workshop, SHOP_CAP, inShop } from './woodshop.js';
 import { GalleryClient, inHall } from './gallery.js';
+import { Craft, CRAFTS } from './craft.js';
 import { Avatar, LOOKS } from './avatar.js';
 import { FX } from './fx.js';
 import { Sound } from './audio.js';
@@ -98,6 +99,7 @@ const me = {
 };
 const remotes = new Map();
 const workshop = new Workshop(scene, room, sound);
+const craft = new Craft(scene, sound);
 workshop.listener = me.pos;
 const gallery = new GalleryClient(room, CONFIG.gallery, uid);
 me.apron = !!store.get('apron', false);
@@ -121,6 +123,31 @@ window.addEventListener('resize', resize);
 resize();
 
 function updateCamera(dt) {
+  // 나무 다듬기: 내 어깨 너머로 테이블 위 나무를 내려다봄 (내 팔 · 도구가 보이게). 아래 판에 가리지 않게 조금 내 쪽을 봄
+  if (craft.on && me.seat) {
+    const w = craft.focus();
+    if (w) {
+      const panelH = document.querySelector('#craftPanel')?.offsetHeight || 0;
+      const visH = 2 * cam.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const shift = Math.min(0.45, (panelH / (2 * window.innerHeight)) * visH);
+      const fwd = new THREE.Vector3(Math.sin(me.seat.rotY), 0, Math.cos(me.seat.rotY));
+      w.y += 0.05; w.addScaledVector(fwd, -shift);
+      const k = craftView.t < 1.5 ? 6 : 3;
+      cam.target.lerp(w, 1 - Math.exp(-k * dt));
+      if (craftView.t < 2.5) {
+        cam.dist += (1.9 - cam.dist) * (1 - Math.exp(-k * dt));
+        cam.pitch += (0.72 - cam.pitch) * (1 - Math.exp(-k * dt));
+        cam.yaw = dampAngle(cam.yaw, me.seat.rotY + Math.PI + 1.45, k, dt);   // 오른쪽 옆에서 — 머리가 나무를 가리지 않고 팔 · 도구가 보이게
+      }
+      cam.dist = Math.min(cam.dist, 4.5);
+      craftView.t += dt;
+      const cp = Math.cos(cam.pitch);
+      camera.position.set(cam.target.x + Math.sin(cam.yaw) * cp * cam.dist, cam.target.y + Math.sin(cam.pitch) * cam.dist, cam.target.z + Math.cos(cam.yaw) * cp * cam.dist);
+      camera.lookAt(cam.target);
+      room.viewCenter = cam.target;
+      return;
+    }
+  }
   // 필사: 내 어깨 뒤에서 공책을 내려다봄. 아래 필사 창에 가리지 않게 화면을 위로 조금 올림
   if (copy.on) {
     // 공책이 필사 창 위 빈자리 가운데에 오도록, 카메라는 공책보다 조금 내 쪽을 봄
@@ -297,6 +324,7 @@ cats.getGuests = () => {
 function standUp() {
   if (!me.seat) return;
   if (copy.on) exitCopy();
+  if (craft.on) exitCraft();
   me.pos.copy(me.seat.appr);
   pushOut(room, me.pos, 0.22);
   me.seat.taken = null;
@@ -918,11 +946,85 @@ function exitWood() {
   ui.setGaze(false);
   const s0 = woodView.saved; if (s0) { cam.yaw = s0.yaw; cam.pitch = s0.pitch; cam.dist = s0.dist; cam.userZoomed = s0.zoomed; }
 }
-document.querySelector('#woodChip').addEventListener('click', () => startWood());
+document.querySelector('#woodChip').addEventListener('click', () => startCraft());
+// ---------- 목공방: 나무 다듬기 (내가 직접 톱질 · 대패질 · 끌질 · 못질) ----------
+// 메시지: 도구를 고를 때 · 내려놓을 때만 'em' 한 건 (한 번 한 번은 보내지 않음, 다른 손님 화면에선 팔이 스스로 되풀이)
+const craftView = { t: 0, saved: null };
+const someoneNear = (m) => [...remotes.values()].some((r) => near(r) < m);
+function startCraft(kind) {
+  if (!me.seat?.wood) return;
+  if (woodView.on) exitWood();
+  if (fires.gaze) exitGaze();
+  if (!craft.on) {
+    craftView.saved = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, zoomed: cam.userZoomed };
+    craftView.t = 0;
+    craft.start(me.seat, kind || store.get('craftKind', 'saw'));
+  } else if (kind && kind !== craft.kind) craft.setKind(kind);
+  else if (kind) return;
+  store.set('craftKind', craft.kind);
+  me.avatar?.stopDance();
+  me.avatar?.craft(craft.kind);
+  workshop.quiet = true;
+  sound.ensure(); sound.setFocus(1);
+  if (!sound.enabled) ui.soundNudge();
+  document.body.classList.add('crafting');
+  ui.craftPanel(true, craft, CRAFTS);
+  if (someoneNear(30)) net.send({ t: 'em', k: craft.kind });
+}
+function exitCraft() {
+  if (!craft.on) return;
+  craft.stop();
+  me.avatar?.craft(null);
+  workshop.quiet = false;
+  sound.setFocus(0);
+  document.body.classList.remove('crafting');
+  ui.craftPanel(false);
+  const s0 = craftView.saved; if (s0) { cam.pitch = s0.pitch; cam.dist = s0.dist; cam.userZoomed = s0.zoomed; }
+  if (someoneNear(30)) net.send({ t: 'em', k: '' });
+}
+function craftHit() {
+  const r = craft.hit();
+  if (!r) return;
+  me.avatar?.stroke();
+  ui.craftUpdate(craft, r);
+  if (r.done) {
+    fx.hearts(craft.focus().add(new THREE.Vector3(0, 0.2, 0)), 4);
+    ui.toast(`🎉 ${r.done.done} 완성! — 내 목공 작품에 하나 더 (이 기기에만 남아요)`);
+    setTimeout(() => { if (craft.on) ui.craftUpdate(craft); }, 1700);
+  }
+}
+ui.onCraftHit = craftHit;
+ui.onCraftKind = (k) => { startCraft(k); ui.craftPanel(true, craft, CRAFTS); };
+ui.onCraftExit = () => exitCraft();
+ui.onCraftGaze = () => { exitCraft(); startWood(); };
+window.addEventListener('keydown', (e) => {
+  if (!craft.on || typing()) return;
+  if (e.code === 'Space' || e.key === 'Enter') { e.preventDefault(); craftHit(); }
+  else if (e.key === 'Escape') exitCraft();
+});
+// ---------- 춤추기 (누를 때만 'em' 한 건, 2.5초에 한 번까지, 30 m 안에 손님이 있을 때만) ----------
+let lastDance = 0, danceN = store.get('danceN', 0);
+const DANCES = ['흔들흔들', '만세 점프', '빙글빙글', '로봇 춤'];
+ui.onDance = () => {
+  if (!me.entered || !me.avatar) return;
+  if (craft.on) exitCraft();
+  if (performance.now() - lastDance < 2500) return;
+  lastDance = performance.now();
+  const style = danceN++ % DANCES.length;
+  store.set('danceN', danceN);
+  me.avatar.dance(style);
+  ui.toast(`💃 ${DANCES[style]}${style === 0 ? ' — 누를 때마다 다른 춤' : ''}`);
+  if (someoneNear(30)) net.send({ t: 'em', k: 'dance', s: style });
+};
 let woodChipOn = false, woodTick = 0;
 function updateWood(dt) {
   workshop.update(dt);
-  const show = me.entered && !!me.seat?.wood && !woodView.on && !copy.on;
+  craft.update(dt);
+  if (craft.on) {
+    if (!me.seat?.wood) exitCraft();
+    else ui.craftNeedle(craft.needle());
+  }
+  const show = me.entered && !!me.seat?.wood && !woodView.on && !copy.on && !craft.on;
   if (show !== woodChipOn) { woodChipOn = show; document.querySelector('#woodChip').classList.toggle('show', show); }
   if (woodView.on) {
     if (!me.seat?.wood) { exitWood(); return; }
@@ -1188,6 +1290,14 @@ function handle(m) {
     case 'pet': cats.pet(m.id, Array.isArray(m.p) ? new THREE.Vector3(m.p[0], 0, m.p[1]) : null, false); break;
     case 'treat': cats.treat(m.id, Array.isArray(m.p) ? new THREE.Vector3(m.p[0], 0, m.p[1]) : null, false); break;
     case 'wave': { const r = remotes.get(m.uid); if (r && !blocked.has(m.uid)) r.avatar.wave(); break; }
+    case 'em': {
+      // 춤추기 · 목공 도구 들기/내려놓기
+      const r = remotes.get(m.uid);
+      if (!r || blocked.has(m.uid)) break;
+      if (m.k === 'dance') r.avatar.dance((+m.s || 0) % 4);
+      else r.avatar.craft(CRAFTS.some((c) => c.id === m.k) ? m.k : null, true);
+      break;
+    }
     case 'play': {
       const r = remotes.get(m.uid);
       if (!r || blocked.has(m.uid)) break;
@@ -1249,6 +1359,7 @@ function updateRemotes(dt) {
     if (seat) r.avatar.root.position.y = r.pos.y + (seat.pos.y - seat.fy - 0.38) * r.avatar.sitting;
     r.avatar.root.rotation.y = r.yaw;
     r.avatar.update(dt, speed > 0.2 ? speed : 0, !!seat && (!r.path || !r.path.length));
+    if (!seat && r.avatar.craftKind) r.avatar.craft(null);   // 자리에서 일어나면 도구 내려놓기
     const dd = near(r);
     const hiddenSpot = seat?.nook && dd > 4;
     r.avatar.setLabelVisible(!hiddenSpot && dd < 18);
@@ -1544,4 +1655,4 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-window.shop = { workshop, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };

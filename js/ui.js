@@ -48,6 +48,7 @@ export class UI {
     $('#btnSound').addEventListener('click', () => this.setSound(this.onToggleSound?.()));
     $('#btnMusic').addEventListener('click', () => { const on = this.onToggleMusic?.(); this.setMusic(on); this.toast(on ? '🎵 배경 음악을 켰어요 (고양이서가 카페 음악)' : '🎵 배경 음악을 껐어요 — 장작 · 빗소리 · 연필 소리는 그대로'); });
     $('#btnWave').addEventListener('click', () => this.onWave?.());
+    $('#btnDance').addEventListener('click', () => this.onDance?.());
     $('#btnPlaces').addEventListener('click', () => this.openPlaces());
     $('#btnMyCat').addEventListener('click', () => this.openMyCat());
     $('#playerClose').addEventListener('click', () => this.hidePlayer(true));
@@ -340,6 +341,35 @@ export class UI {
   }
 
   // 내 필사 공책 (이 브라우저에만 저장)
+  // ---------- 목공방 나무 다듬기 판 ----------
+  craftPanel(show, craft, crafts, h = {}) {
+    const p = $('#craftPanel');
+    if (!show) { p.classList.remove('show'); return; }
+    if (!this._crBound) {
+      this._crBound = true;
+      $('#crClose').addEventListener('click', () => this.onCraftExit?.());
+      $('#crHit').addEventListener('pointerdown', (e) => { e.preventDefault(); this.onCraftHit?.(); });
+      $('#crGaze').addEventListener('click', () => this.onCraftGaze?.());
+    }
+    $('#crTools').innerHTML = crafts.map((c) => `<button type="button" data-k="${c.id}" class="${c.id === craft.kind ? 'on' : ''}">${c.ico} ${c.name}</button>`).join('');
+    document.querySelectorAll('#crTools [data-k]').forEach((b) => b.addEventListener('click', () => this.onCraftKind?.(b.dataset.k)));
+    p.classList.add('show');
+    this.craftUpdate(craft);
+  }
+  craftUpdate(craft, res = null) {
+    const d = craft.def;
+    $('#crTitle').textContent = `${d.name} · ${d.job}`;
+    $('#crCount').textContent = `${craft.points} / ${d.goal}`;
+    $('#crProg').style.width = `${(craft.points / d.goal) * 100}%`;
+    $('#crHit').textContent = `${d.ico} ${d.verb}`;
+    const cb = $('#crCombo');
+    if (res?.done) { cb.textContent = `🎉 ${res.done.done} 완성!`; cb.classList.add('good'); }
+    else if (res) { cb.textContent = res.good ? `좋아요! ${craft.combo > 1 ? `· ${craft.combo}번 연속` : ''}` : '조금 일찍 · 늦게 — 초록 칸에서 눌러 봐요'; cb.classList.toggle('good', res.good); }
+    else { cb.textContent = '초록 칸에서 누르면 「좋아요!」 — 두 칸씩'; cb.classList.remove('good'); }
+    $('#crMade').textContent = craft.madeLine();
+  }
+  craftNeedle(v) { const n = $('#crNeedle'); if (n) n.style.left = `${(v * 100).toFixed(1)}%`; }
+
   openCopybook(list) {
     this.sheetKind = 'copybook';
     this.openSheet(`<h2>📓 내 필사 공책</h2>

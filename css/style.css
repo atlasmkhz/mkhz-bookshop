@@ -71,6 +71,7 @@ a { color: inherit; }
 .tab { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; border: 0; background: transparent; border-radius: 15px; padding: 6px 10px 5px; min-width: 70px; white-space: nowrap; cursor: pointer; font-size: 12px; color: var(--ink-soft); }
 .tab .ico { font-size: 20px; line-height: 1.1; }
 .tab:active, .tab.on { background: #efe2cc; color: var(--ink); }
+@media (max-width: 480px) { .tab { min-width: 0; flex: 1 1 0; padding: 6px 4px 5px; font-size: 11px; } .bottombar { width: calc(100vw - 16px); } .tab .ico { font-size: 19px; } }
 .badge { position: absolute; top: 2px; right: 8px; min-width: 18px; height: 18px; border-radius: 9px; background: #b65d4c; color: #fff; font-style: normal; font-size: 11px; display: grid; place-items: center; padding: 0 5px; }
 
 .hint, .toast { position: absolute; left: 50%; transform: translate(-50%, -8px); opacity: 0; transition: opacity .4s, transform .4s; padding: 8px 15px; border-radius: 999px; background: rgba(55, 36, 22, 0.74); color: #fbf1e2; font-size: 13.5px; white-space: nowrap; max-width: calc(100vw - 24px); overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
@@ -263,6 +264,25 @@ body.copying #hud *, body.copying .panel { backdrop-filter: none !important; -we
 
 /* ---------- 목공 멍 단추 (필사 단추와 같은 자리) · 미술관 ---------- */
 #woodChip { bottom: calc(136px + var(--safe-bot)); }
+/* 나무 다듬기 판 (아래쪽) */
+.craft-panel { position: fixed; left: 50%; bottom: calc(10px + var(--safe-bot)); transform: translateX(-50%); width: min(460px, calc(100vw - 20px)); padding: 12px 14px 10px; display: none; z-index: 11; pointer-events: auto; background: #fbf6ec; }
+.craft-panel.show { display: block; animation: up .28s ease-out; }
+body.crafting .bottombar, body.crafting .chat-log, body.crafting .star-chip, body.crafting .copy-chip, body.crafting .fire-bar, body.crafting .pet-bubble, body.crafting .game-bar { opacity: 0 !important; visibility: hidden !important; }
+.cr-tools { display: flex; gap: 6px; margin: 0 34px 8px 0; flex-wrap: wrap; }
+.cr-tools button { border: 1.5px solid var(--line); background: #fffdf9; border-radius: 999px; padding: 6px 11px; font: inherit; font-size: 13.5px; cursor: pointer; color: var(--ink); }
+.cr-tools button.on { background: var(--wood-dark); border-color: var(--wood-dark); color: #fff; }
+.cr-title { font-family: var(--serif); color: var(--wood-dark); font-size: 15.5px; margin-bottom: 6px; }
+.cr-count { font-family: var(--sans); font-size: 12.5px; color: var(--ink-soft); margin-left: 4px; }
+.cr-meter { position: relative; height: 14px; border-radius: 8px; background: rgba(109, 70, 48, 0.12); overflow: hidden; }
+.cr-meter .zone { position: absolute; left: 37%; width: 26%; top: 0; bottom: 0; background: rgba(95, 150, 90, 0.45); }
+.cr-meter .needle { position: absolute; top: 1px; bottom: 1px; width: 6px; margin-left: -3px; border-radius: 3px; background: var(--wood-dark); left: 0; }
+.cr-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.cr-combo { font-size: 12.5px; color: var(--ink-soft); }
+.cr-combo.good { color: #3f7a3a; font-weight: 700; }
+.cr-hit { min-width: 128px; font-size: 17px; padding: 12px 16px; touch-action: manipulation; }
+.cr-hit:active { transform: scale(0.96); }
+.cr-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--ink-soft); }
+.cr-link { border: none; background: none; color: var(--wood-dark); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; white-space: nowrap; }
 .art-img { display: block; width: 100%; max-height: 46vh; object-fit: contain; background: #1e2126; border-radius: 10px; margin: 6px 0 8px; }
 .art-rules { margin: 6px 0 4px; padding-left: 18px; display: grid; gap: 2px; }
 .au-prev img { display: block; max-width: 100%; max-height: 220px; border-radius: 10px; margin: 4px 0 8px; }

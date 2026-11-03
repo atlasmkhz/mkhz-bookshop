@@ -428,6 +428,7 @@ export class Sound {
     if (kind === 'plane') { noise(0.85, 1800, 1300, 0.9, 0.28, 'bandpass', this.pinkBuf, 0.12); this.click(t + 0.86, 700, 0.12 * vol, 0.05, this.fxOut); }
     else if (kind === 'saw') { const up = Math.random() < 0.5; noise(0.42, up ? 2200 : 1700, up ? 2600 : 1500, 1.6, 0.22, 'bandpass', this.pinkBuf, 0.05); }
     else if (kind === 'sand') noise(0.42, 2600, 2300, 0.6, 0.12, 'bandpass', this.pinkBuf, 0.1);
+    else if (kind === 'nail') { this.click(t, 1900, 0.5 * vol, 0.05, this.fxOut); this.click(t + 0.004, 420, 0.55 * vol, 0.1, this.fxOut); noise(0.08, 3200, 2600, 2.5, 0.06, 'bandpass', this.pinkBuf, 0.005); }   // 망치로 못 — 임시 (목공 소리 고를 때 같이)
     else if (kind === 'chisel') { this.click(t, 260, 0.6 * vol, 0.09, this.fxOut); this.click(t + 0.01, 1400, 0.25 * vol, 0.04, this.fxOut); noise(0.12, 2400, 1800, 1.2, 0.08, 'bandpass', this.pinkBuf, 0.01); }
   }
 
