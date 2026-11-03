@@ -40,6 +40,10 @@ export class UI {
     $('#btnNight').addEventListener('click', () => this.setNight(this.onToggleNight?.()));
     $('#btnSound').addEventListener('click', () => this.setSound(this.onToggleSound?.()));
     $('#btnWave').addEventListener('click', () => this.onWave?.());
+    $('#btnPlaces').addEventListener('click', () => this.openPlaces());
+    $('#btnMyCat').addEventListener('click', () => this.openMyCat());
+    $('#playerClose').addEventListener('click', () => this.hidePlayer(true));
+    $('#playerSize').addEventListener('click', () => { $('#player').classList.toggle('big'); $('#playerSize').textContent = $('#player').classList.contains('big') ? '작게' : '크게'; });
     $('#btnBasket').addEventListener('click', () => this.openBasket());
     $('#btnDrink').addEventListener('click', () => this.onDrinkButton?.());
     $('#btnChat').addEventListener('click', () => this.toggleChat());
@@ -153,6 +157,95 @@ export class UI {
     el.style.top = info.y + 'px';
     el.querySelector('span').textContent = `${info.name} 쓰다듬기`;
     el.classList.add('show');
+  }
+
+  // ---------- 캣타워 제품 카드 ----------
+  showProduct(p) {
+    this.cardCat = null;
+    $('#cardBody').innerHTML = `
+      <div class="card-kicker">고양이서가 원목 캣타워</div>
+      <div class="card-title">${esc(p.name)}</div>
+      <div class="card-desc">${esc(p.desc)}</div>
+      <a class="btn primary" href="${esc(p.url)}" target="_blank" rel="noopener" style="width:100%">이 캣타워 보러 가기 ↗</a>`;
+    this.openCard();
+  }
+
+  // ---------- 영화관: 상영표 · 플레이어 ----------
+  openProgram(program) {
+    this.sheetKind = 'program';
+    const d = program.data, n = program.now();
+    const items = d.items.length ? d.items.map((it, i) => `<li><a href="https://www.youtube.com/watch?v=${esc(it.id)}" target="_blank" rel="noopener"><span>${esc(it.title || it.id)}${i === n.index && n.kind === 'item' ? ' <em style="color:var(--wood);font-style:normal">· 지금 상영 중</em>' : ''}</span><span class="done" style="color:var(--ink-soft)">${it.min}분</span></a></li>`).join('') : '';
+    this.openSheet(`
+      <h2>숲속 영화관 상영표</h2>
+      <p class="note">${esc(d.channelName || '엠케이아틀라스')} 채널 영상이 하루 종일 돌아가요. 모든 손님이 같은 장면을 봐요. 자리에 앉으면 화면 위에 영상이 켜져요 (소리는 켜는 사람에게만).</p>
+      <p class="note" style="margin:8px 0 12px"><b style="font-weight:400;color:var(--wood-dark)">지금:</b> ${esc(n.kind === 'item' ? n.title : (d.channelName || '채널') + ' 올린 영상 차례로')} </p>
+      ${items ? `<ol class="toc">${items}</ol>` : '<div class="empty">아직 대표 영상 모음이 없어서 채널에 올린 영상을 차례로 틀어요.<br>서점지기가 data/program.json 에 목록을 적으면 여기에 보여요.</div>'}
+      <p style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="${esc(d.channelUrl || '#')}" target="_blank" rel="noopener">채널 가기 ↗</a><button class="btn primary" type="button" id="prGo">자리로 걸어가기</button></p>`);
+    $('#prGo').addEventListener('click', () => { this.closeSheet(); this.onGoCinema?.(); });
+  }
+  showPlayer(url, title) {
+    if (!url) { this.toast('상영할 영상이 없어요'); return; }
+    const el = $('#player');
+    const fr = $('#playerFrame');
+    if (fr.src !== url) fr.src = url;
+    $('#playerTitle').textContent = title || '상영 중';
+    el.classList.remove('hidden');
+    this.playerOn = true;
+  }
+  hidePlayer(byUser = false) {
+    const el = $('#player');
+    el.classList.add('hidden');
+    $('#playerFrame').src = 'about:blank';
+    this.playerOn = false;
+    if (byUser) this.toast('자리에서 일어나면 다시 켤 수 있어요 · 영화관 의자를 다시 누르세요');
+  }
+
+  // ---------- 가볼 곳 ----------
+  openPlaces() {
+    this.sheetKind = 'places';
+    const list = this.places || [];
+    this.openSheet(`<h2>어디로 갈까</h2><p class="note">누르면 그곳까지 걸어가요. 길이 갈라지는 곳마다 이정표가 있어요.</p>
+      <div class="places">${list.map((p, i) => `<button type="button" data-p="${i}"><span class="ico">${p.ico}</span><b>${esc(p.name)}</b><span>${esc(p.note)}</span></button>`).join('')}</div>`);
+    document.querySelectorAll('#sheetBody [data-p]').forEach((el) => el.addEventListener('click', () => { this.closeSheet(); this.onGoPlace?.(list[+el.dataset.p]); }));
+  }
+
+  // ---------- 우리 집 고양이 입장시키기 ----------
+  openMyCat() {
+    this.sheetKind = 'mycat';
+    const cur = this.getMyCat?.();
+    this.openSheet(`
+      <h2>우리 집 고양이 입장시키기</h2>
+      <p class="note">고양이 사진을 올리면 털색을 따서 서점에 함께 들어와요. 사진은 내 기기 안에서만 쓰여요.</p>
+      ${cur ? `<p class="note" style="margin:10px 0">지금 함께 있는 고양이: <b style="color:var(--wood-dark)">${esc(cur.name || '우리 고양이')}</b> <button id="mcHome" class="btn ghost small" type="button">집으로 보내기</button></p>` : ''}
+      <label class="btn" style="margin:8px 0">📷 사진 고르기<input id="mcPhoto" type="file" accept="image/*" hidden /></label>
+      <div id="mcStatus" class="note"></div>
+      <div id="mcPreview" class="hidden" style="margin-top:10px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div id="mcSwatches" class="swatches"></div><span id="mcKind" class="note"></span></div>
+        <label class="field"><span>이름</span><input id="mcName" maxlength="10" placeholder="고양이 이름" /></label>
+        <p style="margin-top:12px"><button id="mcAdopt" class="btn primary" type="button">서점에 들여보내기</button></p>
+      </div>`);
+    $('#mcHome')?.addEventListener('click', () => { this.onSendHome?.(); this.closeSheet(); });
+    $('#mcPhoto').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      $('#mcStatus').textContent = '털색을 살펴보는 중…';
+      try {
+        const info = await this.onPhoto(file);
+        this.pendingCat = info;
+        const sw = $('#mcSwatches'); sw.innerHTML = '';
+        for (const c of [info.base, info.dark, info.light, info.orange].filter(Boolean)) { const d = document.createElement('span'); d.className = 'sw'; d.style.background = c; d.style.cursor = 'default'; sw.appendChild(d); }
+        $('#mcKind').textContent = info.patches ? '삼색 얼룩' : info.stripes ? (info.white ? '줄무늬 + 흰 배' : '줄무늬') : info.white ? '두 가지 색' : '단색';
+        $('#mcPreview').classList.remove('hidden');
+        $('#mcStatus').textContent = '';
+        $('#mcName').focus();
+      } catch (err) { console.warn(err); $('#mcStatus').textContent = '사진을 읽지 못했어요. 다른 사진으로 해 볼까요?'; }
+    });
+    $('#mcAdopt').addEventListener('click', () => {
+      if (!this.pendingCat) return;
+      this.pendingCat.name = $('#mcName').value.trim().slice(0, 10) || '우리 고양이';
+      this.onAdoptCat?.(this.pendingCat);
+      this.closeSheet();
+    });
   }
 
   // ---------- 작은 카드 (고양이 · 손님) ----------

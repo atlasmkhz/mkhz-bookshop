@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
   <title>엠케이아틀라스 서점</title>
-  <meta name="description" content="역사 · 철학 · 과학 · 정치 아틀라스의 자료실 시리즈가 한 권씩 책이 된 숲속 오두막 독립서점. 숨어서 읽는 자리가 곳곳에 있어요." />
+  <meta name="description" content="역사 · 철학 · 과학 · 정치 아틀라스의 자료실 시리즈가 한 권씩 책이 된 숲속 오두막 독립서점. 숨어서 읽는 자리, 루프탑, 캠핑장, 숲속 영화관, 계곡과 바닷가가 있어요." />
   <meta name="theme-color" content="#e9dcc6" />
   <meta property="og:title" content="엠케이아틀라스 서점" />
   <meta property="og:description" content="숲속 오두막 독립서점. 책장 사이 막다른 골목, 다락 구석, 나무 위 오두막에 숨어서 읽어요." />
@@ -29,7 +29,7 @@
   <div id="entry">
     <form id="enterForm" class="panel" autocomplete="off">
       <div class="logo">엠케이아틀라스 <span>서점</span></div>
-      <p class="sub">숲속 오두막 독립서점. 책장 사이 막다른 골목, 다락 구석,<br />나무 위 오두막에 숨어서 읽다 가세요.</p>
+      <p class="sub">숲속 오두막 독립서점. 책장 골목과 비밀 서재, 루프탑,<br />캠핑장과 숲속 영화관, 계곡을 지나면 바닷가까지.</p>
       <label class="field">
         <span>닉네임</span>
         <input id="nameInput" maxlength="12" placeholder="서점에서 쓸 이름" enterkeyhint="go" />
@@ -51,6 +51,7 @@
     <div class="topbar">
       <div class="chip brand"><b>MK 서점</b><em id="roomNo"></em><i id="statusDot" class="dot"></i><span id="count">혼자 머무는 중</span></div>
       <div class="buttons">
+        <button id="btnMyCat" class="round" title="우리 집 고양이 입장시키기" type="button" aria-label="우리 집 고양이">🐾</button>
         <button id="btnRain" class="round off" title="빗소리" type="button" aria-label="빗소리">☔</button>
         <button id="btnNight" class="round" title="낮 · 밤" type="button" aria-label="낮 밤 바꾸기">☀️</button>
         <button id="btnSound" class="round off" title="소리 켜기" type="button" aria-label="소리">🔈</button>
@@ -72,6 +73,11 @@
       <button id="btnChat" class="tab" type="button"><span class="ico">💬</span><span>말하기</span></button>
       <button id="btnDrink" class="tab" type="button"><span class="ico">☕</span><span>음료</span></button>
       <button id="btnWave" class="tab" type="button"><span class="ico">👋</span><span>인사</span></button>
+      <button id="btnPlaces" class="tab" type="button"><span class="ico">🧭</span><span>가볼 곳</span></button>
+    </div>
+    <div id="player" class="player hidden">
+      <div class="player-bar"><span id="playerTitle">상영 중</span><button id="playerSize" type="button">크게</button><button id="playerClose" type="button" aria-label="닫기">×</button></div>
+      <iframe id="playerFrame" src="about:blank" title="숲속 영화관" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
     </div>
     <button id="petBubble" class="pet-bubble" type="button">🤚 <span>쓰다듬기</span></button>
   </div>

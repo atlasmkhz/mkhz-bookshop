@@ -11,7 +11,7 @@ export function addSeat(room, x, y, z, rotY, o = {}) {
   const off = o.appr ?? 0.58;
   const s = {
     pos: V(x, y, z), rotY, fy, lv: o.lv || 0, kind: o.kind || 'chair', nook: !!o.nook,
-    name: o.name || '', taken: null,
+    name: o.name || '', taken: null, cinema: !!o.cinema,
     appr: V(x + f.x * off, fy, z + f.z * off),
   };
   room.seats.push(s);

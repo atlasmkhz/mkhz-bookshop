@@ -260,7 +260,15 @@ export class BookRoom extends DurableObject {
 
   hiOf(m, uid) {
     const l = m.l && typeof m.l === 'object' ? { top: clean(m.l.top, 7), hair: clean(m.l.hair, 7), skin: clean(m.l.skin, 7) } : null;
-    return { t: 'hi', uid, n: cleanText(clean(m.n, 12)) || '손님', l, d: m.d ? clean(m.d, 16) : null };
+    let mc = null;
+    if (m.mc && typeof m.mc === 'object') {
+      mc = {};
+      for (const k of ['base', 'dark', 'light', 'orange', 'eye']) if (typeof m.mc[k] === 'string') mc[k] = clean(m.mc[k], 7);
+      for (const k of ['stripes', 'white', 'patches']) mc[k] = !!m.mc[k];
+      mc.whiteAmount = Math.max(0, Math.min(1, +m.mc.whiteAmount || 0));
+      mc.name = cleanText(clean(m.mc.name, 10));
+    }
+    return { t: 'hi', uid, n: cleanText(clean(m.n, 12)) || '손님', l, d: m.d ? clean(m.d, 16) : null, mc };
   }
 
   ensureHost() {

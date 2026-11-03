@@ -48,17 +48,59 @@ export class FX {
     this.scene.add(s);
     this.items.push({ o: s, life: 1.6, age: 0, vy: 0.2, wob: 0, base: 0.16, dispose: true });
   }
+  // 책이 떨어짐 (고양이 돌발행동)
+  drop(pos) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 0.25), new THREE.MeshStandardMaterial({ color: ['#7a3b2a', '#1f2c4d', '#1f6f6b', '#5f6b2e'][Math.floor(Math.random() * 4)], roughness: 0.8 }));
+    m.position.copy(pos).add(new THREE.Vector3(0, 0.8, 0));
+    m.castShadow = true;
+    m.userData.noHit = true;
+    this.scene.add(m);
+    this.items.push({ o: m, life: 7, age: 0, vy: -0.1, wob: 0, base: 1, fall: true, floorY: pos.y + 0.02, spin: Math.random() * 6 });
+  }
+  // 먼지 뭉게 (우다다 · 덮치기)
+  puff(pos) {
+    for (let i = 0; i < 5; i++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ color: '#d9cfc0', transparent: true, opacity: 0.5, depthWrite: false }));
+      const sz = 0.12 + Math.random() * 0.1;
+      s.scale.set(sz, sz, 1);
+      s.position.copy(pos).add(new THREE.Vector3((Math.random() - 0.5) * 0.4, 0.05, (Math.random() - 0.5) * 0.4));
+      s.userData.noHit = true;
+      this.scene.add(s);
+      this.items.push({ o: s, life: 0.7, age: -i * 0.04, vy: 0.3, wob: Math.random() * 6, base: sz, grow: 2.2 });
+    }
+  }
+  // 물 튀김
+  splash(pos) {
+    for (let i = 0; i < 8; i++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ color: '#dff2fb', transparent: true, opacity: 0.9, depthWrite: false }));
+      const sz = 0.05 + Math.random() * 0.05;
+      s.scale.set(sz, sz, 1);
+      s.position.copy(pos).add(new THREE.Vector3((Math.random() - 0.5) * 0.5, 0.05, (Math.random() - 0.5) * 0.5));
+      s.userData.noHit = true;
+      this.scene.add(s);
+      this.items.push({ o: s, life: 0.6, age: -i * 0.03, vy: 1.2 + Math.random(), wob: 0, base: sz, gravity: true });
+    }
+  }
   update(dt) {
     for (let i = this.items.length - 1; i >= 0; i--) {
       const it = this.items[i];
       it.age += dt;
       if (it.age < 0) { it.o.visible = false; continue; }
       it.o.visible = true;
+      if (it.fall) {
+        it.vy -= 9.8 * dt;
+        it.o.position.y += it.vy * dt;
+        if (it.o.position.y <= it.floorY) { it.o.position.y = it.floorY; it.vy = 0; it.o.rotation.set(0, it.spin, 0); } else { it.o.rotation.x += dt * 6; it.o.rotation.y += dt * 3; }
+        if (it.age >= it.life - 0.5) it.o.material.opacity = Math.max(0, (it.life - it.age) / 0.5), it.o.material.transparent = true;
+        if (it.age >= it.life) { this.scene.remove(it.o); it.o.geometry.dispose(); it.o.material.dispose(); this.items.splice(i, 1); }
+        continue;
+      }
+      if (it.gravity) it.vy -= 6 * dt;
       it.o.position.y += it.vy * dt;
       it.o.position.x += Math.sin(it.age * 4 + it.wob) * 0.002 + (it.drift || 0) * dt;
       const k = it.age / it.life;
       it.o.material.opacity = k < 0.15 ? k / 0.15 : 1 - Math.max(0, (k - 0.6) / 0.4);
-      const pop = k < 0.15 ? 0.6 + k / 0.15 * 0.4 : 1;
+      const pop = (k < 0.15 ? 0.6 + k / 0.15 * 0.4 : 1) * (it.grow ? 1 + k * it.grow : 1);
       const ratio = it.o.scale.x / it.o.scale.y;
       it.o.scale.set(it.base * pop * ratio, it.base * pop, 1);
       if (k >= 1) {

@@ -3,9 +3,10 @@
 import * as THREE from 'three';
 import { CONFIG, store } from './config.js';
 import { IS_MOBILE } from './kit.js';
-import { CABIN, WORLD, pushOut, findPath, buildNav, isOutdoor, levelOf, platformById } from './nav.js';
+import { CABIN, WORLD, SEA_Z, pushOut, findPath, buildNav, isOutdoor, inCabin, levelOf, platformById } from './nav.js';
 import { buildCabin } from './cabin.js';
 import { buildForest, updateCanopies } from './forest.js';
+import { Program } from './cinema.js';
 import { setAtlases, finalizeBooks } from './shelves.js';
 import { BookCats } from './cats.js';
 import { Avatar, LOOKS } from './avatar.js';
@@ -16,13 +17,15 @@ import { NetServer, fetchRooms } from './netServer.js';
 import { Controls } from './controls.js';
 import { UI } from './ui.js';
 import { cleanText, ChatLimiter, blocked } from './chat.js';
+import { extractCatColors, FollowerCat } from './myCat.js';
 
-// ---------- 책 목록 ----------
+// ---------- 책 목록 · 상영표 ----------
 let LIB = { atlases: [], shelves: [], books: [], count: 0 };
 try { LIB = await fetch('data/books.json', { cache: 'no-cache' }).then((r) => r.json()); } catch (e) { console.warn('책 목록을 못 불러왔어요', e); }
 LIB.books.forEach((b, i) => { b.no = LIB.books.slice(0, i).filter((x) => x.atlas === b.atlas).length + 1; });
 setAtlases(LIB.atlases);
-const bookById = new Map(LIB.books.map((b) => [b.id, b]));
+const program = new Program();
+await program.ready;
 
 // ---------- 렌더러 · 장면 ----------
 const canvas = document.getElementById('scene');
@@ -37,8 +40,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const DAY_BG = new THREE.Color('#dfe3d2'), NIGHT_BG = new THREE.Color('#121829');
 scene.background = DAY_BG.clone();
-scene.fog = new THREE.Fog(DAY_BG.clone(), 26, 60);
-const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 140);
+scene.fog = new THREE.Fog(DAY_BG.clone(), 30, 90);
+const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 180);
 
 const hemi = new THREE.HemisphereLight('#fff1dc', '#8a7a5a', 1.1);
 scene.add(hemi);
@@ -49,7 +52,7 @@ const SUN_OFFSET = new THREE.Vector3(-5, 12, -9);
 sun.castShadow = true;
 const SM = IS_MOBILE ? 1024 : 2048;
 sun.shadow.mapSize.set(SM, SM);
-Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: 2, far: 45 });
+Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 2, far: 45 });
 sun.shadow.bias = -0.0006;
 sun.shadow.normalBias = 0.025;
 scene.add(sun, sun.target);
@@ -58,7 +61,7 @@ fill.position.set(4, 8, 10);
 scene.add(fill);
 
 const room = buildCabin(scene, LIB.books);
-buildForest(scene, room);
+buildForest(scene, room, program);
 const shelfBooks = finalizeBooks(scene);
 buildNav(room);
 const fx = new FX(scene);
@@ -75,12 +78,14 @@ const me = {
   name: store.get('name', ''),
   look: store.get('look', { top: LOOKS.tops[Math.floor(Math.random() * LOOKS.tops.length)], hair: LOOKS.hairs[0], skin: LOOKS.skins[0] }),
   drink: CONFIG.drinks.find((d) => d.id === store.get('drink', null)) || null,
+  myCat: null, myCatInfo: store.get('mycat', null),
   avatar: null, pos: room.spawn.clone(), yaw: Math.PI, route: [], target: null, seat: null, pending: null, speed: 0, hold: null, entered: false,
 };
 const remotes = new Map();
+cats.listener = me.pos;
 
 // ---------- 카메라 ----------
-const cam = { yaw: 0.3, pitch: 0.8, dist: 15, target: new THREE.Vector3(-2, 1, 0) };
+const cam = { yaw: 0.3, pitch: 0.8, dist: 15, target: new THREE.Vector3(-4, 1, 2) };
 const fitDist = () => (camera.aspect < 1 ? 9.5 / Math.max(0.6, camera.aspect * 1.2) : 11);
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
@@ -88,14 +93,14 @@ function resize() {
   camera.aspect = w / h;
   camera.fov = camera.aspect < 1 ? 46 : 36;
   camera.updateProjectionMatrix();
-  cam.maxDist = fitDist() * 1.9;
+  cam.maxDist = fitDist() * 2.0;
   if (!cam.userZoomed) cam.dist = fitDist();
 }
 window.addEventListener('resize', resize);
 resize();
 
 function updateCamera(dt) {
-  const want = me.entered ? me.pos.clone() : new THREE.Vector3(-2.5, 0, 0);
+  const want = me.entered ? me.pos.clone() : new THREE.Vector3(-4, 0, 2);
   want.x = THREE.MathUtils.clamp(want.x, WORLD.minX + 1, WORLD.maxX - 1);
   want.z = THREE.MathUtils.clamp(want.z, WORLD.minZ + 1, WORLD.maxZ - 1);
   want.y = (me.entered ? me.pos.y : 0) + 0.6;
@@ -107,16 +112,19 @@ function updateCamera(dt) {
   room.viewCenter = cam.target;
 }
 
-// ---------- 잘라 보기: 카메라 쪽 벽 · 지붕 · 다락 ----------
+// ---------- 잘라 보기: 카메라 쪽 벽 · 들보 · 지붕 · 다락 ----------
 function updateCutaway(dt) {
   const c = camera.position;
   const ref = me.entered ? me.pos : cam.target;
-  const inside = !isOutdoor(ref) || !me.entered;
+  const lv = me.entered ? levelOf(me.pos) : 0;
+  const inside = (inCabin(ref) || !me.entered) && lv !== 3;
   for (const w of room.walls) {
     const sgn = w.normal.x + w.normal.z;
     const sc = ((Math.abs(w.normal.x) ? c.x : c.z) - w.at) * sgn;
     const sp = ((Math.abs(w.normal.x) ? ref.x : ref.z) - w.at) * sgn;
-    const want = (sc > 0.3 && sp < 0.1) || (sc < -0.3 && sp > 0.1) ? 0 : 1;
+    let want = (sc > 0.3 && sp < 0.1) || (sc < -0.3 && sp > 0.1) ? 0 : 1;
+    if (w.span) { const v = w.spanAxis === 'x' ? ref.x : ref.z; if (v < w.span[0] || v > w.span[1]) want = 1; }
+    if (lv === 3) want = 1;
     w.opacity += (want - w.opacity) * (1 - Math.exp(-8 * dt));
     if (Math.abs(w.opacity - want) < 0.01) w.opacity = want;
     const e = w.opacity * w.opacity * (3 - 2 * w.opacity);
@@ -129,7 +137,6 @@ function updateCutaway(dt) {
     const lo = Math.min(cc, rr) - 0.6, hi = Math.max(cc, rr) + 0.6;
     b.m.visible = !(inside && b.at > lo && b.at < hi && Math.abs(b.at - rr) < 7);
   }
-  const lv = me.entered ? levelOf(me.pos) : 0;
   for (const h of room.hideables) {
     const R = h.rect;
     const under = lv === 0 && ref.x > R.minX - 1 && ref.x < R.maxX + 1 && ref.z > R.minZ - 1 && ref.z < R.maxZ + 1.2;
@@ -160,7 +167,6 @@ function updateDayNight(dt, t) {
   for (const fn of room.nightParts) fn(dt, t, n);
 }
 
-// ---------- 손님 목록 (고양이가 찾아갈 대상) ----------
 cats.getGuests = () => {
   const list = [];
   if (me.entered) list.push({ id: uid, pos: me.pos });
@@ -174,6 +180,7 @@ function standUp() {
   me.pos.copy(me.seat.appr);
   pushOut(room, me.pos, 0.22);
   me.seat.taken = null;
+  if (me.seat.cinema) ui.hidePlayer();
   me.seat = null;
 }
 function walkTo(p, pending = null) {
@@ -194,7 +201,7 @@ function updateMe(dt) {
   const [ax, ay] = controls.axis();
   cam.yaw += controls.turn() * dt * 1.6;
   let moving = false;
-  const SPEED = 2.0;
+  const SPEED = 2.2;
   if ((ax || ay) && !typing()) {
     standUp();
     me.target = null; me.pending = null; me.route = [];
@@ -233,7 +240,6 @@ function updateMe(dt) {
   }
   if (!me.seat) pushOut(room, me.pos, 0.22);
   me.speed = moving ? SPEED : 0;
-  // 키보드 · 꾹 누르기로 움직일 땐 1초에 3번까지만 위치를 보냄, 멈추면 한 번
   const manual = moving && !me.target;
   const nowMs = performance.now();
   if (manual && nowMs - (me.lastManualSend || 0) > 340) { me.lastManualSend = nowMs; sendState(); }
@@ -249,6 +255,7 @@ function updateMe(dt) {
   if (me.seat) a.root.position.y = me.pos.y + (me.seat.pos.y - me.seat.fy - 0.38) * a.sitting;
   a.root.rotation.y = me.yaw;
   a.update(dt, me.speed, !!me.seat);
+  if (me.myCat) me.myCat.simulate(dt, me.pos, me.yaw);
 }
 
 function arrive() {
@@ -259,7 +266,8 @@ function arrive() {
     if (seatTakenByOther(p.seat)) { ui.toast('누군가 앉아 있어요'); sendState(true); return; }
     me.seat = p.seat;
     p.seat.taken = uid;
-    if (p.seat.name) ui.toast(p.seat.nook ? `🤫 ${p.seat.name} — 잘 안 보이는 자리예요` : `${p.seat.name}에 앉았어요`);
+    if (p.seat.cinema) { ui.showPlayer(program.embedUrl(), program.now().kind === 'item' ? program.now().title : (program.data.channelName || '채널') + ' 상영 중'); ui.toast('🎬 영화관 — 화면 위 영상이 켜져요'); }
+    else if (p.seat.name) ui.toast(p.seat.nook ? `🤫 ${p.seat.name} — 잘 안 보이는 자리예요` : `${p.seat.name}에 앉았어요`);
     sendState(true);
   } else if (p.type === 'faceCat') {
     const c = cats.find(p.id);
@@ -267,6 +275,8 @@ function arrive() {
     sendState(true);
   } else if (p.type === 'counter') { sendState(true); openDrinks(); }
   else if (p.type === 'suggest') { sendState(true); ui.openSuggest(); }
+  else if (p.type === 'program') { sendState(true); ui.openProgram(program); }
+  else if (p.type === 'place') { sendState(true); ui.toast(`${p.name}에 왔어요`); }
   else sendState(true);
 }
 
@@ -276,31 +286,34 @@ raycaster.camera = camera;
 const ndc = new THREE.Vector2();
 function usable(o) {
   if (o.isSprite || o.isPoints || o.isLine || o.isLineSegments || o.userData.noHit) return false;
-  if (o.userData.catId) return false;
+  if (o.userData.catId || o.userData.followerOf) return false;
   for (let p = o; p; p = p.parent) if (!p.visible) return false;
-  if (o.material && o.material.visible === false) return false;
+  if (o.material && o.material.visible === false && !o.userData.product) return false;
   return true;
+}
+function followerHits() {
+  const list = [];
+  if (me.myCat) list.push(me.myCat.hit);
+  for (const r of remotes.values()) if (r.cat) list.push(r.cat.hit);
+  return list;
 }
 function pick(x, y) {
   ndc.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-  // 1) 고양이 (조금 빗나가도 잡아 줌)
-  const catHits = raycaster.intersectObjects(cats.hitObjects(), false);
-  if (catHits.length) return { kind: 'cat', id: catHits[0].object.userData.catId };
+  const catHits = raycaster.intersectObjects([...cats.hitObjects(), ...followerHits()], false);
+  if (catHits.length) { const o = catHits[0].object; return o.userData.catId ? { kind: 'cat', id: o.userData.catId } : { kind: 'follower', obj: o, point: catHits[0].point }; }
   const tol = IS_MOBILE ? 44 : 30;
   let best = null, bd = tol;
-  for (const c of cats.cats) {
-    const v = c.hit.getWorldPosition(new THREE.Vector3()).project(camera);
+  for (const h of [...cats.hitObjects(), ...followerHits()]) {
+    const v = h.getWorldPosition(new THREE.Vector3()).project(camera);
     if (v.z > 1) continue;
     const d = Math.hypot((v.x + 1) / 2 * window.innerWidth - x, (1 - v.y) / 2 * window.innerHeight - y);
-    if (d < bd) { bd = d; best = c; }
+    if (d < bd) { bd = d; best = h; }
   }
-  if (best) return { kind: 'cat', id: best.def.id };
-  // 2) 다른 손님
+  if (best) return best.userData.catId ? { kind: 'cat', id: best.userData.catId } : { kind: 'follower', obj: best, point: best.getWorldPosition(new THREE.Vector3()) };
   const hits0 = [];
   for (const [id, r] of remotes) if (r.avatar.root.visible) { r.avatar.hit.userData.guest = id; hits0.push(r.avatar.hit); }
   const gh = raycaster.intersectObjects(hits0, false);
-  // 3) 장면
   const hits = raycaster.intersectObjects(scene.children, true).filter((h) => usable(h.object));
   if (gh.length && (!hits.length || gh[0].distance < hits[0].distance + 0.3)) return { kind: 'guest', id: gh[0].object.userData.guest };
   if (!hits.length) return null;
@@ -308,15 +321,16 @@ function pick(x, y) {
   const o = h.object;
   if (o.userData.bookIds && h.faceIndex != null) return { kind: 'book', id: o.userData.bookIds[Math.floor(h.faceIndex / o.userData.trisPerBook)], point: h.point };
   if (o.userData.bookId) return { kind: 'book', id: o.userData.bookId, point: h.point };
+  for (let p = o; p; p = p.parent) if (p.userData.product) return { kind: 'product', key: p.userData.product, point: h.point };
   if (o.userData.counter) return { kind: 'counter', point: h.point };
   if (o.userData.suggest) return { kind: 'suggest', point: h.point };
-  // 책등이 얇아 살짝 빗나가면 가장 가까운 책을 잡아 줌
+  if (o.userData.cinema || o.userData.cinemaBoard) return { kind: 'program', point: h.point };
   if (shelfBooks) {
     let bid = null, bdist = 0.28;
     for (const [id, wp] of shelfBooks.where) { const d = wp.distanceTo(h.point); if (d < bdist) { bdist = d; bid = id; } }
     if (bid) return { kind: 'book', id: bid, point: h.point };
   }
-  return { kind: 'point', point: h.point, filler: !!o.userData.filler };
+  return { kind: 'point', point: h.point };
 }
 
 function onTap(x, y) {
@@ -325,22 +339,29 @@ function onTap(x, y) {
   const hit = pick(x, y);
   if (!hit) return;
   if (hit.kind === 'cat') { petCat(hit.id); return; }
+  if (hit.kind === 'follower') { fx.hearts(hit.point, 3); sound.purr(3.5); ui.toast(hit.obj.userData.followerOf === me.name ? '우리 집 고양이가 골골거려요' : `${hit.obj.userData.followerOf} 님의 고양이예요`); return; }
   if (hit.kind === 'guest') { openGuest(hit.id); return; }
   if (hit.kind === 'book') { ui.openBook(hit.id); return; }
-  if (hit.kind === 'counter') { goCounter(); return; }
+  if (hit.kind === 'product') { ui.showProduct(CONFIG.products[hit.key]); return; }
+  if (hit.kind === 'counter') { goCounter(hit.point); return; }
   if (hit.kind === 'suggest') {
     if (me.pos.distanceTo(room.suggest) < 2.2) ui.openSuggest();
     else { walkTo(room.suggest, { type: 'suggest' }); ripple(room.suggest); }
     return;
   }
+  if (hit.kind === 'program') {
+    if (me.pos.distanceTo(room.cinemaBoard) < 8) ui.openProgram(program);
+    else { walkTo(room.cinemaBoard, { type: 'program' }); ripple(room.cinemaBoard); ui.toast('🎬 영화관 매표소로 걸어가요'); }
+    return;
+  }
   const p = hit.point;
-  const plv = p.y > 1.8 ? (levelOf(new THREE.Vector3(p.x, p.y + 0.1, p.z)) || levelOf(new THREE.Vector3(p.x, platformById(1).y, p.z))) : 0;
-  // 앉을 자리 근처를 눌렀으면 앉기
+  // 2층 바닥을 눌렀으면 그 층으로
+  const plv = p.y > 1.8 ? levelOf(new THREE.Vector3(p.x, p.y + 0.1, p.z)) : 0;
   let best = null, bd = 0.6;
   for (const s of room.seats) {
-    if (Math.abs(p.y - s.fy) > 1.3) continue;
+    if (Math.abs(p.y - s.fy) > 2.4) continue;
     const d = Math.hypot(s.pos.x - p.x, s.pos.z - p.z);
-    if (d < bd && (p.y > s.fy + 0.05 || s.kind === 'floor' && d < 0.4)) { bd = d; best = s; }
+    if (d < bd && (p.y > s.fy + 0.05 || (s.kind === 'floor' && d < 0.4))) { bd = d; best = s; }
   }
   ui.hideCard();
   if (best && best !== me.seat) {
@@ -354,9 +375,12 @@ function onTap(x, y) {
   ripple(floorPt);
 }
 
-function goCounter() {
-  if (me.pos.distanceTo(room.counter) < 2.6) openDrinks();
-  else { walkTo(room.counter, { type: 'counter' }); ripple(room.counter); ui.toast('카운터로 걸어가요 ☕'); }
+function goCounter(point) {
+  const cands = [room.counter, room.beachCounter].filter(Boolean);
+  const from = point ? new THREE.Vector3(point.x, 0, point.z) : me.pos;
+  const c = cands.reduce((a, b) => (a.distanceTo(from) <= b.distanceTo(from) ? a : b));
+  if (me.pos.distanceTo(c) < 2.8) openDrinks();
+  else { walkTo(c, { type: 'counter' }); ripple(c); ui.toast('카운터로 걸어가요 ☕'); }
 }
 function openDrinks(opts = {}) { ui.openDrinks({ ...opts, current: me.drink?.id }); }
 
@@ -395,10 +419,10 @@ function openGuest(id) {
 function applyBlock(r, id) {
   const b = blocked.has(id);
   r.avatar.root.visible = !b;
+  if (r.cat) r.cat.model.root.visible = !b;
   if (b) r.avatar.clearBubble();
 }
 
-// 누른 자리에 동그란 물결
 const rippleMesh = new THREE.Mesh(new THREE.RingGeometry(0.14, 0.19, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#fff5e0', transparent: true, opacity: 0, depthWrite: false }));
 rippleMesh.renderOrder = 5;
 rippleMesh.userData.noHit = true;
@@ -450,7 +474,6 @@ function switchToP2P() {
   ui.toast('서버가 붐벼서 손님끼리 직접 연결하는 방식으로 이어서 머물러요');
 }
 
-// 고양이 계획 보내기 (고양이 담당일 때, 다른 손님이 있을 때만)
 cats.onPlan = (msg) => { if (remotes.size) net.send({ t: 'cq', ...msg }); };
 let syncTimer = null;
 function sendCatSync() {
@@ -458,9 +481,7 @@ function sendCatSync() {
   syncTimer = setTimeout(() => { if (cats.isHost && remotes.size) net.send({ t: 'cs', c: cats.syncMsg() }); }, 400);
 }
 
-function helloMsg() { return { t: 'hi', n: me.name, l: me.look, d: me.drink?.id || null, uid }; }
-// 내 상태: p 지금 위치 [x, z, 방향, 높이], s 앉은 자리, g 걸어갈 목적지 [x, z, 높이]
-// 움직이기 시작할 때 · 멈출 때 · 앉을 때만 보냄 (가만히 있으면 0번)
+function helloMsg() { return { t: 'hi', n: me.name, l: me.look, d: me.drink?.id || null, mc: me.myCatInfo ? { ...me.myCatInfo, swatches: undefined } : null, uid }; }
 let lastSent = '';
 function sendState(force = false, goal = null) {
   if (!me.entered) return;
@@ -478,7 +499,7 @@ function getRemote(id) {
   if (!r) {
     const avatar = new Avatar('손님', {});
     scene.add(avatar.root);
-    r = { avatar, name: '손님', pos: room.spawn.clone(), yaw: Math.PI, tpos: room.spawn.clone(), tyaw: Math.PI, seat: -1, path: null, last: performance.now(), lookKey: '', drink: null };
+    r = { avatar, name: '손님', pos: room.spawn.clone(), yaw: Math.PI, tpos: room.spawn.clone(), tyaw: Math.PI, seat: -1, path: null, last: performance.now(), lookKey: '', drink: null, cat: null, catKey: '' };
     remotes.set(id, r);
     ui.setCount(remotes.size + 1);
     if (cats.isHost) sendCatSync();
@@ -490,12 +511,22 @@ function dropRemote(id) {
   const r = remotes.get(id);
   if (!r) return;
   scene.remove(r.avatar.root);
+  r.cat?.dispose();
   remotes.delete(id);
   ui.setCount(remotes.size + 1);
 }
 
 const isHex = (s) => typeof s === 'string' && /^#[0-9a-fA-F]{6}$/.test(s);
 const sanitizeLook = (l = {}) => ({ top: isHex(l.top) ? l.top : LOOKS.tops[0], hair: isHex(l.hair) ? l.hair : LOOKS.hairs[0], skin: isHex(l.skin) ? l.skin : LOOKS.skins[0] });
+function sanitizeCat(c = {}) {
+  const o = {};
+  for (const k of ['base', 'dark', 'light', 'orange', 'eye']) o[k] = isHex(c[k]) ? c[k] : undefined;
+  o.base ||= '#c8b8a4'; o.dark ||= '#6b5a4c'; o.light ||= '#f4ede2'; o.eye ||= '#b6a443';
+  o.stripes = !!c.stripes; o.white = !!c.white; o.patches = !!c.patches;
+  o.whiteAmount = Math.max(0, Math.min(1, +c.whiteAmount || 0));
+  o.name = cleanText(String(c.name || '')).slice(0, 10);
+  return o;
+}
 const drinkOf = (id) => CONFIG.drinks.find((d) => d.id === id) || null;
 const near = (r) => Math.hypot(r.pos.x - me.pos.x, r.pos.z - me.pos.z) + Math.abs(r.pos.y - me.pos.y) * 2;
 
@@ -526,6 +557,13 @@ function handle(m) {
       }
       r.drink = drinkOf(m.d);
       r.avatar.setDrink(r.drink);
+      const ck = JSON.stringify(m.mc || null);
+      if (ck !== r.catKey) {
+        r.cat?.dispose(); r.cat = null;
+        if (m.mc) r.cat = new FollowerCat(scene, room, sanitizeCat(m.mc), name);
+        r.catKey = ck;
+        applyBlock(r, m.uid);
+      }
       break;
     }
     case 'st': {
@@ -582,7 +620,7 @@ function updateRemotes(dt) {
       const dist = d.length();
       if (dist < 0.08) r.path.shift();
       else {
-        r.pos.addScaledVector(d.normalize(), Math.min(dist, 2.0 * dt));
+        r.pos.addScaledVector(d.normalize(), Math.min(dist, 2.2 * dt));
         pushOut(room, r.pos, 0.22);
         r.yaw = dampAngle(r.yaw, Math.atan2(d.x, d.z), 12, dt);
       }
@@ -599,20 +637,19 @@ function updateRemotes(dt) {
     if (seat) r.avatar.root.position.y = r.pos.y + (seat.pos.y - seat.fy - 0.38) * r.avatar.sitting;
     r.avatar.root.rotation.y = r.yaw;
     r.avatar.update(dt, speed > 0.2 ? speed : 0, !!seat && (!r.path || !r.path.length));
-    // 숨은 자리에 앉은 손님은 가까이 가야 이름이 보임
     const dd = near(r);
     const hiddenSpot = seat?.nook && dd > 4;
     r.avatar.setLabelVisible(!hiddenSpot && dd < 18);
-    // 2층이 접혀 있으면 그 위 손님도 잠시 숨김
     const lv = levelOf(r.pos);
     const hideLv = lv && room.hideables.some((h) => h.lv === lv && h.hidden);
     r.avatar.root.visible = !blocked.has(id) && !hideLv;
+    r.cat?.simulate(dt, r.pos, r.yaw);
   }
   for (const s of room.seats) s.remoteTaken = false;
   for (const r of remotes.values()) if (room.seats[r.seat]) room.seats[r.seat].remoteTaken = true;
 }
 
-// ---------- 채팅 · 음료 · 건의함 ----------
+// ---------- 채팅 · 음료 · 건의함 · 영화관 · 내 고양이 ----------
 const limiter = new ChatLimiter();
 ui.onChatSend = (raw) => {
   if (!me.entered) return '먼저 들어와 주세요';
@@ -622,7 +659,6 @@ ui.onChatSend = (raw) => {
   if (err) return err;
   me.avatar.say(text);
   ui.chatLine(me.name, text, 'me');
-  // 가까운 사람이 없으면 보내지 않음 (무료 한도 아끼기)
   const anyone = [...remotes.values()].some((r) => near(r) <= CONFIG.chatRange + 2);
   if (anyone) net.send({ t: 'chat', m: text });
   else if (remotes.size) ui.chatLine('', '가까이 아무도 없어서 혼잣말이 되었어요', 'sys');
@@ -658,16 +694,45 @@ ui.onWalkToBook = (id) => {
   walkTo(new THREE.Vector3(p.x, lvY, p.z));
   ui.toast('책이 꽂힌 자리로 걸어가요');
 };
-ui.onSheet = () => { /* 판을 여는 동안에도 장면은 그대로 */ };
+ui.onGoCinema = () => {
+  const free = (room.cinemaSeats || []).filter((s) => !seatTakenByOther(s));
+  const s = free[Math.floor(Math.random() * free.length)];
+  if (!s) return;
+  walkTo(s.appr, { type: 'seat', seat: s });
+  ui.toast('🎬 영화관 자리로 걸어가요');
+};
+// 가볼 곳
+ui.places = [
+  { ico: '🎬', name: '숲속 영화관', note: '채널 영상 자동 상영', to: [21.5, 0, 12.0] },
+  { ico: '⛺', name: '캠핑장', note: '모닥불 · 텐트 · 캠핑 의자', to: [17.5, 0, -6.0] },
+  { ico: '🌊', name: '폭포 · 계곡', note: '바위에 앉아 물소리', to: [28.0, 0, -17.5] },
+  { ico: '🏖️', name: '바닷가', note: '파라솔 · 선착장 · 모닥불', to: [13.5, 0, 24.5] },
+  { ico: '🪜', name: '루프탑', note: '화로 · 해먹 · 망원경', to: [-1.0, 5.75, 4.0] },
+  { ico: '📚', name: '비밀 서재', note: '책장 문 뒤', to: [-14.2, 0, 7.6] },
+  { ico: '🛖', name: '다락', note: '담요 굴 · 독서 천막', to: [-8.0, 2.7, -7.0] },
+  { ico: '🌳', name: '나무 위 오두막', note: '사다리 계단 위', to: [44.0, 2.4, -16.0] },
+  { ico: '🏯', name: '정자', note: '다리 건너 등불 아래', to: [38.5, 0, -6.0] },
+  { ico: '🌼', name: '들꽃 언덕', note: '돗자리 · 나비', to: [41.0, 0, 7.5] },
+  { ico: '🛶', name: '선착장 끝', note: '바다 위 숨은 벤치', to: [40.5, 0, 32.5] },
+  { ico: '🏡', name: '서점 벽난로', note: '돌아가기', to: [-12.5, 0, 3.7] },
+];
+ui.onGoPlace = (p) => { const to = new THREE.Vector3(...p.to); walkTo(to, { type: 'place', name: p.name }); ripple(to); ui.toast(`${p.name}(으)로 걸어가요`); };
+// 내 고양이
+ui.onPhoto = async (file) => extractCatColors(file);
+ui.onAdoptCat = (info) => { me.myCatInfo = info; store.set('mycat', { ...info, swatches: undefined }); spawnMyCat(info, true); net.send(helloMsg()); };
+ui.onSendHome = () => { me.myCat?.dispose(); me.myCat = null; me.myCatInfo = null; store.set('mycat', null); net.send(helloMsg()); ui.toast('우리 집 고양이가 집으로 돌아갔어요'); };
+ui.getMyCat = () => me.myCatInfo;
+function spawnMyCat(info, announce) {
+  me.myCat?.dispose();
+  me.myCat = new FollowerCat(scene, room, info, me.name);
+  if (announce) { ui.toast(`${info.name || '우리 고양이'}(이)가 서점에 들어왔어요`); setTimeout(() => fx.hearts(me.myCat.model.headWorld(), 4), 600); }
+}
 
-// 건의함: 서버에 저장. 서버가 없거나 막히면 이 브라우저에 모아 두었다가 다음에 보냄
 async function postSuggestion(item) {
   if (!CONFIG.serverUrl) throw new Error('no server');
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 8000);
-  const r = await fetch(CONFIG.serverUrl.replace(/\/$/, '') + '/suggest', {
-    method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify(item), signal: ctl.signal,
-  }).finally(() => clearTimeout(timer));
+  const r = await fetch(CONFIG.serverUrl.replace(/\/$/, '') + '/suggest', { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify(item), signal: ctl.signal }).finally(() => clearTimeout(timer));
   if (r.status === 429) { const e = new Error('slow'); e.slow = true; throw e; }
   if (!r.ok) throw new Error('status ' + r.status);
   return r.json();
@@ -701,6 +766,7 @@ ui.onEnter = async ({ name, look, soundOn, room: roomChoice }) => {
   scene.add(me.avatar.root);
   me.entered = true;
   if (soundOn) { sound.setEnabled(true); sound.setNight(dayNight.target); ui.setSound(true); }
+  if (me.myCatInfo && !me.myCat) spawnMyCat(me.myCatInfo, false);
   if (usingServer) {
     let n = roomChoice;
     let ok = true;
@@ -710,18 +776,12 @@ ui.onEnter = async ({ name, look, soundOn, room: roomChoice }) => {
     if (ok) { net.stopped = false; net.failures = 0; net.start(n); } else switchToP2P();
   } else net.start(me.roomNo ? `s${me.roomNo}` : undefined);
   ui.showHint(IS_MOBILE
-    ? ['톡: 걸어가기 · 의자를 누르면 앉아요', '책등을 누르면 책이 펼쳐져요', '끌어서 둘러보기 · 두 손가락으로 크게 작게', '숲으로 난 문은 오른쪽(동쪽)에 있어요']
-    : ['바닥을 누르면 걸어가요 (WASD도 돼요)', '책등을 누르면 책이 펼쳐져요 · Enter 로 말하기', '끌어서 둘러보기 · 휠로 크게 작게', '숲으로 난 문은 오른쪽(동쪽)에 있어요']);
+    ? ['톡: 걸어가기 · 의자를 누르면 앉아요', '책등을 누르면 책이 펼쳐져요', '🧭 가볼 곳에서 영화관 · 바닷가 · 루프탑으로', '숲으로 난 문은 오른쪽(동쪽), 현관은 아래(남쪽)']
+    : ['바닥을 누르면 걸어가요 (WASD도 돼요)', '책등을 누르면 책이 펼쳐져요 · Enter 로 말하기', '🧭 가볼 곳에서 영화관 · 바닷가 · 루프탑으로', '숲으로 난 문은 오른쪽(동쪽), 현관은 아래(남쪽)']);
   walkTo(room.firstWalk);
 };
 ui.loadRooms = SERVER ? fetchRooms : null;
-ui.onToggleRain = () => {
-  room.rainOn = !room.rainOn;
-  cats.rain = room.rainOn;
-  sound.setRain(room.rainOn);
-  store.set('rain', room.rainOn);
-  return room.rainOn;
-};
+ui.onToggleRain = () => { room.rainOn = !room.rainOn; cats.rain = room.rainOn; sound.setRain(room.rainOn); store.set('rain', room.rainOn); return room.rainOn; };
 cats.birdsPresent = () => room.birdsPresent?.();
 ui.onToggleNight = () => { dayNight.target = dayNight.target > 0.5 ? 0 : 1; sound.setNight(dayNight.target); return dayNight.target > 0.5; };
 ui.onToggleSound = () => { const on = !sound.enabled; sound.setEnabled(on); sound.setNight(dayNight.target); return on; };
@@ -749,9 +809,21 @@ function updatePetBubble() {
 }
 ui.onPetBubble = (id) => petCat(id);
 
+// ---------- 문: 누가 다가가면 열림 ----------
+function updateDoors(dt) {
+  for (const d of room.doors) {
+    let nearDoor = false;
+    const close = (p) => Math.hypot(p.x - d.center.x, p.z - d.center.z) < 1.7 && Math.abs(p.y - d.center.y) < 1;
+    if (me.entered && close(me.pos)) nearDoor = true;
+    for (const r of remotes.values()) if (close(r.pos)) nearDoor = true;
+    for (const c of cats.cats) if (close(c.pos)) nearDoor = true;
+    if (me.myCat && close(me.myCat.pos)) nearDoor = true;
+    d.update(dt, nearDoor);
+  }
+}
+
 window.addEventListener('pagehide', () => { try { net.send({ t: 'bye' }); } catch { /* 무시 */ } });
 
-// ---------- P2P 모드에서만: 2~3초마다 짧은 안부 (서버 모드는 주기적으로 보내는 것 없음) ----------
 let tick = 0;
 setInterval(() => {
   tick++;
@@ -775,6 +847,7 @@ function frame() {
   }
   cats.update(dt, t);
   updateRemotes(dt);
+  updateDoors(dt);
   fx.update(dt);
   if (rippleT < 1) {
     rippleT += dt * 1.6;
@@ -787,8 +860,11 @@ function frame() {
     updateCanopies(room, me.pos, camera.position, dt);
     const out = isOutdoor(me.pos);
     sound.setOutdoor(out);
-    if (room.stream && out) sound.setWater(1 - Math.abs(me.pos.x - room.stream.x(me.pos.z)) / 9);
-    else sound.setWater(0);
+    if (out) {
+      sound.setWater(room.stream ? 1 - Math.abs(me.pos.x - room.stream.x(me.pos.z)) / 9 : 0);
+      sound.setSea(1 - (SEA_Z - me.pos.z) / 12);
+      sound.setFall(room.waterfall ? 1 - me.pos.distanceTo(room.waterfall) / 14 : 0);
+    } else { sound.setWater(0); sound.setSea(0); sound.setFall(0); }
   }
   updatePetBubble();
   sun.target.position.set(cam.target.x, 0, cam.target.z);
@@ -798,5 +874,4 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-// 디버그용 (콘솔에서 window.shop)
-window.shop = { scene, camera, room, me, cats, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN };
+window.shop = { scene, camera, room, me, cats, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };

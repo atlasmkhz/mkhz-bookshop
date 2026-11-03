@@ -78,7 +78,13 @@ export function bookcase(scene, room, o) {
         const bh = Math.min(maxH, 0.2 + rnd() * 0.16);
         if (xx + bw > end) break;
         const lean = rnd() < 0.04 ? 0.18 : 0;
-        addFiller(g, side, xx + bw / 2, y0, bh, bw, Math.min(faceDepth, 0.18 + rnd() * 0.06), front - 0.012, lean);
+        if (o.live) {
+          // 움직이는 책장(문)은 책을 진짜 메시로 붙임
+          const d2 = Math.min(faceDepth, 0.18 + rnd() * 0.06);
+          const m = mesh(new THREE.BoxGeometry(bw, bh, d2), M.color(FILL[Math.floor(rnd() * FILL.length)], 0.85), xx + bw / 2, y0 + bh / 2, side === 0 ? front - 0.012 - d2 / 2 : -(front - 0.012 - d2 / 2));
+          m.rotation.z = lean;
+          g.add(m);
+        } else addFiller(g, side, xx + bw / 2, y0, bh, bw, Math.min(faceDepth, 0.18 + rnd() * 0.06), front - 0.012, lean);
         xx += bw + 0.003 + lean * 0.12;
         gap = 1;
       }

@@ -63,6 +63,22 @@ export class Sound {
     wlfo.connect(wlg).connect(wbp.frequency); wlfo.start();
     water.connect(wbp).connect(this.waterGain);
     this.water = 0;
+    // 파도 (바닷가 가까이)
+    this.seaGain = ctx.createGain(); this.seaGain.gain.value = 0; this.seaGain.connect(this.master);
+    const sea = this.loop(brown);
+    const slp = ctx.createBiquadFilter(); slp.type = 'lowpass'; slp.frequency.value = 700;
+    const swell = ctx.createGain(); swell.gain.value = 0.5;
+    const slfo = ctx.createOscillator(); slfo.frequency.value = 0.11;
+    const slg = ctx.createGain(); slg.gain.value = 0.45;
+    slfo.connect(slg).connect(swell.gain); slfo.start();
+    sea.connect(slp).connect(swell).connect(this.seaGain);
+    this.sea = 0;
+    // 폭포 (가까이 가면 우르르)
+    this.fallGain = ctx.createGain(); this.fallGain.gain.value = 0; this.fallGain.connect(this.master);
+    const fall = this.loop(pink);
+    const flp2 = ctx.createBiquadFilter(); flp2.type = 'lowpass'; flp2.frequency.value = 1800;
+    fall.connect(flp2).connect(this.fallGain);
+    this.fall = 0;
 
     this.purrGain = ctx.createGain(); this.purrGain.gain.value = 0; this.purrGain.connect(this.master);
     this.purrUntil = 0;
@@ -161,6 +177,28 @@ export class Sound {
     src.connect(bp).connect(g).connect(this.master);
     src.start(t, Math.random() * 2, 0.45);
     this.click(t + 0.38, 2400, 0.08 * vol, 0.03, this.master);
+  }
+
+  setSea(v) {
+    if (!this.ctx) return;
+    v = Math.max(0, Math.min(1, v));
+    if (Math.abs(v - this.sea) < 0.03) return;
+    this.sea = v;
+    this.seaGain.gain.setTargetAtTime(v * 0.8, this.ctx.currentTime, 0.6);
+  }
+  setFall(v) {
+    if (!this.ctx) return;
+    v = Math.max(0, Math.min(1, v));
+    if (Math.abs(v - this.fall) < 0.03) return;
+    this.fall = v;
+    this.fallGain.gain.setTargetAtTime(v * 0.7, this.ctx.currentTime, 0.5);
+  }
+  // 책이 떨어지는 툭 소리
+  thud() {
+    if (!this.enabled || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.click(t, 180, 0.5, 0.09, this.master);
+    this.click(t + 0.02, 600, 0.2, 0.05, this.master);
   }
 
   setWater(v) {

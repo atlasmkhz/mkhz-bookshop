@@ -1,0 +1,9 @@
+{
+  "_읽는법": "야외 영화관 상영 목록. items 가 비어 있으면 채널 올린 영상 전체(playlist)를 차례로 틉니다. 대표 영상 모음을 만들면 items 에 적으세요: id = 유튜브 영상 주소의 v= 값, title = 제목, min = 길이(분, 소수 가능). 모든 손님이 같은 장면을 보도록 지금 시각으로 몇 번째 영상의 몇 분 지점인지 각자 계산합니다 (서버를 쓰지 않습니다).",
+  "channel": "UC3kkLB1YF19FKvZbLIseKtA",
+  "channelName": "엠케이아틀라스",
+  "channelUrl": "https://www.youtube.com/channel/UC3kkLB1YF19FKvZbLIseKtA",
+  "playlist": "UU3kkLB1YF19FKvZbLIseKtA",
+  "title": "엠케이아틀라스 채널 상영 중",
+  "items": []
+}

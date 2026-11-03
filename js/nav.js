@@ -1,60 +1,75 @@
 // 바닥 이동 도우미
-// - 판 전체 크기 · 오두막 · 문 · 2층(다락, 나무 위 오두막) 위치
+// - 판 전체 크기 · 오두막 · 문 · 2층(다락, 나무 위 오두막, 루프탑) 위치
 // - 장애물(상자 영역) 밖으로 밀어내기, 계단 · 사다리 오르내리기
 // - 숲이 넓고 막힌 곳이 많아서 격자 길찾기(A*)로 길을 만든다
 import * as THREE from 'three';
 
 // 오두막 실내 (m)
-export const CABIN = { minX: -10, maxX: 4, minZ: -7, maxZ: 7, H: 5.6 };
-// 실내 + 숲 정원 전체
-export const WORLD = { minX: -10, maxX: 40, minZ: -16, maxZ: 16 };
-// 정원으로 나가는 문 (동쪽 벽 x = 4)
-export const DOOR = { x: 4, z0: -0.9, z1: 0.9, h: 2.4 };
-// 현관 (남쪽 벽, 장식) — 손님이 처음 서는 자리
+export const CABIN = { minX: -16, maxX: 8, minZ: -10, maxZ: 10, H: 5.6 };
+// 실내 + 숲 정원 + 바닷가 전체
+export const WORLD = { minX: -22, maxX: 54, minZ: -24, maxZ: 36 };
+// 정원으로 나가는 문 (동쪽 벽 x = 8)
+export const DOOR = { x: 8, z0: -0.9, z1: 0.9, h: 2.4 };
+// 현관 (남쪽 벽) — 손님이 처음 서는 자리. 밖으로 나가 집 둘레를 돌 수 있다
 export const FRONT = { x0: -2.4, x1: -1.1, h: 2.3 };
+// 바다: 이 z 보다 남쪽은 물
+export const SEA_Z = 30.5;
 
-// 2층: 다락(1)과 나무 위 오두막(2). ramp = 계단 · 사다리 (bottom 쪽이 바닥, top 쪽이 2층)
+// 2층: 다락(1), 나무 위 오두막(2), 루프탑(3). ramp = 계단 (axis 방향으로 bottom 쪽이 바닥, top 쪽이 2층)
 export const PLATFORMS = [
   {
     id: 1, name: '다락', y: 2.7,
-    rect: { minX: -9.9, maxX: -1.2, minZ: -6.9, maxZ: -3.3 },
-    ramp: { minX: -9.9, maxX: -8.9, minZ: -3.3, maxZ: 1.0, axis: 'z', bottom: 1.0, top: -3.3 },
-    bottomPt: new THREE.Vector3(-9.4, 0, 1.5), topPt: new THREE.Vector3(-9.4, 2.7, -3.8),
+    rect: { minX: -15.9, maxX: -1.0, minZ: -9.9, maxZ: -5.3 },
+    ramp: { minX: -15.9, maxX: -14.9, minZ: -5.3, maxZ: 1.0, axis: 'z', bottom: 1.0, top: -5.3 },
+    bottomPt: new THREE.Vector3(-15.4, 0, 1.5), topPt: new THREE.Vector3(-15.4, 2.7, -5.8),
   },
   {
     id: 2, name: '나무 위 오두막', y: 2.4,
-    rect: { minX: 33.4, maxX: 36.6, minZ: -11.6, maxZ: -8.4 },
-    ramp: { minX: 34.55, maxX: 35.45, minZ: -8.4, maxZ: -5.6, axis: 'z', bottom: -5.6, top: -8.4 },
-    bottomPt: new THREE.Vector3(35, 0, -5.05), topPt: new THREE.Vector3(35, 2.4, -8.9),
+    rect: { minX: 42.4, maxX: 45.6, minZ: -17.6, maxZ: -14.4 },
+    ramp: { minX: 43.55, maxX: 44.45, minZ: -14.4, maxZ: -11.6, axis: 'z', bottom: -11.6, top: -14.4 },
+    bottomPt: new THREE.Vector3(44, 0, -11.05), topPt: new THREE.Vector3(44, 2.4, -14.9),
+  },
+  {
+    id: 3, name: '루프탑', y: 5.75,
+    // 남쪽으로 1.3m 튀어나온 테라스까지 (현관 위 처마)
+    rect: { minX: -16, maxX: 8, minZ: -10, maxZ: 11.3 },
+    ramp: { minX: -15.6, maxX: -7.6, minZ: 10.35, maxZ: 11.25, axis: 'x', bottom: -15.6, top: -7.6 },
+    bottomPt: new THREE.Vector3(-15.85, 0, 10.8), topPt: new THREE.Vector3(-7.1, 5.75, 10.8),
   },
 ];
 export const platformById = (id) => PLATFORMS.find((p) => p.id === id) || null;
 
 const inRect = (r, x, z, m = 0) => x > r.minX - m && x < r.maxX + m && z > r.minZ - m && z < r.maxZ + m;
-export const isOutdoor = (p) => p.x > CABIN.maxX + 0.1;
+export const inCabin = (p, m = 0.1) => p.x > CABIN.minX - m && p.x < CABIN.maxX + m && p.z > CABIN.minZ - m && p.z < CABIN.maxZ + m;
+export const isOutdoor = (p) => !inCabin(p) || p.y > 5;
 export const isIndoor = (p) => !isOutdoor(p);
 
-function rampT(pl, z) {
+function rampT(pl, p) {
   const R = pl.ramp;
-  return THREE.MathUtils.clamp((R.bottom - z) / (R.bottom - R.top), 0, 1);
+  const v = R.axis === 'x' ? p.x : p.z;
+  return THREE.MathUtils.clamp((R.bottom - v) / (R.bottom - R.top), 0, 1);
 }
-export function rampY(pl, p) { return pl.y * rampT(pl, p.z); }
+export function rampY(pl, p) { return pl.y * rampT(pl, p); }
 
-// 계단 위에 있는가 (바닥에서 계단 옆으로 들어온 경우는 아님)
+// 계단 위에 있는가 (계단 아래를 지나가거나 계단 위 다른 층에 있는 경우는 아님)
 export function rampAt(p) {
   for (const pl of PLATFORMS) {
-    if (inRect(pl.ramp, p.x, p.z) && p.y > rampY(pl, p) - 0.6) return pl;
+    if (!inRect(pl.ramp, p.x, p.z)) continue;
+    const y = rampY(pl, p);
+    if (p.y > y - 0.6 && p.y < y + 0.6) return pl;
   }
   return null;
 }
 
-// 0 = 바닥, 1 = 다락, 2 = 나무 위 오두막
+// 0 = 바닥, 1 = 다락, 2 = 나무 위 오두막, 3 = 루프탑
 export function levelOf(p) {
+  const r = rampAt(p);
+  if (r && p.y > 0.05) return p.y > r.y / 2 ? r.id : 0;
+  let best = 0, by = -1;
   for (const pl of PLATFORMS) {
-    if (inRect(pl.ramp, p.x, p.z) && p.y > 0.05) return p.y > pl.y / 2 ? pl.id : 0;
-    if (inRect(pl.rect, p.x, p.z, 0.3) && p.y > pl.y - 0.6) return pl.id;
+    if (inRect(pl.rect, p.x, p.z, 0.3) && p.y > pl.y - 0.6 && pl.y > by) { best = pl.id; by = pl.y; }
   }
-  return 0;
+  return best;
 }
 export const levelY = (lv) => (lv ? platformById(lv).y : 0);
 
@@ -65,7 +80,8 @@ export function pushOut(room, p, r, flat = false) {
     const pl = rampAt(p);
     if (pl) {
       const R = pl.ramp;
-      p.x = THREE.MathUtils.clamp(p.x, R.minX + 0.18, R.maxX - 0.18);
+      if (R.axis === 'x') p.z = THREE.MathUtils.clamp(p.z, R.minZ + 0.18, R.maxZ - 0.18);
+      else p.x = THREE.MathUtils.clamp(p.x, R.minX + 0.18, R.maxX - 0.18);
       p.y = rampY(pl, p);
       return p;
     }
@@ -74,12 +90,20 @@ export function pushOut(room, p, r, flat = false) {
   if (lv) {
     const pl = platformById(lv);
     const R = pl.rect, M = pl.ramp;
-    const nearRamp = p.x > M.minX + 0.1 && p.x < M.maxX - 0.1;
-    p.x = THREE.MathUtils.clamp(p.x, R.minX + r, R.maxX - r);
     // 계단 쪽 가장자리는 계단으로 이어지도록 열어 둠
-    const lo = nearRamp && M.top <= R.minZ + 0.01 ? -Infinity : R.minZ + r;
-    const hi = nearRamp && M.top >= R.maxZ - 0.01 ? Infinity : R.maxZ - r;
-    p.z = THREE.MathUtils.clamp(p.z, lo, hi);
+    if (M.axis === 'z') {
+      const nearRamp = p.x > M.minX + 0.1 && p.x < M.maxX - 0.1;
+      p.x = THREE.MathUtils.clamp(p.x, R.minX + r, R.maxX - r);
+      const lo = nearRamp && M.top <= R.minZ + 0.01 ? -Infinity : R.minZ + r;
+      const hi = nearRamp && M.top >= R.maxZ - 0.01 ? Infinity : R.maxZ - r;
+      p.z = THREE.MathUtils.clamp(p.z, lo, hi);
+    } else {
+      const nearRamp = p.z > M.minZ + 0.1 && p.z < M.maxZ - 0.1;
+      p.z = THREE.MathUtils.clamp(p.z, R.minZ + r, R.maxZ - r);
+      const lo = nearRamp && M.top <= R.minX + 0.01 ? -Infinity : R.minX + r;
+      const hi = nearRamp && M.top >= R.maxX - 0.01 ? Infinity : R.maxX - r;
+      p.x = THREE.MathUtils.clamp(p.x, lo, hi);
+    }
     p.y = pl.y;
   } else {
     p.x = THREE.MathUtils.clamp(p.x, WORLD.minX + r, WORLD.maxX - r);
@@ -100,7 +124,26 @@ export function pushOut(room, p, r, flat = false) {
 }
 
 export function insideObstacle(room, p, r = 0, lv = 0) {
-  return room.obstacles.some((o) => (o.lv || 0) === lv && p.x > o.minX - r && p.x < o.maxX + r && p.z > o.minZ - r && p.z < o.maxZ + r);
+  const list = room.obBuckets ? (room.obBuckets.get(bucketKey(p.x, p.z)) || []) : room.obstacles;
+  return list.some((o) => (o.lv || 0) === lv && p.x > o.minX - r && p.x < o.maxX + r && p.z > o.minZ - r && p.z < o.maxZ + r);
+}
+
+// 장애물을 2m 칸에 나눠 담아 두면 밀어내기 검사가 가벼워짐
+const BK = 2;
+const bucketKey = (x, z) => Math.floor(x / BK) * 10000 + Math.floor(z / BK);
+function buildBuckets(room) {
+  const m = new Map();
+  for (const o of room.obstacles) {
+    const pad = 0.4;
+    const i0 = Math.floor((Math.max(o.minX, WORLD.minX - 2) - pad) / BK), i1 = Math.floor((Math.min(o.maxX, WORLD.maxX + 2) + pad) / BK);
+    const j0 = Math.floor((Math.max(o.minZ, WORLD.minZ - 2) - pad) / BK), j1 = Math.floor((Math.min(o.maxZ, WORLD.maxZ + 2) + pad) / BK);
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+      const k = i * 10000 + j;
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(o);
+    }
+  }
+  room.obBuckets = m;
 }
 
 // ---------------- 격자 길찾기 ----------------
@@ -125,7 +168,6 @@ class Grid {
     const i0 = Math.max(0, this.cx(minX)), i1 = Math.min(this.w - 1, this.cx(maxX));
     const j0 = Math.max(0, this.cz(minZ)), j1 = Math.min(this.h - 1, this.cz(maxZ));
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
-      // 칸 가운데가 영역 안일 때만
       const x = this.wx(i), z = this.wz(j);
       if (x > minX && x < maxX && z > minZ && z < maxZ) this.block[j * this.w + i] = 1;
     }
@@ -142,7 +184,6 @@ class Grid {
     }
     return null;
   }
-  // 두 점 사이가 막힘 없이 트였는가
   clear(ax, az, bx, bz) {
     const d = Math.hypot(bx - ax, bz - az);
     const n = Math.max(1, Math.ceil(d / (CELL * 0.5)));
@@ -190,7 +231,7 @@ class Grid {
     stamp[si] = run; gs[si] = 0; from[si] = -1;
     push(hf(si), si);
     let found = false, iter = 0;
-    while (heap.length && iter++ < 60000) {
+    while (heap.length && iter++ < 120000) {
       const [, cur] = pop();
       if (closed[cur] === run) continue;
       closed[cur] = run;
@@ -200,7 +241,7 @@ class Grid {
         if (!dx && !dz) continue;
         const nx = cx + dx, nz = cz + dz;
         if (!this.ok(nx, nz)) continue;
-        if (dx && dz && (!this.ok(cx + dx, cz) || !this.ok(cx, cz + dz))) continue; // 모서리 자르지 않기
+        if (dx && dz && (!this.ok(cx + dx, cz) || !this.ok(cx, cz + dz))) continue;
         const ni = nz * W + nx;
         if (closed[ni] === run) continue;
         const ng = gs[cur] + (dx && dz ? 1.414 : 1);
@@ -214,7 +255,6 @@ class Grid {
     const cells = [];
     for (let c = gi; c !== -1; c = from[c]) cells.push(c);
     cells.reverse();
-    // 줄 당기기: 트인 곳은 곧게
     const pts = cells.map((c) => [this.wx(c % W), this.wz((c / W) | 0)]);
     const goalFree = this.ok(this.cx(b.x), this.cz(b.z));
     pts[pts.length - 1] = goalFree ? [b.x, b.z] : pts[pts.length - 1];
@@ -232,31 +272,17 @@ class Grid {
   }
 }
 
-// 장애물을 2m 칸에 나눠 담아 두면 밀어내기 검사가 가벼워짐
-const BK = 2;
-const bucketKey = (x, z) => Math.floor(x / BK) * 10000 + Math.floor(z / BK);
-function buildBuckets(room) {
-  const m = new Map();
-  for (const o of room.obstacles) {
-    const pad = 0.4;
-    const i0 = Math.floor((Math.max(o.minX, WORLD.minX - 2) - pad) / BK), i1 = Math.floor((Math.min(o.maxX, WORLD.maxX + 2) + pad) / BK);
-    const j0 = Math.floor((Math.max(o.minZ, WORLD.minZ - 2) - pad) / BK), j1 = Math.floor((Math.min(o.maxZ, WORLD.maxZ + 2) + pad) / BK);
-    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
-      const k = i * 10000 + j;
-      if (!m.has(k)) m.set(k, []);
-      m.get(k).push(o);
-    }
-  }
-  room.obBuckets = m;
-}
-
 export function buildNav(room) {
   buildBuckets(room);
   const grids = new Map();
   const g0 = new Grid(WORLD, 0);
   for (const o of room.obstacles) if (!(o.lv || 0)) g0.fillRect(o.minX - CLEAR, o.maxX + CLEAR, o.minZ - CLEAR, o.maxZ + CLEAR);
-  for (const pl of PLATFORMS) g0.fillRect(pl.ramp.minX - CLEAR, pl.ramp.maxX + CLEAR, pl.ramp.minZ - CLEAR, pl.ramp.maxZ - 0.05);
-  // 판 가장자리
+  for (const pl of PLATFORMS) {
+    const R = pl.ramp;
+    // 계단은 바닥 길에서 막힘 (바닥 쪽 끝만 열어 둠)
+    if (R.axis === 'z') g0.fillRect(R.minX - CLEAR, R.maxX + CLEAR, Math.min(R.top, R.bottom) - (R.top < R.bottom ? CLEAR : -0.05), Math.max(R.top, R.bottom) + (R.top < R.bottom ? -0.05 : CLEAR));
+    else g0.fillRect(Math.min(R.top, R.bottom) - (R.top < R.bottom ? CLEAR : -0.05), Math.max(R.top, R.bottom) + (R.top < R.bottom ? -0.05 : CLEAR), R.minZ - CLEAR, R.maxZ + CLEAR);
+  }
   g0.fillRect(-1e3, WORLD.minX + CLEAR, -1e3, 1e3); g0.fillRect(WORLD.maxX - CLEAR, 1e3, -1e3, 1e3);
   g0.fillRect(-1e3, 1e3, -1e3, WORLD.minZ + CLEAR); g0.fillRect(-1e3, 1e3, WORLD.maxZ - CLEAR, 1e3);
   grids.set(0, g0);
@@ -280,7 +306,6 @@ export function findPath(room, from, to) {
   let cur = from.clone();
   let lvA = levelOf(from);
   const lvB = levelOf(to);
-  // 계단 한가운데라면 가까운 끝으로 먼저
   const onRamp = rampAt(from);
   if (onRamp && from.y > 0.05 && from.y < onRamp.y - 0.05) {
     const up = lvB === onRamp.id;
@@ -309,12 +334,15 @@ export function findPath(room, from, to) {
 // where: 'in' | 'out' | undefined(아무 곳)
 export function randomFloorPoint(room, r = 0.2, where) {
   const out = where === 'out' || (!where && Math.random() < 0.45);
-  const x0 = out ? CABIN.maxX + 1 : CABIN.minX + 0.6, x1 = out ? Math.min(WORLD.maxX - 1, 26) : CABIN.maxX - 0.6;
-  const z0 = out ? WORLD.minZ + 1 : CABIN.minZ + 0.6, z1 = out ? WORLD.maxZ - 1 : CABIN.maxZ - 0.6;
   const g = room.grids?.get(0);
   for (let i = 0; i < 80; i++) {
-    const p = new THREE.Vector3(THREE.MathUtils.lerp(x0, x1, Math.random()), 0, THREE.MathUtils.lerp(z0, z1, Math.random()));
+    let p;
+    if (out) {
+      p = new THREE.Vector3(THREE.MathUtils.lerp(CABIN.maxX + 1, 40, Math.random()), 0, THREE.MathUtils.lerp(-20, 24, Math.random()));
+    } else {
+      p = new THREE.Vector3(THREE.MathUtils.lerp(CABIN.minX + 0.6, CABIN.maxX - 0.6, Math.random()), 0, THREE.MathUtils.lerp(CABIN.minZ + 0.6, CABIN.maxZ - 0.6, Math.random()));
+    }
     if (g ? g.ok(g.cx(p.x), g.cz(p.z)) && !insideObstacle(room, p, r + 0.1) : !insideObstacle(room, p, r + 0.1)) return p;
   }
-  return out ? new THREE.Vector3(CABIN.maxX + 1, 0, 0) : new THREE.Vector3(CABIN.maxX - 1, 0, 0);
+  return out ? new THREE.Vector3(CABIN.maxX + 1.5, 0, 0) : new THREE.Vector3(CABIN.maxX - 1.5, 0, 0);
 }
