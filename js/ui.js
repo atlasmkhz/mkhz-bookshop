@@ -309,7 +309,7 @@ export class UI {
       <div class="book">
         <div>${coverHTML(b, a, 'big')}${b.coverNote ? `<div class="credit">표지 그림: ${esc(b.coverNote)}</div>` : ''}</div>
         <div>
-          <div class="book-meta">${esc(a.name)} · ${esc(b.shelfName)}${b.tag ? ` · ${esc(b.tag)}` : ''}${b.period ? ` · ${esc(b.period)}` : ''}</div>
+          <div class="book-meta">${esc(b.fieldName || a.name)} · ${esc(b.shelfName)}${b.gradeName ? ` · ${esc(b.gradeName)}` : ''}${b.tag ? ` · ${esc(b.tag)}` : ''}${b.period ? ` · ${esc(b.period)}` : ''} · ${esc(a.name)}</div>
           <div class="book-title">${esc(b.title)}</div>
           ${b.subtitle ? `<div class="book-sub">${esc(b.subtitle)}</div>` : ''}
           ${b.first ? `<p class="first"><small>첫 문장</small>${esc(b.first)}</p>` : ''}
@@ -319,7 +319,7 @@ export class UI {
             <a class="btn" href="${esc(b.url)}" target="_blank" rel="noopener">시리즈 표지 ↗</a>
             ${this.canWalkTo?.(id) ? '<button class="btn ghost" id="bkWalk" type="button">꽂힌 자리로</button>' : ''}
           </div>
-          <h3>목차 · ${b.parts}편${readN ? ` <small style="font-family:var(--sans);font-size:12px;color:var(--ink-soft)">(${readN}편 읽음)</small>` : ''}</h3>
+          <h3>${b.kind === 'collection' ? '차례' : '목차'} · ${b.parts}${b.kind === 'collection' ? '장' : '편'}${readN ? ` <small style="font-family:var(--sans);font-size:12px;color:var(--ink-soft)">(${readN}편 읽음)</small>` : ''}</h3>
           <ol class="toc">${b.toc.map((t) => `<li><a href="${esc(t.u)}" target="_blank" rel="noopener" data-u="${esc(t.u)}"><span>${esc(t.t)}</span>${this.read[t.u] ? '<span class="done">읽음</span>' : ''}</a></li>`).join('')}</ol>
         </div>
       </div>`);
@@ -355,13 +355,19 @@ export class UI {
     return `<span class="minicover" style="--spine:${a.spine};${bg}">${b.cover ? '' : esc(b.title.slice(0, 8))}</span>`;
   }
 
-  // 책바구니 + 서가 둘러보기
-  openBasket(tab = 'basket', openId = null) {
+  // 책바구니 · 서가 목록(분야별 · 학년별) · 도구 모음
+  openBasket(tab = 'basket', openId = null, field = null, grade = null) {
     this.sheetKind = 'basket';
-    const tabs = `<div class="tabs"><button type="button" data-tab="basket" class="${tab === 'basket' ? 'on' : ''}">🧺 내 책바구니 ${this.basket.length}</button><button type="button" data-tab="shelf" class="${tab === 'shelf' ? 'on' : ''}">서가 둘러보기 ${this.lib.count}권</button></div>`;
+    const lib = this.lib;
+    const fields = lib.fields || [];
+    const tools = lib.tools || [];
+    field = field || this.lastField || (fields[0] && fields[0].id);
+    this.lastField = field;
+    const tabs = `<div class="tabs"><button type="button" data-tab="basket" class="${tab === 'basket' ? 'on' : ''}">🧺 내 책바구니 ${this.basket.length}</button><button type="button" data-tab="shelf" class="${tab === 'shelf' ? 'on' : ''}">📚 서가 목록 ${lib.count}권</button><button type="button" data-tab="tools" class="${tab === 'tools' ? 'on' : ''}">🧰 도구 모음 ${tools.length}</button></div>`;
     let body = '';
+    const item = (b) => `<div class="bitem" data-book="${esc(b.id)}">${this.mini(b)}<div class="bt"><b>${esc(b.title)}</b><span>${esc(b.subtitle || b.blurb).slice(0, 48)}</span></div><span class="prog">${this.basket.includes(b.id) ? '🧺' : ''} ${b.parts}${b.kind === 'collection' ? '장' : '편'}</span></div>`;
     if (tab === 'basket') {
-      if (!this.basket.length) body = '<div class="empty">아직 담은 책이 없어요.<br>책장에서 책을 눌러 「담기」 하거나, 「서가 둘러보기」에서 골라 보세요.<br>담은 책은 이 브라우저에 남아요.</div>';
+      if (!this.basket.length) body = '<div class="empty">아직 담은 책이 없어요.<br>책장에서 책을 눌러 「담기」 하거나, 「서가 목록」에서 골라 보세요.<br>담은 책은 이 브라우저에 남아요.</div>';
       else {
         body = '<div class="blist">' + this.basket.map((id) => {
           const b = this.byId.get(id);
@@ -369,23 +375,45 @@ export class UI {
           const open = openId === id;
           return `<div class="bitem" data-open="${esc(id)}">${this.mini(b)}<div class="bt"><b>${esc(b.title)}</b><span>${esc(this.atlas[b.atlas].short)} · ${b.parts}편 · ${open ? '목차 접기' : '눌러서 편 고르기'}</span></div><span class="prog">${readN}/${b.parts}</span></div>
             ${open ? `<ol class="toc" style="margin:0 0 10px 58px">${b.toc.map((t) => `<li><a href="${esc(t.u)}" target="_blank" rel="noopener" data-u="${esc(t.u)}"><span>${esc(t.t)}</span>${this.read[t.u] ? '<span class="done">읽음</span>' : ''}</a></li>`).join('')}</ol>
-            <div style="margin:0 0 12px 58px;display:flex;gap:6px"><button class="btn small" type="button" data-book="${esc(id)}">표지 보기</button><button class="btn small ghost" type="button" data-remove="${esc(id)}">빼기</button></div>` : ''}`;
+            <div style="margin:0 0 12px 58px;display:flex;gap:6px"><button class="btn small" type="button" data-book="${esc(id)}">표지 보기</button><button class="btn small ghost" type="button" data-remove="${esc(id)}">빼기</button></div>` : '';
         }).join('') + '</div><p class="note" style="margin-top:12px">편을 누르면 아틀라스의 실제 글이 새 창으로 열려요. 앉아서, 서서, 정원에서도 언제든.</p>';
       }
+    } else if (tab === 'shelf') {
+      const fieldTabs = `<div class="tabs sub">${fields.map((f) => `<button type="button" data-field="${f.id}" class="${f.id === field ? 'on' : ''}" style="${f.id === field ? `background:${f.color};border-color:${f.color}` : ''}">${f.ico || ''} ${esc(f.name)} ${lib.books.filter((b) => b.field === f.id).length}</button>`).join('')}</div>`;
+      const f = fields.find((x) => x.id === field) || fields[0];
+      const grades = f?.grades || [];
+      let gradeTabs = '';
+      if (grades.length) gradeTabs = `<div class="tabs sub grades"><button type="button" data-grade="" class="${!grade ? 'on' : ''}">전부</button>${grades.map((g) => `<button type="button" data-grade="${g.id}" class="${grade === g.id ? 'on' : ''}">${esc(g.name)}</button>`).join('')}</div>`;
+      const shelves = (lib.shelves || []).filter((s) => s.field === field);
+      const inField = lib.books.filter((b) => b.field === field && (!grade || b.grade === grade));
+      body = fieldTabs + gradeTabs + (f?.note ? `<p class="note" style="margin:0 0 6px">${esc(f.note)}</p>` : '') + shelves.map((s) => {
+        const list = inField.filter((b) => b.shelf === s.id);
+        if (!list.length) return '';
+        return `<div class="shelf-h">${esc(s.name)} <small>${list.length}권</small></div><div class="blist">${list.map(item).join('')}</div>`;
+      }).join('') + (inField.length ? '' : '<div class="empty">이 칸에는 아직 책이 없어요.</div>');
     } else {
-      body = this.lib.atlases.map((a) => {
-        const shelves = this.lib.shelves.filter((s) => s.atlas === a.id);
-        return `<h3 style="color:${a.spine}">${esc(a.name)}</h3>` + shelves.map((s) => `<div class="shelf-h">${esc(s.name)} <small>${s.count}권</small></div><div class="blist">` +
-          this.lib.books.filter((b) => b.atlas === a.id && b.shelf === s.id).map((b) => `<div class="bitem" data-book="${esc(b.id)}">${this.mini(b)}<div class="bt"><b>${esc(b.title)}</b><span>${esc(b.subtitle || b.blurb).slice(0, 48)}</span></div><span class="prog">${this.basket.includes(b.id) ? '🧺' : ''} ${b.parts}편</span></div>`).join('') + '</div>').join('');
+      const byField = {};
+      for (const t of tools) (byField[t.field] = byField[t.field] || []).push(t);
+      body = '<p class="note" style="margin:0 0 10px">책이 아니라 눌러서 쓰는 것들 — 지도 · 놀이판 · 계보 · 오늘의 소식. 새 창으로 열려요.</p>' + fields.map((f) => {
+        const list = byField[f.id] || [];
+        if (!list.length) return '';
+        return `<div class="shelf-h" style="color:${f.color}">${f.ico || ''} ${esc(f.name)} <small>${list.length}</small></div><div class="tools">${list.map((t) => `<a class="tool" href="${esc(t.url)}" target="_blank" rel="noopener"><span class="ico">${t.ico || '🧰'}</span><b>${esc(t.name)}</b><span>${esc(t.note || '')}${t.grade ? ` · ${esc(t.grade)}` : ''}</span></a>`).join('')}</div>`;
       }).join('');
     }
-    this.openSheet(`<h2>책바구니</h2>${tabs}${body}`);
-    document.querySelectorAll('#sheetBody [data-tab]').forEach((el) => el.addEventListener('click', () => this.openBasket(el.dataset.tab)));
+    this.openSheet(`<h2>${tab === 'tools' ? '도구 모음' : tab === 'shelf' ? '서가 목록' : '책바구니'}</h2>${tabs}${body}`);
+    document.querySelectorAll('#sheetBody [data-tab]').forEach((el) => el.addEventListener('click', () => this.openBasket(el.dataset.tab, null, field, grade)));
+    document.querySelectorAll('#sheetBody [data-field]').forEach((el) => el.addEventListener('click', () => this.openBasket('shelf', null, el.dataset.field, null)));
+    document.querySelectorAll('#sheetBody [data-grade]').forEach((el) => el.addEventListener('click', () => this.openBasket('shelf', null, field, el.dataset.grade || null)));
     document.querySelectorAll('#sheetBody [data-open]').forEach((el) => el.addEventListener('click', () => this.openBasket('basket', openId === el.dataset.open ? null : el.dataset.open)));
     document.querySelectorAll('#sheetBody [data-book]').forEach((el) => el.addEventListener('click', () => this.openBook(el.dataset.book)));
     document.querySelectorAll('#sheetBody [data-remove]').forEach((el) => el.addEventListener('click', () => { this.toggleBasket(el.dataset.remove); this.openBasket('basket'); }));
     this.bindReadLinks();
+    const sheet = document.querySelector('#sheet .sheet');
+    if (tab !== 'basket' && this.scrollKeep) sheet.scrollTop = this.scrollKeep;
+    sheet.addEventListener('scroll', () => { this.scrollKeep = sheet.scrollTop; }, { passive: true });
   }
+  openCatalog(field, grade = null) { this.scrollKeep = 0; this.openBasket('shelf', null, field, grade); }
+  openTools() { this.scrollKeep = 0; this.openBasket('tools'); }
 
   // 음료: 카운터에서 고르기, 또는 다른 손님에게 선물
   openDrinks({ giftTo = null, current = null } = {}) {

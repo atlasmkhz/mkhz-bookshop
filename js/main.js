@@ -325,6 +325,8 @@ function pick(x, y) {
   if (o.userData.counter) return { kind: 'counter', point: h.point };
   if (o.userData.suggest) return { kind: 'suggest', point: h.point };
   if (o.userData.cinema || o.userData.cinemaBoard) return { kind: 'program', point: h.point };
+  if (o.userData.catalog) return { kind: 'catalog', field: o.userData.catalog, point: h.point };
+  if (o.userData.tools) return { kind: 'tools', point: h.point };
   if (shelfBooks) {
     let bid = null, bdist = 0.28;
     for (const [id, wp] of shelfBooks.where) { const d = wp.distanceTo(h.point); if (d < bdist) { bdist = d; bid = id; } }
@@ -349,6 +351,8 @@ function onTap(x, y) {
     else { walkTo(room.suggest, { type: 'suggest' }); ripple(room.suggest); }
     return;
   }
+  if (hit.kind === 'catalog') { ui.openCatalog(hit.field); return; }
+  if (hit.kind === 'tools') { ui.openTools(); return; }
   if (hit.kind === 'program') {
     if (me.pos.distanceTo(room.cinemaBoard) < 8) ui.openProgram(program);
     else { walkTo(room.cinemaBoard, { type: 'program' }); ripple(room.cinemaBoard); ui.toast('🎬 영화관 매표소로 걸어가요'); }
