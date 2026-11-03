@@ -1,4 +1,5 @@
-// 미술관 (동쪽으로 넓힌 땅, 억새 언덕 건너) — 손님이 직접 찍은 사진 30점을 거는 모던한 전시관
+// 미술관 (동쪽으로 넓힌 땅, 억새 언덕 건너) — 손님이 직접 찍은 사진 30점을 거는 통유리 전시관
+// 바깥벽은 모두 유리, 작품은 유리 안쪽에 떠 있듯 선 흰 패널 18장과 가운데 양면 벽(12점)에 걸림
 // 서버는 채팅 서버와 따로인 gallery-server/ (사진 창고 R2 · 자동 검사 · 하트 · 본 사람 · 신고 · 대기열)
 // 요청 수: 미술관에 다가갈 때 벽 목록 1건 · 나갈 때 본 작품 모아 1건 · 하트 · 신고 · 올리기는 누를 때만.
 //         사진은 R2 공개 주소(config gallery.imageBase)에서 바로 받으면 서버 요청에 잡히지 않음.
@@ -13,10 +14,11 @@ export const SLOTS = 30;
 // 벽 자리 30곳: [x, z, 바라보는 방향(rotY)]
 function slotSpots() {
   const { x0, x1, z0, z1 } = HALL, out = [];
-  for (const x of [64.0, 66.3, 68.7, 71.0]) out.push([x, z0 + 0.12, 0]);
-  for (const z of [-5.25, -2.75, -0.25, 2.25, 4.75, 7.25]) out.push([x1 - 0.12, z, -Math.PI / 2]);
-  for (const x of [71.0, 68.7, 66.3, 64.0]) out.push([x, z1 - 0.12, Math.PI]);
-  for (const z of [7.2, 4.6, -2.6, -5.2]) out.push([x0 + 0.12, z, Math.PI / 2]);
+  const IN = 0.78;   // 통유리 벽에서 패널 앞면까지
+  for (const x of [64.0, 66.3, 68.7, 71.0]) out.push([x, z0 + IN, 0]);
+  for (const z of [-5.25, -2.75, -0.25, 2.25, 4.75, 7.25]) out.push([x1 - IN, z, -Math.PI / 2]);
+  for (const x of [71.0, 68.7, 66.3, 64.0]) out.push([x, z1 - IN, Math.PI]);
+  for (const z of [7.2, 4.6, -2.6, -5.2]) out.push([x0 + IN, z, Math.PI / 2]);
   for (const z of [-3.75, -1.85, 0.05, 1.95, 3.85, 5.75]) out.push([67.5 - 0.16, z, -Math.PI / 2]);
   for (const z of [5.75, 3.85, 1.95, 0.05, -1.85, -3.75]) out.push([67.5 + 0.16, z, Math.PI / 2]);
   return out;
@@ -61,25 +63,42 @@ export function buildGallery(scene, room, { obst, excl }) {
     if (a1 > st) pieces.push([st, a1, 0, H]);
     for (const [p0, p1, y0, y1] of pieces) {
       const len = p1 - p0, mid = (p0 + p1) / 2;
-      if (glass && y0 === 0) {
+      if (glass) {
         // 유리벽: 가는 검은 세로살
-        const gm = new THREE.MeshStandardMaterial({ color: '#bcd6e0', transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0.3, depthWrite: false });
-        g.add(mesh(along === 'x' ? new THREE.BoxGeometry(len, H, 0.04) : new THREE.BoxGeometry(0.04, H, len), gm, along === 'x' ? mid : off, H / 2, along === 'x' ? off : mid, { cast: false }));
-        for (let k = 0; k <= Math.round(len / 1.3); k++) { const a = p0 + (len * k) / Math.max(1, Math.round(len / 1.3)); g.add(mesh(along === 'x' ? new THREE.BoxGeometry(0.05, H, 0.08) : new THREE.BoxGeometry(0.08, H, 0.05), steel, along === 'x' ? a : off, H / 2, along === 'x' ? off : a)); }
+        const hh = y1 - y0, my = (y0 + y1) / 2;
+        const gp = mesh(along === 'x' ? new THREE.BoxGeometry(len, hh, 0.03) : new THREE.BoxGeometry(0.03, hh, len), glassMat, along === 'x' ? mid : off, my, along === 'x' ? off : mid, { cast: false });
+        gp.renderOrder = 2; gp.castShadow = false; g.add(gp);
+        const n = Math.max(1, Math.round(len / 1.6));
+        for (let k = 0; k <= n; k++) { const a = p0 + (len * k) / n; g.add(mesh(along === 'x' ? new THREE.BoxGeometry(0.045, hh, 0.07) : new THREE.BoxGeometry(0.07, hh, 0.045), steel, along === 'x' ? a : off, my, along === 'x' ? off : a)); }
+        for (const yy of [y0 + 0.03, y1 - 0.03]) g.add(mesh(along === 'x' ? new THREE.BoxGeometry(len, 0.06, 0.07) : new THREE.BoxGeometry(0.07, 0.06, len), steel, along === 'x' ? mid : off, yy, along === 'x' ? off : mid));
         continue;
       }
       g.add(mesh(along === 'x' ? new THREE.BoxGeometry(len, y1 - y0, T) : new THREE.BoxGeometry(T, y1 - y0, len), white, along === 'x' ? mid : off, (y0 + y1) / 2, along === 'x' ? off : mid, { cast: false }));
       g.add(mesh(along === 'x' ? new THREE.BoxGeometry(len, y1 - y0, 0.02) : new THREE.BoxGeometry(0.02, y1 - y0, len), inner, along === 'x' ? mid : at - normal.x * 0.012, (y0 + y1) / 2, along === 'x' ? at - normal.z * 0.012 : mid, { cast: false }));
     }
     scene.add(g);
-    room.walls.push({ group: g, normal, at, opacity: 1, span: [(along === 'x' ? x0 : z0) - 0.5, (along === 'x' ? x1 : z1) + 0.5], spanAxis: along === 'x' ? 'x' : 'z' });
+    if (!glass) room.walls.push({ group: g, normal, at, opacity: 1, span: [(along === 'x' ? x0 : z0) - 0.5, (along === 'x' ? x1 : z1) + 0.5], spanAxis: along === 'x' ? 'x' : 'z' });
     let s0 = a0 - 0.1;
     for (const [g0, g1] of [...gaps, [a1 + 0.1, a1 + 0.1]]) { if (g0 > s0) obst(along === 'x' ? s0 : at - 0.13, along === 'x' ? g0 : at + 0.13, along === 'x' ? at - 0.13 : s0, along === 'x' ? at + 0.13 : g0); s0 = g1; }
   };
-  wall(new THREE.Vector3(0, 0, -1), z0, 'x', x0, x1);
-  wall(new THREE.Vector3(0, 0, 1), z1, 'x', x0, x1);
-  wall(new THREE.Vector3(1, 0, 0), x1, 'z', z0, z1);
-  wall(new THREE.Vector3(-1, 0, 0), x0, 'z', z0, z1, [HALL.door], false);
+  // 건물 전체 통유리 (밤엔 안의 작품 조명이 밖으로 비침)
+  const glassMat = new THREE.MeshStandardMaterial({ color: '#cfe6ee', transparent: true, opacity: 0.16, roughness: 0.04, metalness: 0.4, depthWrite: false, side: THREE.DoubleSide });
+  wall(new THREE.Vector3(0, 0, -1), z0, 'x', x0, x1, [], true);
+  wall(new THREE.Vector3(0, 0, 1), z1, 'x', x0, x1, [], true);
+  wall(new THREE.Vector3(1, 0, 0), x1, 'z', z0, z1, [], true);
+  wall(new THREE.Vector3(-1, 0, 0), x0, 'z', z0, z1, [HALL.door], true);
+  // 유리 문 (양쪽 문짝, 가는 손잡이)
+  for (const zz of [0.5, 1.5]) { scene.add(mesh(new THREE.BoxGeometry(0.03, 2.5, 0.96), glassMat, x0 - 0.3, 1.37, zz + (zz < 1 ? -0.48 : 0.48), { cast: false })); scene.add(mesh(new THREE.BoxGeometry(0.04, 0.5, 0.03), steel, x0 - 0.3, 1.2, zz + (zz < 1 ? 0.0 : 0.0))); }
+  // 작품 패널 (통유리 안쪽에 떠 있듯 선 흰 판, 바닥과 사이가 살짝 떠 있음)
+  const panelMat = new THREE.MeshStandardMaterial({ color: '#f6f6f3', roughness: 0.7 });
+  const panelAt = (x, z, rotY) => {
+    const pm = mesh(new THREE.BoxGeometry(1.6, 2.75, 0.14), panelMat, 0, 0, 0);
+    pm.position.set(x - Math.sin(rotY) * 0.09, 1.63, z - Math.cos(rotY) * 0.09);
+    pm.rotation.y = rotY;
+    scene.add(pm);
+    const w = Math.abs(Math.sin(rotY)) > 0.5;
+    obst(pm.position.x - (w ? 0.12 : 0.82), pm.position.x + (w ? 0.12 : 0.82), pm.position.z - (w ? 0.82 : 0.12), pm.position.z + (w ? 0.82 : 0.12));
+  };
   // 가운데 세운 벽 (양면)
   scene.add(mesh(new THREE.BoxGeometry(0.3, 3.1, 11.0), white, 67.5, 1.55 + 0.12, 1.0));
   obst(67.3, 67.7, -4.5, 6.5);
@@ -130,6 +149,7 @@ export function buildGallery(scene, room, { obst, excl }) {
   }
   // ---------- 작품 자리 30 ----------
   const frames = [];
+  slotSpots().forEach(([x, z, rotY], i) => { if (i < 18) panelAt(x, z, rotY); });
   slotSpots().forEach(([x, z, rotY], i) => {
     const g = new THREE.Group();
     const border = mesh(rbox(1.16, 0.92, 0.04, 0.01), steel, 0, 0, 0);
@@ -152,7 +172,10 @@ export function buildGallery(scene, room, { obst, excl }) {
     scene.add(g);
     frames.push({ g, pic, label, lc, lt, cone, pos: new THREE.Vector3(x, 1.6, z), rotY, no: i + 1 });
   });
-  room.nightParts.push((dt, t, n) => { for (const f of frames) f.cone.material.opacity = 0.04 + n * 0.1; });
+  const strip = new THREE.MeshStandardMaterial({ color: '#f4fbff', emissive: '#cfeeff', emissiveIntensity: 0.1 });
+  for (const [w, d, x, z] of [[W - 0.3, 0.05, cx, z0 + 0.12], [W - 0.3, 0.05, cx, z1 - 0.12], [0.05, D - 0.3, x0 + 0.12, cz], [0.05, D - 0.3, x1 - 0.12, cz]]) scene.add(mesh(new THREE.BoxGeometry(w, 0.02, d), strip, x, 0.14, z, { cast: false }));
+  const hallLight = new THREE.PointLight('#fff4e0', 0, 16, 1.4); hallLight.position.set(cx, 3.4, cz); scene.add(hallLight);
+  room.nightParts.push((dt, t, n) => { for (const f of frames) f.cone.material.opacity = 0.04 + n * 0.1; strip.emissiveIntensity = 0.1 + n * 1.6; hallLight.intensity = 0.4 + n * 5; });
   room.gallery = { frames, door: new THREE.Vector3(x0 - 1.0, 0, 1.0), center: new THREE.Vector3(cx, 0, cz) };
 }
 

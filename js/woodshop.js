@@ -1,6 +1,7 @@
 // 목공방 (서점 북쪽 숲, 집 둘레길과 자작나무 길 사이)
 // 실제로 무언가를 만드는 곳은 아니고, 대패 · 톱 · 사포 · 끌 소리와 나무 냄새 나는 분위기를 즐기는 곳.
 // - 공방지기가 지금 시각으로 정해진 차례(대패 → 톱 → 사포 → 끌, 한 바퀴 64초)로 일함 → 모든 손님이 같은 장면 · 메시지 0건
+// - 작업 테이블 둘(테이블마다 4명) · 벽에는 테이블쏘 · 밴드쏘 · 드릴링 머신 · 수압대패 · 집진기
 // - 한 번에 10명까지. 이미 아는 손님 위치로 각자 「만석」을 판단 (새 메시지 없음)
 // - 벽의 앞치마를 누르면 입고 벗기 (다른 손님에게는 이미 있는 'hi' 의 a 칸으로)
 import * as THREE from 'three';
@@ -149,20 +150,118 @@ export function buildWoodshop(scene, room, { obst, excl }) {
       g.add(mesh(rbox(0.032, 0.08, 0.18, 0.01), M.color('#3e3028'), -0.085, 1.3, zz));
     }
     const tag = textSprite('🧑‍🔧 앞치마 입기', { height: 0.11 }); tag.position.set(-0.25, 2.12, 0); tag.userData.noHit = true; g.add(tag);
-    g.position.set(x1 - 0.12, 0, -19.4);
+    g.position.set(x1 - 0.12, 0, -19.6);
     g.traverse((o) => { if (o.isMesh) o.userData.apron = true; });
     scene.add(g);
   }
-  // ---------- 손님 걸상 10 (작업대를 보며 반원) ----------
+  // ---------- 작업 테이블 둘 (테이블마다 걸상 4 · 문에서 공방지기 작업대까지 가운데 길은 비움) ----------
   const seats = [];
-  for (let i = 0; i < 10; i++) {
-    const row = i < 6 ? 0 : 1, k = row ? i - 6 : i, n = row ? 4 : 6;
-    const a = (k / (n - 1) - 0.5) * (row ? 1.5 : 2.2);
-    const rr = row ? 3.6 : 2.4;
-    const sx = BENCH.x + Math.sin(a) * rr, sz = BENCH.z + Math.cos(a) * rr;
-    const s = stool(scene, room, sx, sz, Math.atan2(BENCH.x - sx, BENCH.z - sz), row ? 0.62 : 0.46, ['#c98f6b', '#a9bba0', '#e6cf9c', '#7f97a8'][i % 4], { name: '목공방 걸상', appr: -0.45 });
-    s.wood = true;
-    seats.push(s);
+  const tableAt = (tx, tz, k) => {
+    const g = new THREE.Group();
+    const top = M.woodLight(), leg = M.woodMid();
+    plank(g, 1.7, 0.08, 0.9, 0, 0.86, 0, top, 0.01);
+    for (const sx of [-0.75, 0.75]) for (const sz of [-0.36, 0.36]) plank(g, 0.08, 0.82, 0.08, sx, 0.41, sz, leg, 0.01);
+    plank(g, 1.5, 0.05, 0.7, 0, 0.2, 0, leg, 0.01);
+    // 테이블 위: 반쯤 다듬은 나무판 · 클램프 · 나무망치 · 대팻밥 · 연필
+    plank(g, 0.7, 0.04, 0.2, -0.25, 0.92, 0.05, M.color(['#e4c79c', '#d9b07c'][k % 2], 0.85), 0.006);
+    g.add(mesh(new THREE.TorusGeometry(0.06, 0.012, 6, 12, Math.PI * 1.4), M.color('#c64b3b', 0.5), -0.25, 0.97, 0.05));
+    g.add(mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.2, 6).rotateZ(Math.PI / 2), M.woodMid(), 0.45, 0.915, -0.2));
+    g.add(mesh(rbox(0.09, 0.055, 0.055, 0.01), M.woodLight(), 0.57, 0.915, -0.2));
+    g.add(mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.09, 10), M.color('#e9e2d6', 0.4), 0.55, 0.945, 0.22));
+    for (let i = 0; i < 7; i++) { const curl = mesh(new THREE.TorusGeometry(0.02 + Math.random() * 0.015, 0.005, 4, 10, Math.PI * 1.6), M.color('#efd6a8', 0.9), -0.7 + Math.random() * 1.4, 0.91, -0.35 + Math.random() * 0.7, { cast: false }); curl.rotation.set(Math.random() * 3, Math.random() * 3, 0); g.add(curl); }
+    g.position.set(tx, 0, tz);
+    scene.add(g);
+    obst(tx - 0.88, tx + 0.88, tz - 0.48, tz + 0.48);
+    // 걸상: 긴 쪽마다 둘, 테이블을 보고 앉음
+    for (const [sx, sz, rot] of [[-0.42, 0.78, Math.PI], [0.42, 0.78, Math.PI], [-0.42, -0.78, 0], [0.42, -0.78, 0]]) {
+      const st = stool(scene, room, tx + sx, tz + sz, rot, 0.62, ['#c98f6b', '#a9bba0', '#e6cf9c', '#7f97a8'][(k * 2 + seats.length) % 4], { name: `작업 테이블 ${k + 1}`, appr: -0.42 });
+      st.wood = true;
+      seats.push(st);
+    }
+  };
+  tableAt(-0.75, -19.95, 0);
+  tableAt(3.75, -19.95, 1);
+
+  // ---------- 벽면 기계: 테이블쏘 · 밴드쏘 · 드릴링 머신 · 수압대패 ----------
+  {
+    const paint = M.color('#4f6b5a', 0.55, { metalness: 0.2 });   // 기계 녹색
+    const iron = M.color('#8d949a', 0.35, { metalness: 0.7 });
+    const dark = M.color('#2e3236', 0.5, { metalness: 0.4 });
+    const yellow = M.color('#e0b43a', 0.5);
+    const red = M.color('#c64b3b', 0.5);
+    const plate = (g, text, y, z = 0.0, rot = 0) => { const t = textSprite(text, { height: 0.075, bg: 'rgba(30,34,38,0.85)', color: '#f2efe6' }); t.position.set(0, y, z); t.userData.noHit = true; g.add(t); };
+    // 테이블쏘 (북동쪽 구석): 철판 위로 둥근 톱날, 날 덮개, 평행 자
+    {
+      const g = new THREE.Group();
+      g.add(mesh(rbox(0.72, 0.78, 0.66, 0.03), paint, 0, 0.39, 0));
+      g.add(mesh(rbox(1.1, 0.05, 0.8, 0.01), iron, 0, 0.82, 0));
+      const blade = mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.006, 28).rotateZ(Math.PI / 2), M.color('#b9bec3', 0.25, { metalness: 0.85 }), 0, 0.8, 0.0);
+      g.add(blade);
+      g.add(mesh(rbox(0.05, 0.12, 0.32, 0.01), red, 0, 0.93, 0.0));
+      g.add(mesh(rbox(0.04, 0.06, 0.78, 0.01), dark, 0.32, 0.88, 0));
+      g.add(mesh(rbox(1.16, 0.05, 0.05, 0.01), dark, 0, 0.82, 0.42));
+      g.add(mesh(rbox(0.14, 0.1, 0.03, 0.01), yellow, 0.0, 0.62, 0.34));
+      plate(g, '테이블쏘', 1.18);
+      g.position.set(5.25, 0, -23.55); g.rotation.y = -Math.PI / 2;
+      scene.add(g);
+      obst(4.8, 6.0, -24.1, -23.0);
+      room.tableSawBlade = blade;
+    }
+    // 밴드쏘 (남서쪽 구석): 키 큰 C 자 몸통, 위아래 바퀴 덮개, 가운데 작업판
+    {
+      const g = new THREE.Group();
+      g.add(mesh(rbox(0.5, 0.75, 0.45, 0.03), paint, 0, 0.375, 0));
+      g.add(mesh(rbox(0.12, 1.1, 0.12, 0.02), paint, -0.18, 1.3, -0.12));
+      for (const y of [0.95, 1.65]) g.add(mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.12, 24).rotateX(Math.PI / 2), paint, 0.0, y, -0.12));
+      g.add(mesh(rbox(0.45, 0.03, 0.42, 0.01), iron, 0.05, 1.05, 0.08));
+      g.add(mesh(rbox(0.006, 0.7, 0.006, 0.001), M.color('#c9ced2', 0.2, { metalness: 0.9 }), 0.0, 1.3, 0.06));
+      g.add(mesh(rbox(0.06, 0.1, 0.06, 0.01), yellow, 0.0, 1.45, 0.06));
+      plate(g, '밴드쏘', 2.05);
+      g.position.set(-2.55, 0, -18.4); g.rotation.y = Math.PI / 2;
+      scene.add(g);
+      obst(-3.0, -2.1, -18.85, -17.9);
+    }
+    // 드릴링 머신 (북서쪽 구석): 받침 · 기둥 · 머리 · 손잡이 셋
+    {
+      const g = new THREE.Group();
+      g.add(mesh(rbox(0.45, 0.06, 0.5, 0.01), dark, 0, 0.03, 0));
+      g.add(mesh(rbox(0.5, 0.8, 0.5, 0.03), M.woodMid(), 0, 0.46, 0));
+      g.add(mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.0, 12), iron, 0, 1.36, -0.12));
+      g.add(mesh(rbox(0.26, 0.25, 0.42, 0.04), paint, 0, 1.75, -0.02));
+      g.add(mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.22, 16).rotateZ(Math.PI / 2), paint, 0, 1.86, -0.18));
+      g.add(mesh(new THREE.CylinderGeometry(0.02, 0.012, 0.16, 8), iron, 0, 1.55, 0.12));
+      g.add(mesh(rbox(0.32, 0.03, 0.28, 0.01), iron, 0, 1.22, 0.06));
+      for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3; const h = mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.2, 6), dark, 0.16, 1.72 + Math.sin(a) * 0.08, 0.02 + Math.cos(a) * 0.08); h.rotation.x = a; g.add(h); g.add(mesh(new THREE.SphereGeometry(0.018, 8, 6), dark, 0.16, 1.72 + Math.sin(a) * 0.17, 0.02 + Math.cos(a) * 0.17)); }
+      plate(g, '드릴링 머신', 2.12);
+      g.position.set(-2.55, 0, -23.75); g.rotation.y = Math.PI / 2;
+      scene.add(g);
+      obst(-3.0, -2.25, -24.1, -23.4);
+    }
+    // 수압대패 (동쪽 벽, 창 아래): 긴 철판 두 장과 가운데 칼날 덮개
+    {
+      const g = new THREE.Group();
+      g.add(mesh(rbox(1.3, 0.72, 0.42, 0.03), paint, 0, 0.36, 0));
+      g.add(mesh(rbox(0.62, 0.04, 0.38, 0.01), iron, -0.34, 0.8, 0));
+      g.add(mesh(rbox(0.62, 0.04, 0.38, 0.01), iron, 0.34, 0.82, 0));
+      g.add(mesh(rbox(0.1, 0.05, 0.32, 0.02), yellow, 0, 0.84, 0.0));
+      g.add(mesh(rbox(1.2, 0.18, 0.03, 0.01), iron, 0, 0.92, -0.18));
+      plate(g, '수압대패', 1.25);
+      g.position.set(5.65, 0, -21.7); g.rotation.y = -Math.PI / 2;
+      scene.add(g);
+      obst(5.35, 6.0, -22.4, -21.0);
+    }
+    // 집진기 (톱밥 빨아들이는 통) — 남동쪽 문 옆
+    {
+      const g = new THREE.Group();
+      g.add(mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.7, 18), paint, 0, 0.35, 0));
+      g.add(mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.12, 18), M.color('#e9e2d6', 0.9), 0, 0.82, 0));
+      g.add(mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.5, 18), M.color('#dfe3e6', 0.95), 0, 1.13, 0));
+      g.add(mesh(new THREE.TorusGeometry(0.4, 0.04, 8, 20, Math.PI * 0.8), dark, 0.2, 1.1, 0.0));
+      plate(g, '집진기', 1.62);
+      g.position.set(5.45, 0, -18.2);
+      scene.add(g);
+      obst(5.15, 5.75, -18.5, -17.9);
+    }
   }
   // ---------- 조명 · 빛줄기 · 톱밥 먼지 ----------
   for (const xx of [x0 + 2.2, x1 - 2.2]) {
