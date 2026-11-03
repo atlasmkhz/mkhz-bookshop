@@ -639,7 +639,8 @@ function buildRooftop(scene, roof, room) {
   beanbag(roof, room, 1.6, 3.6, face(1.6, 3.6, 2.6, 2.4), '#e8c86a', { ...o, name: '루프탑 빈백' });
   beanbag(roof, room, 3.8, 3.5, face(3.8, 3.5, 2.6, 2.4), '#a9bba0', { ...o, name: '루프탑 빈백' });
   // 화로와 캠핑 의자
-  firebowl(roof, room, -7.5, 4.5, RY);
+  firebowl(roof, room, -7.5, 4.5, RY, { id: 'roof', name: '루프탑 화로', lv: 3 });
+  woodpile(roof, room, -7.6, 6.9, RY, 0, 'roof', { lv: 3 });
   for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + Math.PI / 4; const sx = -7.5 + Math.cos(a) * 1.6, sz = 4.5 + Math.sin(a) * 1.6; campChair(roof, room, sx, sz, face(sx, sz, -7.5, 4.5), ['#d97c5c', '#5f6b4e', '#7f97a8', '#e8c86a'][k], { ...o, name: '루프탑 화로 곁 캠핑 의자' }); }
   // 해먹 (기둥 둘 사이)
   hammock(roof, room, -12.5, 7.6, 0.2, '#e8c86a', { ...o, name: '루프탑 해먹', posts: true });
@@ -869,32 +870,144 @@ export function hammock(parent, room, x, z, rotY, color, o = {}) {
   return s;
 }
 
+// 화로 · 모닥불. o.id 를 주면 「장작 넣기 · 불멍」이 되는 불로 등록됩니다 (room.fires).
+// 불 세기 = 밤이면 은은하게(0.6) + 넣은 장작(하나에 0.4, 2분 30초쯤 타서 줄어듦) + 막 넣었을 때 확 일어나는 불길
+export const LOG_FUEL = 0.4, FUEL_MAX = 1.6, BURN = LOG_FUEL / 150;
+let _spark;
+function sparkTex() {
+  if (_spark) return _spark;
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const x = c.getContext('2d');
+  const gr = x.createRadialGradient(16, 16, 0, 16, 16, 16);
+  gr.addColorStop(0, 'rgba(255,240,200,1)'); gr.addColorStop(0.35, 'rgba(255,170,80,0.9)'); gr.addColorStop(1, 'rgba(255,90,20,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 32, 32);
+  _spark = new THREE.CanvasTexture(c);
+  return _spark;
+}
 export function firebowl(parent, room, x, z, fy = 0, o = {}) {
   const g = new THREE.Group();
   const iron = M.color('#3b3432', 0.6, { metalness: 0.35 });
   g.add(mesh(new THREE.CylinderGeometry(0.42, 0.3, 0.3, 18, 1, true), new THREE.MeshStandardMaterial({ color: '#3b3432', roughness: 0.6, metalness: 0.35, side: THREE.DoubleSide }), 0, 0.4, 0));
   g.add(mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.03, 18), iron, 0, 0.26, 0));
   for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3; const leg = mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.3, 6), iron, Math.cos(a) * 0.25, 0.14, Math.sin(a) * 0.25); leg.rotation.set(Math.sin(a) * 0.3, 0, -Math.cos(a) * 0.3); g.add(leg); }
-  for (let i = 0; i < 3; i++) { const l = mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.5, 8), M.woodMid(), 0, 0.36, 0); l.rotation.set(Math.PI / 2, i * 1.05, 0); g.add(l); }
-  const fm = new THREE.MeshStandardMaterial({ color: '#2a1408', emissive: '#ff8a2a', emissiveIntensity: 0 });
+  // 화로 안 장작 (타면 붉게 달아오름)
+  const coal = new THREE.MeshStandardMaterial({ map: M.woodMid().map, color: '#6b4a33', emissive: '#ff4a12', emissiveIntensity: 0, roughness: 0.9 });
+  for (let i = 0; i < 3; i++) { const l = mesh(new THREE.CylinderGeometry(0.04, 0.045, 0.5, 8), coal, 0, 0.36, 0); l.rotation.set(Math.PI / 2, i * 1.05, 0); g.add(l); }
+  const embers = mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.02, 18), new THREE.MeshBasicMaterial({ color: '#ff5a1a', transparent: true, opacity: 0 }), 0, 0.3, 0, { cast: false });
+  g.add(embers);
+  // 불꽃: 바깥 주황 + 안쪽 노랑
+  const fm = new THREE.MeshStandardMaterial({ color: '#2a1408', emissive: '#ff7a1f', emissiveIntensity: 0, transparent: true, opacity: 0.92 });
+  const fy2 = new THREE.MeshStandardMaterial({ color: '#3a2008', emissive: '#ffd36a', emissiveIntensity: 0, transparent: true, opacity: 0.95 });
   const flames = [];
-  for (let i = 0; i < 4; i++) { const f = mesh(new THREE.ConeGeometry(0.1, 0.4, 8), fm, (i % 2 - 0.5) * 0.14, 0.6, (i > 1 ? 0.07 : -0.07), { cast: false }); g.add(f); flames.push(f); }
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; const f = mesh(new THREE.ConeGeometry(0.1, 0.42, 8).translate(0, 0.21, 0), fm, Math.cos(a) * 0.11, 0.38, Math.sin(a) * 0.11, { cast: false }); g.add(f); flames.push({ m: f, k: 1, ph: i * 1.7 }); }
+  for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2 + 0.5; const f = mesh(new THREE.ConeGeometry(0.06, 0.3, 8).translate(0, 0.15, 0), fy2, Math.cos(a) * 0.05, 0.38, Math.sin(a) * 0.05, { cast: false }); g.add(f); flames.push({ m: f, k: 0.75, ph: i * 2.3 + 1 }); }
   const light = new THREE.PointLight('#ff8c3a', 0, o.range || 7, 1.6);
   light.position.set(0, 0.8, 0);
   g.add(light);
   const gl = glowSprite('#ff9a4a', 2.0); gl.position.set(0, 0.7, 0); g.add(gl);
+  // 불티 (작은 점이 위로 날아오름)
+  const NS = 40;
+  const sp = new Float32Array(NS * 3), sv = new Float32Array(NS * 3), sl = new Float32Array(NS);
+  const sGeo = new THREE.BufferGeometry(); sGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+  const sparks = new THREE.Points(sGeo, new THREE.PointsMaterial({ color: '#ff9a3c', map: sparkTex(), size: 0.07, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+  sparks.frustumCulled = false;
+  for (let i = 0; i < NS; i++) sp[i * 3 + 1] = -99;
+  g.add(sparks);
+  let spawnAcc = 0;
   g.position.set(x, fy, z);
   parent.add(g);
   const ob = footprint(x, z, 0.9, 0.9); if (o.lv) ob.lv = o.lv; room.obstacles.push(ob);
+  const rec = { id: o.id || null, name: o.name || '화로', g, fuel: o.fuel || 0, flare: 0, level: 0, lv: o.lv || 0, pile: null, world: () => g.getWorldPosition(new THREE.Vector3()) };
+  if (o.id) {
+    g.traverse((m) => { if (m.isMesh) m.userData.fireId = o.id; });
+    (room.fires ||= []).push(rec);
+  }
   room.nightParts.push((dt, t, n) => {
+    rec.fuel = Math.max(0, rec.fuel - dt * BURN);
+    rec.flare = Math.max(0, rec.flare - dt * 0.55);
+    const base = o.always ? 1 : n * 0.6;
+    const lvl = Math.min(FUEL_MAX + 0.2, base + rec.fuel + rec.flare * 0.6);
+    rec.level = lvl;
     const f = 0.85 + Math.sin(t * 7.3 + x) * 0.1 + Math.sin(t * 12.1) * 0.06;
-    const on = o.always ? 1 : n;
-    fm.emissiveIntensity = on * 2 * f;
-    light.intensity = on * (o.power || 7) * f;
-    gl.material.opacity = on * 0.65 * f;
-    flames.forEach((fl, i) => { fl.visible = on > 0.3; fl.scale.y = 0.8 + Math.sin(t * 9 + i * 2) * 0.3; });
+    const on = Math.min(1, lvl / 0.25);
+    fm.emissiveIntensity = on * (1.6 + lvl * 0.8) * f;
+    fy2.emissiveIntensity = on * (1.8 + lvl) * f;
+    coal.emissiveIntensity = Math.min(1.2, (rec.fuel > 0 || n > 0.3 ? 0.25 : 0) + lvl * 0.5);
+    embers.material.opacity = Math.min(0.85, lvl * 0.7);
+    light.intensity = lvl * (o.power || 7) * 0.9 * f;
+    gl.material.opacity = Math.min(0.9, lvl * 0.55) * f;
+    gl.scale.setScalar(2 * (0.75 + lvl * 0.35));
+    const tall = 0.55 + lvl * 0.55 + rec.flare * 0.6;
+    for (const fl of flames) {
+      fl.m.visible = lvl > 0.12;
+      fl.m.scale.set(fl.k * (0.8 + lvl * 0.25), fl.k * tall * (0.75 + Math.sin(t * 9 + fl.ph) * 0.28 + Math.sin(t * 15 + fl.ph * 2) * 0.1), fl.k * (0.8 + lvl * 0.25));
+      fl.m.rotation.z = Math.sin(t * 3 + fl.ph) * 0.12;
+    }
+    // 불티
+    spawnAcc += dt * (lvl > 0.15 ? lvl * 10 + rec.flare * 50 : 0);
+    for (let i = 0; i < NS; i++) {
+      if (sl[i] > 0) {
+        sl[i] -= dt;
+        sv[i * 3 + 1] -= dt * 0.15;
+        sp[i * 3] += sv[i * 3] * dt; sp[i * 3 + 1] += sv[i * 3 + 1] * dt; sp[i * 3 + 2] += sv[i * 3 + 2] * dt;
+        if (sl[i] <= 0) sp[i * 3 + 1] = -99;
+      } else if (spawnAcc >= 1) {
+        spawnAcc -= 1;
+        sl[i] = 0.8 + Math.random() * 1.2;
+        sp[i * 3] = (Math.random() - 0.5) * 0.3; sp[i * 3 + 1] = 0.5; sp[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
+        sv[i * 3] = (Math.random() - 0.5) * 0.35; sv[i * 3 + 1] = 0.7 + Math.random() * 0.9 + rec.flare; sv[i * 3 + 2] = (Math.random() - 0.5) * 0.35;
+      }
+    }
+    if (spawnAcc > 3) spawnAcc = 3;
+    sGeo.attributes.position.needsUpdate = true;
+    sparks.material.opacity = 0.6 + Math.sin(t * 20) * 0.3;
   });
   return g;
+}
+
+// 장작더미: 말뚝 둘 사이에 통나무를 세 줄로 쌓고, 옆에 도끼 꽂힌 그루터기. 누르면 그 불에 장작을 넣음
+export function woodpile(parent, room, x, z, fy = 0, rotY = 0, fireId, o = {}) {
+  const g = new THREE.Group();
+  const bark = [M.color('#6e4e36', 0.95), M.color('#7d5a3e', 0.95), M.color('#5e4330', 0.95)];
+  const cut = M.color('#d9b98c', 0.8);
+  const logs = [];
+  const R = 0.075, L = 0.5;
+  const rows = [6, 5, 4];
+  rows.forEach((n, r) => {
+    for (let i = 0; i < n; i++) {
+      const lx = (i - (n - 1) / 2) * R * 2.05, ly = R + r * R * 1.75;
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(R * (0.9 + ((i * 7 + r) % 3) * 0.06), R, L, 9).rotateX(Math.PI / 2), [bark[(i + r) % 3], cut, cut]);
+      m.position.set(lx, ly, ((i * 13 + r * 5) % 5 - 2) * 0.012);
+      m.castShadow = m.receiveShadow = true;
+      g.add(m); logs.push(m);
+    }
+  });
+  for (const sx of [-1, 1]) g.add(mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.62, 6), M.woodDark(), sx * (R * 6.4), 0.31, 0));
+  // 그루터기 + 도끼
+  const stump = new THREE.Group();
+  stump.add(mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.38, 12), M.color('#7d5a3e', 0.95), 0, 0.19, 0));
+  stump.add(mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.01, 12), cut, 0, 0.385, 0));
+  const axe = new THREE.Group();
+  axe.add(mesh(new THREE.CylinderGeometry(0.014, 0.016, 0.5, 6), M.woodMid(), 0, 0.25, 0));
+  axe.add(mesh(rbox(0.12, 0.08, 0.02, 0.005), M.color('#6d7276', 0.35, { metalness: 0.7 }), 0.04, 0.02, 0));
+  axe.position.set(0.02, 0.4, 0); axe.rotation.z = -0.5;
+  stump.add(axe);
+  stump.position.set(R * 6.4 + 0.42, 0, 0.05);
+  g.add(stump);
+  // 쪼갠 장작 두어 개
+  for (const [px, pz, ry] of [[-0.62, 0.22, 0.6], [-0.5, 0.32, -0.4]]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.8, R * 0.8, 0.42, 3).rotateX(Math.PI / 2), [bark[0], cut, cut]); m.position.set(px, R * 0.65, pz); m.rotation.y = ry; m.castShadow = true; g.add(m); }
+  g.position.set(x, fy, z);
+  g.rotation.y = rotY;
+  g.traverse((m) => { if (m.isMesh) m.userData.woodpile = fireId; });
+  parent.add(g);
+  const ob = footprint(x + Math.cos(rotY) * 0.22, z - Math.sin(rotY) * 0.22, 1.5, 0.6, rotY); if (o.lv) ob.lv = o.lv; room.obstacles.push(ob);
+  const rec = (room.fires || []).find((f) => f.id === fireId);
+  const pile = { g, logs, fireId, lv: o.lv || 0, world: () => g.getWorldPosition(new THREE.Vector3()), restock: 0 };
+  // 장작을 집으러 서는 자리: 더미와 불 사이 (더미의 -z 쪽이 불을 향함)
+  pile.stand = () => g.localToWorld(new THREE.Vector3(0, 0, -0.7)).setY(fy);
+  pile.top = () => { const vis = logs.filter((l) => l.visible); const l = vis[vis.length - 1] || logs[0]; return l.getWorldPosition(new THREE.Vector3()); };
+  if (rec) rec.pile = pile;
+  return pile;
 }
 
 function pendant(scene, room, x, y, z) {

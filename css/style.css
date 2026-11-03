@@ -90,6 +90,17 @@ a { color: inherit; }
 
 .pet-bubble { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); pointer-events: auto; border: 0; border-radius: 999px; padding: 8px 14px; background: rgba(252, 247, 238, 0.96); color: var(--ink); font-size: 14px; box-shadow: 0 4px 14px rgba(60, 38, 20, 0.2); cursor: pointer; opacity: 0; visibility: hidden; transition: opacity .2s, visibility .2s; white-space: nowrap; }
 .pet-bubble.show { opacity: 1; visibility: visible; }
+/* ---------- 모닥불 곁: 장작 넣기 · 불멍 ---------- */
+.fire-bar { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); display: flex; gap: 6px; pointer-events: auto; opacity: 0; visibility: hidden; transition: opacity .2s, visibility .2s; }
+.fire-bar.show { opacity: 1; visibility: visible; }
+.fire-bar button, .gaze-bar button { border: 0; border-radius: 999px; padding: 9px 14px; background: rgba(252, 247, 238, 0.96); color: var(--ink); font: inherit; font-size: 14px; box-shadow: 0 4px 14px rgba(60, 38, 20, 0.22); cursor: pointer; white-space: nowrap; }
+.fire-bar button:active, .gaze-bar button:active { transform: scale(0.96); }
+.gaze-veil { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity 1.2s; background: radial-gradient(ellipse at 50% 55%, rgba(0, 0, 0, 0) 35%, rgba(20, 8, 2, 0.55) 100%); z-index: 1; }
+.gaze-bar { position: absolute; left: 50%; bottom: calc(18px + var(--safe-bot)); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; pointer-events: auto; opacity: 0; visibility: hidden; transition: opacity .6s, visibility .6s; z-index: 2; }
+.gaze-info { color: #fff3e2; font-family: var(--serif); font-size: 15px; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); padding: 0 6px; white-space: nowrap; }
+body.gazing .gaze-veil { opacity: 1; }
+body.gazing .gaze-bar { opacity: 1; visibility: visible; }
+body.gazing .topbar, body.gazing .bottombar, body.gazing .chat-log, body.gazing .fire-bar, body.gazing .pet-bubble, body.gazing .toast { opacity: 0 !important; visibility: hidden !important; transition: opacity .8s, visibility .8s; }
 
 /* ---------- 채팅 ---------- */
 .chat-log { position: absolute; left: 12px; bottom: calc(84px + var(--safe-bot)); width: min(320px, calc(100vw - 24px)); display: flex; flex-direction: column; gap: 4px; pointer-events: none; }

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { M, rbox, mesh, plank, mulberry, footprint, glowSprite, stoneTexture } from './kit.js';
 import { CABIN, WORLD, SEA_Z, PLATFORMS } from './nav.js';
 import { armchair, cushion, beanbag, stool, bench, addSeat, lowTable } from './furniture.js';
-import { campChair, hammock, firebowl, readingTent } from './cabin.js';
+import { campChair, hammock, firebowl, woodpile, readingTent } from './cabin.js';
 import { buildCinema } from './cinema.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -300,7 +300,8 @@ export function buildForest(scene, room, program) {
   };
   {
     const cxc = 18.5, czc = -7.5;
-    firebowl(scene, room, cxc, czc, 0, { range: 9, power: 8 });
+    firebowl(scene, room, cxc, czc, 0, { range: 9, power: 8, id: 'camp', name: '캠핑장 모닥불' });
+    woodpile(scene, room, cxc + 0.2, czc + 2.55, 0, 0, 'camp');
     room.campfire = V(cxc, 0, czc);
     for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + Math.PI / 4; const sx = cxc + Math.cos(a) * 1.7, sz = czc + Math.sin(a) * 1.7; campChair(scene, room, sx, sz, face(sx, sz, cxc, czc), ['#d97c5c', '#5f6b4e', '#7f97a8', '#e8c86a'][k], { name: '캠핑 의자' }); }
     for (const a of [0, Math.PI]) { const lx = cxc + Math.cos(a) * 2.4, lz = czc + Math.sin(a) * 2.4; const rot = face(lx, lz, cxc, czc); const lg = mesh(new THREE.CylinderGeometry(0.2, 0.22, 1.4, 10).rotateZ(Math.PI / 2), M.color('#8b6a4a', 1), lx, 0.2, lz); lg.rotation.y = rot; scene.add(lg); obst(...Object.values(footprint(lx, lz, 1.4, 0.44, rot)).slice(0, 4)); for (const s of [-0.35, 0.35]) addSeat(room, lx + Math.cos(rot) * s, 0.44, lz - Math.sin(rot) * s, rot, { name: '모닥불 통나무', appr: -0.55 }); }
@@ -677,7 +678,8 @@ export function buildForest(scene, room, program) {
     // 바닷가 모닥불 · 통나무
     {
       const cxl = 30.5, czl = bz + 1.2;
-      firebowl(scene, room, cxl, czl, 0, { range: 9, power: 8 });
+      firebowl(scene, room, cxl, czl, 0, { range: 9, power: 8, id: 'beach', name: '바닷가 모닥불' });
+      woodpile(scene, room, cxl + 1.75, czl + 1.75, 0, Math.PI / 4, 'beach');
       room.beachFire = V(cxl, 0, czl);
       for (const a of [Math.PI * 0.75, Math.PI * 1.25, Math.PI * 1.75]) { const lx = cxl + Math.cos(a) * 1.8, lz = czl + Math.sin(a) * 1.8; const rot = face(lx, lz, cxl, czl); const lg = mesh(new THREE.CylinderGeometry(0.2, 0.22, 1.5, 10).rotateZ(Math.PI / 2), M.color('#b89a7a', 1), lx, 0.2, lz); lg.rotation.y = rot; scene.add(lg); obst(...Object.values(footprint(lx, lz, 1.5, 0.44, rot)).slice(0, 4)); for (const s of [-0.35, 0.35]) addSeat(room, lx + Math.cos(rot) * s, 0.44, lz - Math.sin(rot) * s, rot, { name: '바닷가 모닥불 통나무', appr: -0.55 }); }
       excl.push([cxl, czl, 3.5]);

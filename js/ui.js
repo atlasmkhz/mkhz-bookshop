@@ -24,6 +24,10 @@ export class UI {
       this.toast(on ? '☔ 창밖에 비가 와요' : '☀️ 비가 그쳤어요');
     });
     $('#petBubble').addEventListener('click', () => { if (this.bubbleId) this.onPetBubble?.(this.bubbleId); });
+    $('#fireLog').addEventListener('click', () => { if (this.fireId) this.onFireLog?.(this.fireId); });
+    $('#fireGaze').addEventListener('click', () => { if (this.fireId) this.onFireGaze?.(this.fireId); });
+    $('#gazeLog').addEventListener('click', () => this.onGazeLog?.());
+    $('#gazeExit').addEventListener('click', () => this.onGazeExit?.());
     $('#nameInput').value = name || '';
     this.swatches('#topSwatches', LOOKS.tops, 'top');
     this.swatches('#hairSwatches', LOOKS.hairs, 'hair');
@@ -159,6 +163,23 @@ export class UI {
     el.querySelector('span').textContent = `${info.name} 쓰다듬기`;
     el.classList.add('show');
   }
+
+  // 모닥불 곁에 서면 뜨는 단추 (장작 넣기 · 불멍)
+  fireBar(info) {
+    const el = $('#fireBar');
+    const hide = !info || !$('#sheet').classList.contains('hidden') || $('#card').classList.contains('show');
+    if (hide) { el.classList.remove('show'); this.fireId = null; return; }
+    this.fireId = info.id;
+    el.style.left = info.x + 'px';
+    el.style.top = info.y + 'px';
+    el.classList.add('show');
+  }
+  // 불멍 화면: 단추들을 숨기고 가장자리를 어둡게
+  setGaze(on, name) {
+    document.body.classList.toggle('gazing', !!on);
+    if (on) $('#gazeInfo').textContent = `🔥 ${name} 불멍 중`;
+  }
+  gazeInfo(text) { $('#gazeInfo').textContent = text; }
 
   // ---------- 캣타워 제품 카드 ----------
   showProduct(p) {

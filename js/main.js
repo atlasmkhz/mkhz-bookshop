@@ -10,6 +10,7 @@ import { Program } from './cinema.js';
 import { setAtlases, finalizeBooks } from './shelves.js';
 import { BookCats } from './cats.js';
 import { Puppies } from './dogs.js';
+import { Fires } from './fire.js';
 import { Avatar, LOOKS } from './avatar.js';
 import { FX } from './fx.js';
 import { Sound } from './audio.js';
@@ -69,6 +70,7 @@ const fx = new FX(scene);
 const sound = new Sound();
 const cats = new BookCats(scene, room, fx, sound);
 const dogs = new Puppies(scene, room, fx, sound, CONFIG.dogs || []);
+const fires = new Fires(scene, room, fx, sound);
 const ui = new UI();
 ui.seatCount = room.seats.length;
 room.seats.forEach((s, i) => { s.idx = i; });
@@ -103,6 +105,21 @@ window.addEventListener('resize', resize);
 resize();
 
 function updateCamera(dt) {
+  if (fires.gaze) {
+    // 불멍: 불 앞으로 천천히 다가가 낮게, 아주 느리게 돌아봄
+    const w = fires.gaze.world().add(new THREE.Vector3(0, 0.55, 0));
+    cam.target.lerp(w, 1 - Math.exp(-1.6 * dt));
+    cam.dist += (2.9 - cam.dist) * (1 - Math.exp(-1.2 * dt));
+    cam.pitch += (0.34 - cam.pitch) * (1 - Math.exp(-1.2 * dt));
+    // 처음 몇 초는 내 옆쪽(비스듬히)으로 돌아가 불이 가운데, 내가 옆에 보이게. 그 뒤로는 아주 느리게 돎
+    if (fires.gazeT < 4 && gazeYaw != null) cam.yaw = dampAngle(cam.yaw, gazeYaw, 1.4, dt);
+    else cam.yaw += dt * 0.015;
+    const cp = Math.cos(cam.pitch);
+    camera.position.set(cam.target.x + Math.sin(cam.yaw) * cp * cam.dist, cam.target.y + Math.sin(cam.pitch) * cam.dist, cam.target.z + Math.cos(cam.yaw) * cp * cam.dist);
+    camera.lookAt(cam.target);
+    room.viewCenter = cam.target;
+    return;
+  }
   const want = me.entered ? me.pos.clone() : new THREE.Vector3(-4, 0, 2);
   want.x = THREE.MathUtils.clamp(want.x, WORLD.minX + 1, WORLD.maxX - 1);
   want.z = THREE.MathUtils.clamp(want.z, WORLD.minZ + 1, WORLD.maxZ - 1);
@@ -207,6 +224,7 @@ function updateMe(dt) {
   let moving = false;
   const SPEED = 2.2;
   if ((ax || ay) && !typing()) {
+    if (fires.gaze) exitGaze();
     standUp();
     me.target = null; me.pending = null; me.route = [];
     const fwd = new THREE.Vector3(-Math.sin(cam.yaw), 0, -Math.cos(cam.yaw));
@@ -270,7 +288,8 @@ function arrive() {
     if (seatTakenByOther(p.seat)) { ui.toast('누군가 앉아 있어요'); sendState(true); return; }
     me.seat = p.seat;
     p.seat.taken = uid;
-    if (p.seat.cinema) { ui.showPlayer(program.embedUrl(), program.now().kind === 'item' ? program.now().title : (program.data.channelName || '채널') + ' 상영 중'); ui.toast('🎬 영화관 — 화면 위 영상이 켜져요'); }
+    if (p.gaze) startGaze(p.gaze);
+    else if (p.seat.cinema) { ui.showPlayer(program.embedUrl(), program.now().kind === 'item' ? program.now().title : (program.data.channelName || '채널') + ' 상영 중'); ui.toast('🎬 영화관 — 화면 위 영상이 켜져요'); }
     else if (p.seat.name) ui.toast(p.seat.nook ? `🤫 ${p.seat.name} — 잘 안 보이는 자리예요` : `${p.seat.name}에 앉았어요`);
     sendState(true);
   } else if (p.type === 'faceCat') {
@@ -281,6 +300,7 @@ function arrive() {
   else if (p.type === 'suggest') { sendState(true); ui.openSuggest(); }
   else if (p.type === 'program') { sendState(true); ui.openProgram(program); }
   else if (p.type === 'place') { sendState(true); ui.toast(`${p.name}에 왔어요`); }
+  else if (p.type === 'log') { sendState(true); doToss(p.id); }
   else sendState(true);
 }
 
@@ -332,6 +352,8 @@ function pick(x, y) {
   const o = h.object;
   if (o.userData.bookIds && h.faceIndex != null) return { kind: 'book', id: o.userData.bookIds[Math.floor(h.faceIndex / o.userData.trisPerBook)], point: h.point };
   if (o.userData.bookId) return { kind: 'book', id: o.userData.bookId, point: h.point };
+  if (o.userData.woodpile) return { kind: 'woodpile', id: o.userData.woodpile, point: h.point };
+  if (o.userData.fireId) return { kind: 'fire', id: o.userData.fireId, point: h.point };
   for (let p = o; p; p = p.parent) if (p.userData.product) return { kind: 'product', key: p.userData.product, point: h.point };
   if (o.userData.counter) return { kind: 'counter', point: h.point };
   if (o.userData.suggest) return { kind: 'suggest', point: h.point };
@@ -353,6 +375,8 @@ function onTap(x, y) {
   if (!hit) return;
   if (hit.kind === 'cat') { petCat(hit.id); return; }
   if (hit.kind === 'dog') { petDog(hit.id); return; }
+  if (hit.kind === 'woodpile' || hit.kind === 'fire') { tossLog(hit.id); return; }
+  if (fires.gaze) exitGaze();
   if (hit.kind === 'follower') { fx.hearts(hit.point, 3); sound.purr(3.5); ui.toast(hit.obj.userData.followerOf === me.name ? '우리 집 고양이가 골골거려요' : `${hit.obj.userData.followerOf} 님의 고양이예요`); return; }
   if (hit.kind === 'guest') { openGuest(hit.id); return; }
   if (hit.kind === 'book') { ui.openBook(hit.id); return; }
@@ -433,6 +457,99 @@ function petDog(id) {
   if (!me.seat && v.length() > 1.3 && levelOf(me.pos) === 0) walkTo(d.pos.clone().setY(0).sub(v.normalize().multiplyScalar(0.8)), { type: 'place', name: d.def.name + ' 곁' });
   else if (!me.seat) me.yaw = Math.atan2(d.pos.x - me.pos.x, d.pos.z - me.pos.z);
 }
+// ---------- 모닥불: 장작 넣기 · 불멍 ----------
+// 다른 손님에게는 누를 때만 'log' 하나 (2.5초에 한 번까지, 불 20 m 안에 손님이 있을 때만)
+let lastLog = 0, myLogs = 0;
+const fireSeatNear = (f) => me.seat && me.seat.pos.distanceTo(f.world()) < 3.4;
+function tossLog(id) {
+  const f = fires.find(id);
+  if (!f || !me.entered) return;
+  sound.ensure();
+  const st = f.pile ? f.pile.stand() : f.world();
+  const far = Math.hypot(st.x - me.pos.x, st.z - me.pos.z) > 1.6 || Math.abs(st.y - me.pos.y) > 1;
+  if (far && !fireSeatNear(f) && !fires.gaze) {
+    walkTo(st, { type: 'log', id });
+    ripple(st);
+    ui.toast('🪵 장작더미로 걸어가요');
+    return;
+  }
+  doToss(id);
+}
+function doToss(id) {
+  const f = fires.find(id);
+  if (!f) return;
+  if (performance.now() - lastLog < 2500) { if (!fires.gaze) ui.toast('불이 장작을 삼키는 중이에요. 잠깐만요'); return; }
+  lastLog = performance.now();
+  if (!me.seat) me.yaw = Math.atan2(f.world().x - me.pos.x, f.world().z - me.pos.z);
+  me.avatar?.wave();
+  fires.toss(id, true);
+  myLogs++;
+  if (!sound.enabled) ui.soundNudge();
+  const w = f.world();
+  const anyone = [...remotes.values()].some((r) => Math.hypot(r.pos.x - w.x, r.pos.z - w.z) < 20);
+  if (anyone) net.send({ t: 'log', f: id });
+  if (!fires.gaze) ui.toast(f.level < 0.3 ? `🔥 ${f.name}에 불이 붙었어요` : `🪵 장작을 넣었어요 — 불이 커져요`);
+}
+let gazeSaved = null, gazeYaw = null;
+function startGaze(id) {
+  const f = fires.find(id);
+  if (!f) return;
+  // 앉아 있지 않으면 불 곁 빈 의자로 가서 앉은 뒤 불멍
+  if (!fireSeatNear(f)) {
+    const w = f.world();
+    let best = null, bd = 3.4;
+    for (const s of room.seats) {
+      if (s.taken || seatTakenByOther(s) || Math.abs(s.fy - w.y) > 1) continue;
+      const d = Math.hypot(s.pos.x - w.x, s.pos.z - w.z);
+      if (d < bd) { bd = d; best = s; }
+    }
+    if (best) { walkTo(best.appr, { type: 'seat', seat: best, gaze: id }); ripple(best.appr); ui.toast('🔥 불 곁 자리로 가요'); return; }
+  }
+  gazeSaved = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, zoomed: cam.userZoomed };
+  { const w = f.world(); gazeYaw = Math.atan2(me.pos.x - w.x, me.pos.z - w.z) + 0.95; }
+  fires.gaze = f;
+  fires.gazeT = 0;
+  ui.setGaze(true, f.name);
+  ui.fireBar(null);
+  if (!sound.enabled) ui.soundNudge();
+  if (f.level < 0.3) doToss(id);
+}
+function exitGaze() {
+  if (!fires.gaze) return;
+  fires.gaze = null;
+  ui.setGaze(false);
+  if (gazeSaved) { cam.pitch = gazeSaved.pitch; cam.dist = gazeSaved.dist; cam.userZoomed = gazeSaved.zoomed; }
+  gazeSaved = null;
+}
+ui.onFireLog = (id) => tossLog(id);
+ui.onFireGaze = (id) => startGaze(id);
+ui.onGazeLog = () => { if (fires.gaze) doToss(fires.gaze.id); };
+ui.onGazeExit = () => exitGaze();
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && fires.gaze) exitGaze(); });
+let gazeTick = 0;
+function updateFire(dt) {
+  fires.update(dt);
+  if (!me.entered) { ui.fireBar(null); return; }
+  sound.setCampFire(fires.loudness(me.pos) * (fires.gaze ? 1.3 : 1));
+  if (fires.gaze) {
+    gazeTick += dt;
+    if (gazeTick > 1) {
+      gazeTick = 0;
+      const mm = Math.floor(fires.gazeT / 60);
+      const lv = fires.gaze.level;
+      const mood = lv < 0.2 ? '불씨만 남았어요 — 장작을 넣어 주세요' : lv < 0.6 ? '불이 잦아들어요' : lv < 1.2 ? '타닥타닥' : '불길이 높아요';
+      ui.gazeInfo(`🔥 ${fires.gaze.name} · ${mm ? mm + '분째' : '불멍 중'} · ${mood}`);
+    }
+    return;
+  }
+  const f = fires.nearest(me.pos, 3.4);
+  if (!f) { ui.fireBar(null); return; }
+  tmpV.copy(f.world()); tmpV.y += 1.35;
+  tmpV.project(camera);
+  if (tmpV.z > 1) { ui.fireBar(null); return; }
+  ui.fireBar({ id: f.id, x: (tmpV.x + 1) / 2 * window.innerWidth, y: (1 - tmpV.y) / 2 * window.innerHeight });
+}
+
 let lastTreat = 0;
 function giveTreat(id) {
   if (performance.now() - lastTreat < 3500) { ui.toast('천천히, 아직 먹는 중이에요'); return; }
@@ -639,6 +756,16 @@ function handle(m) {
     case 'pet': cats.pet(m.id, Array.isArray(m.p) ? new THREE.Vector3(m.p[0], 0, m.p[1]) : null, false); break;
     case 'treat': cats.treat(m.id, Array.isArray(m.p) ? new THREE.Vector3(m.p[0], 0, m.p[1]) : null, false); break;
     case 'wave': { const r = remotes.get(m.uid); if (r && !blocked.has(m.uid)) r.avatar.wave(); break; }
+    case 'log': {
+      const r = remotes.get(m.uid);
+      const f = fires.find(String(m.f || ''));
+      if (!r || !f || blocked.has(m.uid)) break;
+      const w = f.world();
+      if (Math.hypot(r.pos.x - w.x, r.pos.z - w.z) > 25) break;
+      r.avatar.wave();
+      fires.toss(f.id, false);
+      break;
+    }
     case 'bye': dropRemote(m.uid); break;
   }
 }
@@ -881,6 +1008,7 @@ function frame() {
   }
   cats.update(dt, t);
   dogs.update(dt);
+  updateFire(dt);
   updateRemotes(dt);
   updateDoors(dt);
   fx.update(dt);
@@ -909,4 +1037,4 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-window.shop = { scene, camera, room, me, cats, dogs, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { scene, camera, room, me, cats, dogs, fires, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };

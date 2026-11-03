@@ -54,6 +54,14 @@ export class Sound {
     const rg = ctx.createGain(); rg.gain.value = 0.5;
     rumble.connect(flp).connect(rg).connect(this.fireGain);
 
+    // 바깥 모닥불 · 화로 (가까이 가면 들림, 불 세기만큼)
+    this.campGain = ctx.createGain(); this.campGain.gain.value = 0; this.campGain.connect(this.master);
+    this.campFire = 0;
+    const rumble2 = this.loop(brown);
+    const clp = ctx.createBiquadFilter(); clp.type = 'lowpass'; clp.frequency.value = 520;
+    rumble2.connect(clp).connect(this.campGain);
+    this.crackGain = ctx.createGain(); this.crackGain.gain.value = 0; this.crackGain.connect(this.master);
+
     // 시냇물 (가까이 가면 들림)
     this.waterGain = ctx.createGain(); this.waterGain.gain.value = 0; this.waterGain.connect(this.master);
     const water = this.loop(pink);
@@ -107,6 +115,11 @@ export class Sound {
     if (!this.outdoor && Math.random() < 0.09 + this.night * 0.08) {
       const burst = Math.random() < 0.25 ? 3 + Math.floor(Math.random() * 4) : 1;
       for (let i = 0; i < burst; i++) this.click(now + i * (0.02 + Math.random() * 0.05), 900 + Math.random() * 2200, 0.12 + Math.random() * 0.25, 0.02 + Math.random() * 0.03, this.fireGain);
+    }
+    // 바깥 불 탁탁 (가까울수록 · 불이 셀수록 자주)
+    if (this.campFire > 0.03 && Math.random() < 0.05 + this.campFire * 0.22) {
+      const burst = Math.random() < 0.2 + this.campFire * 0.2 ? 2 + Math.floor(Math.random() * 4) : 1;
+      for (let i = 0; i < burst; i++) this.click(now + i * (0.02 + Math.random() * 0.06), 800 + Math.random() * 2400, 0.1 + Math.random() * 0.25, 0.02 + Math.random() * 0.03, this.crackGain);
     }
     // 다른 손님이 책장 넘기는 소리 (실내, 아주 가끔)
     if (!this.outdoor && Math.random() < 0.004) this.pageTurn(0.35);
@@ -199,6 +212,41 @@ export class Sound {
     const t = this.ctx.currentTime;
     this.click(t, 180, 0.5, 0.09, this.master);
     this.click(t + 0.02, 600, 0.2, 0.05, this.master);
+  }
+
+  // 바깥 불 소리 크기 (0~1): 가까운 불 · 불 세기 · 불멍 중이면 더 크게
+  setCampFire(v) {
+    if (!this.ctx) return;
+    v = Math.max(0, Math.min(1, v));
+    if (Math.abs(v - this.campFire) < 0.02) return;
+    this.campFire = v;
+    const now = this.ctx.currentTime;
+    this.campGain.gain.setTargetAtTime(v * 0.55, now, 0.5);
+    this.crackGain.gain.setTargetAtTime(v * 0.9, now, 0.3);
+  }
+  // 장작이 날아가는 휙
+  whoosh() {
+    if (!this.enabled || !this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime + 0.01;
+    const src = ctx.createBufferSource(); src.buffer = this.pinkBuf;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.2;
+    bp.frequency.setValueAtTime(400, t); bp.frequency.exponentialRampToValueAtTime(1400, t + 0.35); bp.frequency.exponentialRampToValueAtTime(600, t + 0.6);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.18, t + 0.2); g.gain.linearRampToValueAtTime(0, t + 0.65);
+    src.connect(bp).connect(g).connect(this.master);
+    src.start(t, Math.random() * 2); src.stop(t + 0.7);
+  }
+  // 장작이 불에 툭 + 불길이 화르르 + 타닥타닥
+  logIn(vol = 1) {
+    if (!this.enabled || !this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    this.click(t, 130, 0.6 * vol, 0.12, this.master);
+    this.click(t + 0.015, 420, 0.25 * vol, 0.06, this.master);
+    const src = ctx.createBufferSource(); src.buffer = this.brownBuf;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(300, t); lp.frequency.linearRampToValueAtTime(1600, t + 0.25); lp.frequency.linearRampToValueAtTime(500, t + 1.4);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5 * vol, t + 0.2); g.gain.linearRampToValueAtTime(0, t + 1.5);
+    src.connect(lp).connect(g).connect(this.master);
+    src.start(t, Math.random()); src.stop(t + 1.6);
+    for (let i = 0; i < 9; i++) this.click(t + 0.15 + i * (0.06 + Math.random() * 0.1), 900 + Math.random() * 2600, (0.15 + Math.random() * 0.3) * vol, 0.02 + Math.random() * 0.03, this.master);
   }
 
   setWater(v) {
