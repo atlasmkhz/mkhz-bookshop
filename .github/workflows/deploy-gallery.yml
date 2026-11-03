@@ -1,0 +1,67 @@
+# 미술관 서버(gallery-server/)를 Cloudflare 에 올리고, 사이트 설정(js/config.js 의 gallery.api)에 주소를 적어 넣습니다.
+# 채팅 서버와 같은 비밀값을 써요: CLOUDFLARE_API_TOKEN · CLOUDFLARE_ACCOUNT_ID · ADMIN_KEY(선택)
+# 처음 한 번: Cloudflare 대시보드 → R2 에서 R2 를 켜 주세요 (무료 한도 10GB). 사진 창고(버킷)는 이 워크플로가 만들어요.
+name: Deploy gallery server
+
+on:
+  push:
+    branches: [main]
+    paths: ['gallery-server/**', 'server/src/filter.js', '.github/workflows/deploy-gallery.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-gallery
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Make photo bucket (사진 창고) if missing
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        working-directory: gallery-server
+        run: npx --yes wrangler@3 r2 bucket create mkhz-gallery || echo "이미 있거나 R2 가 아직 꺼져 있어요 (대시보드에서 R2 를 켜 주세요)"
+
+      - name: Deploy to Cloudflare
+        id: wrangler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: gallery-server
+
+      - name: Put ADMIN_KEY (서점지기 열쇠)
+        env:
+          ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        working-directory: gallery-server
+        run: |
+          if [ -z "$ADMIN_KEY" ]; then echo "ADMIN_KEY 비밀값이 없어 건너뜀"; exit 0; fi
+          printf '%s' "$ADMIN_KEY" | npx --yes wrangler@3 secret put ADMIN_KEY
+
+      - name: Write gallery URL into site config
+        env:
+          URL: ${{ steps.wrangler.outputs.deployment-url }}
+        run: |
+          echo "Gallery URL: $URL"
+          if [ -z "$URL" ]; then echo "배포 주소를 찾지 못했어요. 위 로그의 workers.dev 주소를 js/config.js 의 gallery.api 에 직접 넣어 주세요."; exit 0; fi
+          sed -E -i "s#(get\('gallery'\) \|\| )'[^']*'#\1'${URL}'#" js/config.js
+          grep -n "get('gallery')" js/config.js
+          if git diff --quiet; then echo "이미 최신 주소예요"; else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -am "Set gallery server URL"
+            git push origin HEAD:main
+          fi
+          git push -f origin HEAD:gh-pages || true

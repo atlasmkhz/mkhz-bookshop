@@ -7,8 +7,8 @@ import { bench, addSeat } from './furniture.js';
 
 // 둘레길 (닫힌 고리). 가운데 바닷가 구간(2 → 46)은 forest.js 의 바닷길이 이어 줌
 export const RING = [
-  [46, 26.2], [50, 26.4], [55.5, 25.8], [59.4, 22], [60.1, 15], [59.5, 7], [60.3, -1], [59.4, -9], [60.2, -17], [59.6, -25],
-  [55, -29.2], [48, -30], [40, -29.5], [32, -30.2], [24, -29.6], [16, -30], [8, -29.4], [0, -30.1], [-8, -29.3], [-16, -30], [-24, -29.4],
+  [46, 26.2], [52, 26.4], [60, 26.0], [68, 25.6], [74.2, 22], [75.1, 14], [74.5, 6], [75.2, -2], [74.4, -10], [75.0, -18], [74.3, -25],
+  [69, -29.4], [62, -30], [55, -29.2], [48, -30], [40, -29.5], [32, -30.2], [24, -29.6], [16, -30], [8, -29.4], [0, -30.1], [-8, -29.3], [-16, -30], [-24, -29.4],
   [-27.4, -24], [-28.3, -16], [-27.8, -8], [-28.4, 0], [-27.6, 8], [-28.2, 16], [-27.5, 22.5], [-24.5, 26.2], [-18, 26.4], [-10, 26.0], [-3, 25.8], [2, 25.5],
 ];
 // 둘레길과 안쪽 길을 잇는 샛길
@@ -17,7 +17,8 @@ export const SPURS = [
   [[-9, -13.5], [-8.5, -21], [-8, -29.3]],                    // 집 뒤 → 북쪽 자작나무 길
   [[15, -20], [14.5, -25], [16, -30]],                        // 숲 안쪽 숨은 자리 → 북쪽
   [[43.5, -10.8], [47.3, -16], [48.3, -21.5], [49.6, -27.6], [55, -29.2]], // 나무 위 오두막 → 연못 → 둘레길
-  [[40.5, 7], [45, 8.5], [51, 7.8], [59.5, 7]],               // 들꽃 언덕 → 억새 언덕
+  [[40.5, 7], [45, 8.5], [51, 7.8], [57, 6.2], [61.2, 1.0]],   // 들꽃 언덕 → 억새 언덕 → 미술관 입구
+  [[63.4, 9.6], [68, 11.5], [74.5, 12]],                       // 미술관 앞마당 → 둘레길 동쪽
 ];
 // 「가볼 곳」 · 지나갈 때 알려 주는 자리
 export const TRAIL_SPOTS = [
@@ -25,7 +26,7 @@ export const TRAIL_SPOTS = [
   { ico: '🎋', name: '대나무 숲길', note: '둘레길 서쪽, 바람에 사각사각', to: [-28.0, 0, -9.0] },
   { ico: '🌳', name: '자작나무 길', note: '둘레길 북쪽, 하얀 나무 사이', to: [6.0, 0, -29.4] },
   { ico: '🪷', name: '연못', note: '둘레길 북동쪽, 연잎 · 연꽃', to: [49.4, 0, -25.0] },
-  { ico: '🌾', name: '억새 언덕', note: '둘레길 동쪽, 은빛 억새밭', to: [59.6, 0, 3.0] },
+  { ico: '🌾', name: '억새 언덕', note: '미술관 앞, 은빛 억새밭', to: [56.8, 0, 6.6] },
 ];
 
 // 바람에 흔들리는 풀 · 대나무 (인스턴스 메시 = 같은 모양을 한 번에 여러 개 그리는 방법)
@@ -54,7 +55,7 @@ export function buildTrail(scene, room, { obst, excl, trees, r, signpost, rockMa
   room.ring = RING.map(([x, z]) => V(x, 0, z));
 
   // ---------- 쉼터 벤치 ----------
-  for (const [x, z, rot] of [[-26.0, 18.5, -Math.PI / 2], [-26.2, -20, -Math.PI / 2], [-12, -27.9, Math.PI], [20, -28.1, Math.PI], [36, -28.0, Math.PI], [57.9, -12, Math.PI / 2], [57.8, 19, Math.PI / 2], [-14, 24.6, 0]]) {
+  for (const [x, z, rot] of [[-26.0, 18.5, -Math.PI / 2], [-26.2, -20, -Math.PI / 2], [-12, -27.9, Math.PI], [20, -28.1, Math.PI], [36, -28.0, Math.PI], [73.3, -12, Math.PI / 2], [73.3, 19, Math.PI / 2], [-14, 24.6, 0]]) {
     bench(scene, room, x, z, rot, 1.5, 2, { name: '둘레길 쉼터 벤치' });
     excl.push([x, z, 1.8]);
   }
@@ -140,7 +141,7 @@ export function buildTrail(scene, room, { obst, excl, trees, r, signpost, rockMa
     const x = -6 + r() * 28;
     const side = r() < 0.5 ? -1 : 1;
     const z = -29.7 + side * (2.0 + r() * 2.8);
-    if (z < -32.6 || trees.some((t) => Math.hypot(x - t[0], z - t[1]) < 1.6)) continue;
+    if (z < -32.6 || trees.some((t) => Math.hypot(x - t[0], z - t[1]) < 1.6) || excl.some(([ex, ez, er]) => Math.hypot(x - ex, z - ez) < er)) continue;
     trees.push([x, z, 'birch', 0.9 + r() * 0.45]);
   }
   excl.push([8, -29.7, 14]);
@@ -187,9 +188,10 @@ export function buildTrail(scene, room, { obst, excl, trees, r, signpost, rockMa
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), col = new THREE.Color();
     let n = 0, k = 0;
     for (let i = 0; i < 6000 && n < N; i++) {
-      const x = 52.5 + r() * 10, z = -5 + r() * 22;
-      if (Math.abs(x - 59.9) < 0.9) continue;      // 길은 비워 둠
-      if (Math.abs(z - 7.4) < 0.8 && x < 59) continue;
+      const x = 52.5 + r() * 8.6, z = -5 + r() * 22;
+      // 미술관 가는 길은 비워 둠 (들꽃 언덕 → 미술관 입구)
+      const pz = x < 57 ? 7.8 - (x - 51) * 0.27 : 6.2 - (x - 57) * 1.24;
+      if (Math.abs(z - pz) < 0.9) continue;
       const h = 0.9 + r() * 0.8;
       q.setFromEuler(new THREE.Euler((r() - 0.5) * 0.5, r() * 3, (r() - 0.5) * 0.5));
       im.setMatrixAt(n, m4.compose(V(x, 0, z), q, V(1, h, 1)));
@@ -217,7 +219,7 @@ export function buildTrail(scene, room, { obst, excl, trees, r, signpost, rockMa
         p.fillStyle = '#4a3426'; p.textAlign = 'center';
         p.font = '700 48px "Gowun Batang", serif'; p.fillText('숲 둘레길', 256, 70);
         p.font = '28px "Gowun Dodum", sans-serif';
-        ['한 바퀴 약 280 m · 천천히 3분', '등대 · 대나무 숲 · 자작나무 길', '연못 · 억새 언덕 · 바닷가', '🧭 가볼 곳 → 둘레길 한 바퀴'].forEach((t, i) => p.fillText(t, 256, 128 + i * 40));
+        ['한 바퀴 약 300 m · 천천히 4분', '등대 · 대나무 숲 · 자작나무 길', '연못 · 억새 언덕 · 바닷가', '🧭 가볼 곳 → 둘레길 한 바퀴'].forEach((t, i) => p.fillText(t, 256, 128 + i * 40));
       };
       draw();
       const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;

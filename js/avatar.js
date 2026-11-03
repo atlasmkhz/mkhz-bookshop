@@ -146,6 +146,23 @@ export class Avatar {
 
   wave() { this.waveT = 2.2; }
 
+  // 목공방 앞치마 (null 이면 벗기)
+  setApron(on) {
+    if (!!on === !!this.apron) return;
+    if (this.apron) { this.body.remove(this.apron); this.apron = null; }
+    if (!on) return;
+    const g = new THREE.Group();
+    const cloth = std('#6b5844', 0.95), strap = std('#4a3c30', 0.9);
+    const bib = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.17, 0.02), cloth); bib.position.set(0, 0.64, 0.135); g.add(bib);
+    const skirt = new THREE.Mesh(new THREE.BoxGeometry(0.29, 0.26, 0.02), cloth); skirt.position.set(0, 0.44, 0.15); skirt.rotation.x = 0.08; g.add(skirt);
+    const pocket = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 0.01), strap); pocket.position.set(0, 0.45, 0.165); g.add(pocket);
+    for (const sx of [-1, 1]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.12, 0.012), strap); st.position.set(sx * 0.07, 0.76, 0.1); st.rotation.x = -0.5; g.add(st); }
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.008, 4, 20), strap); belt.rotation.x = Math.PI / 2; belt.position.y = 0.55; belt.scale.set(1, 0.82, 1); g.add(belt);
+    g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    this.body.add(g);
+    this.apron = g;
+  }
+
   // 장난감 들기 (null 이면 내려놓기)
   setToy(id) {
     if (this.toy === id) return;

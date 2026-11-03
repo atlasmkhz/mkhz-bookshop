@@ -7,7 +7,7 @@ import * as THREE from 'three';
 // 오두막 실내 (m)
 export const CABIN = { minX: -16, maxX: 8, minZ: -10, maxZ: 10, H: 5.6 };
 // 실내 + 숲 정원 + 바닷가 전체
-export const WORLD = { minX: -31, maxX: 63, minZ: -33, maxZ: 36 };   // 둘레길을 내며 사방으로 넓힘 (땅은 forest.js G0)
+export const WORLD = { minX: -31, maxX: 78, minZ: -33, maxZ: 36 };   // 둘레길을 내며 사방으로 넓히고, 미술관 자리로 동쪽 15m 더 (땅은 forest.js G0)
 // 정원으로 나가는 문 (동쪽 벽 x = 8)
 export const DOOR = { x: 8, z0: -0.9, z1: 0.9, h: 2.4 };
 // 현관 (남쪽 벽) — 손님이 처음 서는 자리. 밖으로 나가 집 둘레를 돌 수 있다

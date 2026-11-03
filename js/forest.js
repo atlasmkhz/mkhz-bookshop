@@ -7,6 +7,8 @@ import { armchair, cushion, beanbag, stool, bench, addSeat, lowTable } from './f
 import { campChair, hammock, firebowl, woodpile, readingTent } from './cabin.js';
 import { buildCinema } from './cinema.js';
 import { RING, SPURS, buildTrail } from './trail.js';
+import { buildWoodshop } from './woodshop.js';
+import { buildGallery } from './gallery.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const face = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
@@ -32,6 +34,7 @@ const PATHS = [
   [[-14, 12.5], [-12, 16], [-6, 19], [-1, 22], [2, 25.5]],                   // 서쪽 마당 → 바닷가
   [[12, 20], [16, 19.5]],                                                    // → 큰 나무 그네
   [[22, -15], [19, -18], [15, -20]],                                         // 계곡 → 숲 안쪽 숨은 자리
+  [[1.5, -13.4], [1.5, -16.4]],                                              // 집 뒤 길 → 목공방 문
   RING,                                                                      // 숲 둘레길 (맵 가장자리 한 바퀴)
   ...SPURS,                                                                  // 둘레길 샛길
 ];
@@ -98,7 +101,7 @@ export function buildForest(scene, room, program) {
   const rockMat = new THREE.MeshStandardMaterial({ map: stoneTexture('#a59a8c', 23), roughness: 1 });
 
   // ---------- 땅 (잔디 · 모래 · 바다) ----------
-  const G0 = { minX: -34, maxX: 66, minZ: -36, maxZ: 23.5 };
+  const G0 = { minX: -34, maxX: 81, minZ: -36, maxZ: 23.5 };
   {
     const gw = G0.maxX - G0.minX, gd = G0.maxZ - G0.minZ;
     const grassMat = new THREE.MeshStandardMaterial({ map: grassTexture(), roughness: 1 });
@@ -123,10 +126,10 @@ export function buildForest(scene, room, program) {
   // 바다
   const seaMat = new THREE.MeshStandardMaterial({ color: '#5fa3b8', roughness: 0.25, metalness: 0.1, transparent: true, opacity: 0.9 });
   {
-    const seaGeo = new THREE.PlaneGeometry(100, 24, 80, 20);
+    const seaGeo = new THREE.PlaneGeometry(130, 24, 100, 20);
     seaGeo.rotateX(-Math.PI / 2);
     const sea = new THREE.Mesh(seaGeo, seaMat);
-    sea.position.set(16, -0.02, SEA_Z + 12);
+    sea.position.set(23.5, -0.02, SEA_Z + 12);
     sea.receiveShadow = true;
     scene.add(sea);
     const pos = seaGeo.attributes.position;
@@ -141,8 +144,8 @@ export function buildForest(scene, room, program) {
     // 물가 거품 띠 (셋이 번갈아 밀려옴)
     const foams = [];
     for (let i = 0; i < 3; i++) {
-      const f = new THREE.Mesh(new THREE.PlaneGeometry(100, 0.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#f6fbfc', transparent: true, opacity: 0, depthWrite: false }));
-      f.position.set(16, 0.01, SEA_Z);
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(130, 0.5).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#f6fbfc', transparent: true, opacity: 0, depthWrite: false }));
+      f.position.set(23.5, 0.01, SEA_Z);
       f.userData.noHit = true;
       scene.add(f);
       foams.push(f);
@@ -781,7 +784,12 @@ export function buildForest(scene, room, program) {
   }
 
   // ---------- 숲 둘레길 볼거리 (등대 · 대나무 숲 · 자작나무 길 · 연못 · 억새 언덕) ----------
+  // 목공방 (북쪽 숲) · 미술관 (동쪽) — 나무를 심기 전에 자리를 비워 둠
+  buildWoodshop(scene, room, { obst, excl });
+  buildGallery(scene, room, { obst, excl });
   buildTrail(scene, room, { obst, excl, trees, r, signpost, rockMat });
+  signpost(3.4, -13.0, [['목공방', Math.PI / 2 + 0.2], ['서점으로', -Math.PI / 2]]);
+  signpost(60.4, 3.6, [['MK 갤러리', 0.0], ['억새 · 들꽃 언덕', Math.PI], ['둘레길', -Math.PI / 2 + 0.4]]);
 
   // ---------- 나무 심기 (전보다 성기게) ----------
   const okTree = (x, z, rad = 1.6) => {
@@ -856,6 +864,8 @@ export function buildForest(scene, room, program) {
   {
     const fm = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.06, 0), new THREE.MeshStandardMaterial({ roughness: 0.8 }), flowers.length);
     const cols = ['#f6d36b', '#f2a7a0', '#ffffff', '#c9b6e4', '#9cc3e6', '#f0a35a'];
+    const inBuilding = (x, z) => (room.buildingRects || []).some((b) => x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ);
+    for (let i = flowers.length - 1; i >= 0; i--) if (inBuilding(flowers[i][0], flowers[i][1])) flowers.splice(i, 1);
     flowers.forEach(([x, z], i) => { ps.set(x, 0.12 + r() * 0.1, z); q.identity(); sc.setScalar(0.7 + r() * 0.8); fm.setMatrixAt(i, m4.compose(ps, q, sc)); fm.setColorAt(i, col.set(cols[Math.floor(r() * cols.length)])); });
     fm.userData.noHit = true;
     scene.add(fm);
@@ -866,6 +876,7 @@ export function buildForest(scene, room, program) {
       const x = WORLD.minX + r() * (WORLD.maxX - WORLD.minX), z = WORLD.minZ + r() * (23 - WORLD.minZ);
       if (x > CABIN.minX - 1 && x < CABIN.maxX + 1 && z > CABIN.minZ - 1 && z < CABIN.maxZ + 2) continue;
       if (distPaths(x, z) < 0.85 || Math.abs(x - streamX(z)) < 1.3) continue;
+      if ((room.buildingRects || []).some((b) => x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ)) continue;
       ps.set(x, 0.15, z); q.setFromEuler(new THREE.Euler((r() - 0.5) * 0.4, 0, (r() - 0.5) * 0.4)); sc.set(1, 0.6 + r() * 0.8, 1);
       gm.setMatrixAt(n++, m4.compose(ps, q, sc));
     }
@@ -890,6 +901,7 @@ export function buildForest(scene, room, program) {
           const nx = -(bz - az) / len, nz = (bx - ax) / len;
           const x = ax + (bx - ax) * u + nx * 1.0, z = az + (bz - az) * u + nz * 1.0;
           if (Math.abs(x - streamX(z)) < 1.6 || (x > CABIN.minX - 0.5 && x < CABIN.maxX + 0.5 && z > CABIN.minZ - 0.5 && z < CABIN.maxZ + 0.5)) continue;
+          if ((room.buildingRects || []).some((b) => x > b.minX - 0.3 && x < b.maxX + 0.3 && z > b.minZ - 0.3 && z < b.maxZ + 0.3)) continue;
           // 계단 입구 · 현관 앞은 비워 둠 (길을 막지 않게)
           if (PLATFORMS.some((pl) => Math.hypot(x - pl.bottomPt.x, z - pl.bottomPt.z) < 2.2 || Math.hypot(x - pl.topPt.x, z - pl.topPt.z) < 1.2) || Math.hypot(x + 1.75, z - 11.2) < 1.8) continue;
           scene.add(mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.85, 6), M.woodDark(), x, 0.42, z));

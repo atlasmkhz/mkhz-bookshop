@@ -33,6 +33,11 @@
   </div>
   <div id="status"></div>
   <div id="list"></div>
+  <h1 style="margin-top:32px">MK 갤러리 작품</h1>
+  <p>자동 검사를 통과해 걸렸거나 기다리는 작품, 신고 5건으로 내려간 작품(보류)이 보여요. 보류 작품은 되살리거나 지울 수 있어요. 같은 열쇠를 써요.</p>
+  <div class="bar"><button id="gload" type="button">작품 불러오기</button></div>
+  <div id="gstatus"></div>
+  <div id="glist"></div>
 </main>
 <script type="module">
   import { CONFIG } from './js/config.js';
@@ -61,6 +66,28 @@
       }));
     } catch (e) { $('#status').textContent = '못 불러왔어요: ' + e.message; }
   }
+  // ---------- 미술관 ----------
+  const gbase = (CONFIG.gallery?.api || '').replace(/\/$/, '');
+  async function gcall(path, opts = {}) {
+    const r = await fetch(gbase + path, { ...opts, headers: { authorization: 'Bearer ' + $('#key').value.trim(), 'content-type': 'text/plain', ...(opts.headers || {}) } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || ('응답 ' + r.status));
+    return j;
+  }
+  const gname = { wall: '걸려 있음', queue: '기다리는 중', hidden: '보류 (신고로 내려감)' };
+  async function gload() {
+    if (!gbase) { $('#gstatus').textContent = '미술관 서버 주소가 아직 없어요. 미술관 서버 배포 워크플로를 먼저 돌려 주세요 (js/config.js 의 gallery.api).'; return; }
+    $('#gstatus').textContent = '불러오는 중…';
+    try {
+      const d = await gcall('/admin/items');
+      const items = d.items.sort((a, b) => (a.status === 'hidden' ? -1 : 1) - (b.status === 'hidden' ? -1 : 1) || b.created - a.created);
+      $('#gstatus').textContent = `작품 ${items.length}점 · 기다리는 작품 ${d.queue}점`;
+      $('#glist').innerHTML = items.map((it) => `<div class="item"><div class="meta"><span>${esc(it.title)} · ${esc(it.name)} · ${gname[it.status] || it.status} · 신고 ${it.reports} · 👁 ${it.views} · ❤ ${it.hearts}</span><span>${it.status === 'hidden' ? `<button class="ghost" data-restore="${esc(it.id)}" type="button">되살리기</button> ` : ''}<button class="ghost" data-remove="${esc(it.id)}" type="button">지우기</button></span></div><div class="text"><img src="${esc(gbase)}/img/${esc(it.id)}" alt="${esc(it.title)}" style="max-width:240px;border-radius:8px" loading="lazy" /></div></div>`).join('') || '<p>아직 올라온 작품이 없어요.</p>';
+      document.querySelectorAll('[data-restore]').forEach((b) => b.addEventListener('click', async () => { await gcall('/admin/restore', { method: 'POST', body: JSON.stringify({ id: b.dataset.restore }) }); gload(); }));
+      document.querySelectorAll('[data-remove]').forEach((b) => b.addEventListener('click', async () => { if (!confirm('이 작품을 지울까요? 사진도 함께 지워져요.')) return; await gcall('/admin/remove', { method: 'POST', body: JSON.stringify({ id: b.dataset.remove }) }); gload(); }));
+    } catch (e) { $('#gstatus').textContent = '못 불러왔어요: ' + e.message; }
+  }
+  $('#gload').addEventListener('click', gload);
   $('#load').addEventListener('click', load);
   $('#key').addEventListener('keydown', (e) => { if (e.key === 'Enter') load(); });
   if ($('#key').value) load();

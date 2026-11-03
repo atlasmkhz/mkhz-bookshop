@@ -184,7 +184,7 @@ export class UI {
     document.body.classList.toggle('gazing', !!on);
     $('#gazeLog').style.display = mode === 'fire' ? '' : 'none';
     $('#gazeConst').style.display = mode === 'star' ? '' : 'none';
-    if (on) $('#gazeInfo').textContent = mode === 'star' ? '🌌 별멍 중' : `🔥 ${name} 불멍 중`;
+    if (on) $('#gazeInfo').textContent = mode === 'star' ? '🌌 별멍 중' : mode === 'wood' ? '🪚 목공 멍 중' : `🔥 ${name} 불멍 중`;
   }
   gazeInfo(text) { $('#gazeInfo').textContent = text; }
 
@@ -274,6 +274,71 @@ export class UI {
   }
 
   // ---------- 우리 집 고양이 입장시키기 ----------
+  // 미술관 작품 카드: 크게 보기 · 하트 · 신고 (신고는 한 번 더 눌러야 보냄)
+  showArt(a, h) {
+    this.cardCat = null;
+    const left = a.queue > 0 && a.until ? Math.max(0, Math.round((a.until - Date.now()) / 60000)) : null;
+    $('#cardBody').innerHTML = `
+      <div class="card-kicker">🖼️ MK 갤러리 · ${a.no}번 벽</div>
+      <img class="art-img" src="${esc(a.img)}" alt="${esc(a.title || '무제')} — ${esc(a.name || '손님')} 님이 찍은 사진" />
+      <div class="card-title">${esc(a.title || '무제')}</div>
+      <div class="card-desc">${esc(a.name || '손님')} 님이 찍은 사진 · 👁 <span id="artViews">${a.views || 0}</span>명 · ❤ <span id="artHearts">${a.hearts || 0}</span>${left != null ? ` · 약 ${left}분 뒤 다음 작품과 교대` : ''}</div>
+      <div class="row">
+        <button class="btn primary" id="artHeart" type="button" ${a.hearted ? 'disabled' : ''}>${a.hearted ? '❤ 하트를 보냈어요' : '❤ 하트'}</button>
+        <button class="btn ghost" id="artReport" type="button">🚩 신고</button>
+      </div>
+      <p class="note" id="artMsg" style="margin-top:6px"></p>`;
+    $('#artHeart').addEventListener('click', async () => { if (await h.heart()) { $('#artHearts').textContent = (a.hearts || 0) + 1; $('#artHeart').textContent = '❤ 하트를 보냈어요'; $('#artHeart').disabled = true; } });
+    let armed = false;
+    $('#artReport').addEventListener('click', async () => {
+      if (!armed) { armed = true; $('#artReport').textContent = '🚩 정말 신고할까요? 한 번 더 누르기'; $('#artMsg').textContent = '야하거나 폭력적인 사진, 남의 사진을 퍼 온 것 같을 때 신고해 주세요. 여러 분이 신고하면 자동으로 내려가요.'; return; }
+      $('#artReport').disabled = true;
+      const r = await h.report();
+      $('#artMsg').textContent = r.msg || (r.ok ? '신고를 받았어요' : '신고를 보내지 못했어요');
+    });
+    this.openCard();
+    clearTimeout(this.cardT);
+    this.cardT = setTimeout(() => this.hideCard(), 30000);
+  }
+
+  // 미술관 작품 올리기
+  openArtUpload(st, onSubmit) {
+    this.sheetKind = 'artup';
+    this.openSheet(`<h2>📷 MK 갤러리에 작품 올리기</h2>
+      ${st.on ? '' : '<p class="note" style="color:#b4462e">미술관 서버가 아직 열리지 않아 지금은 올릴 수 없어요. 서점지기가 서버를 열면 바로 쓸 수 있어요.</p>'}
+      <p class="note">직접 찍은 사진 한 장을 30개 벽 가운데 한 곳에 걸어요. 기다리는 작품이 있으면 한 시간씩 교대하고, 없으면 계속 걸려 있어요. 본 사람 수와 하트가 이름표에 보여요.</p>
+      <ul class="note art-rules">
+        <li>올리면 자동 검사기가 먼저 봐요. 야하거나 폭력적인 사진은 걸리지 않아요.</li>
+        <li>걸린 뒤에도 서로 다른 다섯 분이 신고하면 자동으로 내려가요. 두 번 내려가면 한 달 동안 올릴 수 없어요.</li>
+        <li>사진은 긴 쪽 1280px로 줄여서 보내요. 이때 사진 속 위치 정보(GPS)가 지워져요.</li>
+        <li>한 사람이 한 번에 한 작품, 하루 세 장까지예요.</li>
+      </ul>
+      <label class="btn" style="margin:8px 0">🖼️ 사진 고르기<input id="auFile" type="file" accept="image/*" hidden /></label>
+      <div id="auPrev" class="au-prev"></div>
+      <label class="field"><span>작품 이름</span><input id="auTitle" maxlength="24" placeholder="예: 비 갠 오후의 책방" /></label>
+      <label class="field" style="margin-top:8px"><span>찍은 사람</span><input id="auName" maxlength="12" value="${esc(st.name || '')}" /></label>
+      <label class="check" style="margin-top:10px"><input type="checkbox" id="auOwn" /> 제가 직접 찍은 사진이에요</label>
+      <label class="check"><input type="checkbox" id="auOk" /> 사진에 나온 분들께 걸어도 된다고 허락받았어요 (사람이 없으면 체크)</label>
+      <p style="margin-top:12px"><button class="btn primary" type="button" id="auGo" ${st.on ? '' : 'disabled'}>올리기</button></p>
+      <p class="note" id="auMsg"></p>`);
+    let file = null;
+    $('#auFile').addEventListener('change', (e) => {
+      file = e.target.files?.[0] || null;
+      if (!file) return;
+      const u = URL.createObjectURL(file);
+      $('#auPrev').innerHTML = `<img src="${u}" alt="고른 사진 미리 보기" />`;
+    });
+    $('#auGo').addEventListener('click', async () => {
+      const msg = $('#auMsg');
+      if (!file) { msg.textContent = '사진을 먼저 골라 주세요'; return; }
+      if (!$('#auOwn').checked || !$('#auOk').checked) { msg.textContent = '두 가지 확인란에 체크해 주세요'; return; }
+      $('#auGo').disabled = true; msg.textContent = '사진을 줄이고 자동 검사를 하는 중이에요…';
+      const r = await onSubmit({ file, title: $('#auTitle').value.trim(), name: $('#auName').value.trim() });
+      msg.textContent = r.msg || (r.ok ? '올렸어요!' : '올리지 못했어요');
+      if (!r.ok) $('#auGo').disabled = false;
+    });
+  }
+
   // 내 필사 공책 (이 브라우저에만 저장)
   openCopybook(list) {
     this.sheetKind = 'copybook';

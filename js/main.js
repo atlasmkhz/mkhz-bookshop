@@ -16,6 +16,8 @@ import { Fireworks, FW_KINDS } from './fireworks.js';
 import { HideSeek } from './hideseek.js';
 import { TRAIL_SPOTS } from './trail.js';
 import { CopyDesk } from './copydesk.js';
+import { Workshop, SHOP_CAP, inShop } from './woodshop.js';
+import { GalleryClient, inHall } from './gallery.js';
 import { Avatar, LOOKS } from './avatar.js';
 import { FX } from './fx.js';
 import { Sound } from './audio.js';
@@ -95,6 +97,10 @@ const me = {
   avatar: null, pos: room.spawn.clone(), yaw: Math.PI, route: [], target: null, seat: null, pending: null, speed: 0, hold: null, entered: false,
 };
 const remotes = new Map();
+const workshop = new Workshop(scene, room, sound);
+workshop.listener = me.pos;
+const gallery = new GalleryClient(room, CONFIG.gallery, uid);
+me.apron = !!store.get('apron', false);
 cats.listener = me.pos;
 dogs.listener = me.pos;
 fw.listener = me.pos;
@@ -136,6 +142,20 @@ function updateCamera(dt) {
     }
     cam.dist = Math.min(cam.dist, 4);
     copy.t += dt;
+    const cp = Math.cos(cam.pitch);
+    camera.position.set(cam.target.x + Math.sin(cam.yaw) * cp * cam.dist, cam.target.y + Math.sin(cam.pitch) * cam.dist, cam.target.z + Math.cos(cam.yaw) * cp * cam.dist);
+    camera.lookAt(cam.target);
+    room.viewCenter = cam.target;
+    return;
+  }
+  if (woodView.on) {
+    // 목공 멍: 작업대 앞으로 다가가 공방지기 손을 바라봄
+    const w = room.shop.bench.clone().add(new THREE.Vector3(0, 0.25, 0));
+    cam.target.lerp(w, 1 - Math.exp(-2 * dt));
+    cam.dist += (2.6 - cam.dist) * (1 - Math.exp(-1.5 * dt));
+    cam.pitch += (0.42 - cam.pitch) * (1 - Math.exp(-1.5 * dt));
+    if (woodView.t < 3) cam.yaw = dampAngle(cam.yaw, 0.25, 1.5, dt); else cam.yaw = 0.25 + Math.sin(woodView.t * 0.05) * 0.3;
+    woodView.t += dt;
     const cp = Math.cos(cam.pitch);
     camera.position.set(cam.target.x + Math.sin(cam.yaw) * cp * cam.dist, cam.target.y + Math.sin(cam.pitch) * cam.dist, cam.target.z + Math.cos(cam.yaw) * cp * cam.dist);
     camera.lookAt(cam.target);
@@ -215,6 +235,8 @@ function updateCutaway(dt) {
     w.group.visible = w.opacity > 0.02;
   }
   room.roof.visible = me.entered && !inside;
+  // 목공방 · 미술관 지붕: 그 안에 들어가면 접힘
+  for (const rf of room.roofs || []) { const R = rf.rect; rf.g.visible = !(me.entered && lv === 0 && ref.x > R.minX && ref.x < R.maxX && ref.z > R.minZ && ref.z < R.maxZ); }
   for (const b of room.beams) {
     const cc = b.axis === 'z' ? c.z : c.x, rr = b.axis === 'z' ? ref.z : ref.x;
     const lo = Math.min(cc, rr) - 0.6, hi = Math.max(cc, rr) + 0.6;
@@ -291,6 +313,7 @@ function updateMe(dt) {
     if (fires.gaze) exitGaze();
     if (star.on) exitStar();
     if (fwView.on) endFwView();
+    if (woodView.on) exitWood();
     standUp();
     me.target = null; me.pending = null; me.route = [];
     const fwd = new THREE.Vector3(-Math.sin(cam.yaw), 0, -Math.cos(cam.yaw));
@@ -327,6 +350,15 @@ function updateMe(dt) {
     }
   }
   if (!me.seat) pushOut(room, me.pos, 0.22);
+  // 목공방은 한 번에 10명 — 이미 아는 손님 위치로 각자 판단 (메시지 없음)
+  if (!me.seat && inShop(me.pos) && !me.wasInShop && shopCount() >= SHOP_CAP) {
+    me.pos.copy(me.shopOut || room.shop.door);
+    me.target = null; me.route = []; me.pending = null; moving = false;
+    if (performance.now() - (me.fullToast || 0) > 4000) { me.fullToast = performance.now(); ui.toast(`🪚 목공방이 꽉 찼어요 (${SHOP_CAP}명). 한 자리 나면 들어갈 수 있어요`); }
+    sendState(true);
+  }
+  if (!inShop(me.pos)) me.shopOut = me.pos.clone();
+  me.wasInShop = inShop(me.pos);
   me.speed = moving ? SPEED : 0;
   const manual = moving && !me.target;
   const nowMs = performance.now();
@@ -369,6 +401,7 @@ function arrive() {
   else if (p.type === 'program') { sendState(true); ui.openProgram(program); }
   else if (p.type === 'place') { sendState(true); ui.toast(`${p.name}에 왔어요`); }
   else if (p.type === 'log') { sendState(true); doToss(p.id); }
+  else if (p.type === 'apron') { sendState(true); toggleApron(me.pos.clone().add(new THREE.Vector3(0.9, 0, 0))); }
   else if (p.type === 'loop') { if (loopWalk.on) loopArrive(); else sendState(true); }
   else sendState(true);
 }
@@ -423,6 +456,9 @@ function pick(x, y) {
   if (o.userData.bookId) return { kind: 'book', id: o.userData.bookId, point: h.point };
   if (o.userData.woodpile) return { kind: 'woodpile', id: o.userData.woodpile, point: h.point };
   if (o.userData.toys) return { kind: 'toys', point: h.point };
+  if (o.userData.apron) return { kind: 'apron', point: h.point };
+  if (o.userData.artKiosk) return { kind: 'kiosk', point: h.point };
+  if (o.userData.artSlot != null) return { kind: 'art', slot: o.userData.artSlot, point: h.point };
   if (o.userData.store) return { kind: 'store', point: h.point };
   if (o.userData.fwbox) return { kind: 'fwbox', point: h.point };
   if (o.userData.fireId) return { kind: 'fire', id: o.userData.fireId, point: h.point };
@@ -447,11 +483,15 @@ function onTap(x, y) {
   const hit = pick(x, y);
   if (!hit) return;
   if (star.on) { exitStar(); if (hit.kind === 'point') return; }
+  if (woodView.on) { exitWood(); if (hit.kind === 'point') return; }
   if (fwView.on && hit.kind !== 'fwbox') endFwView();
   if (hit.kind === 'cat') { petCat(hit.id); return; }
   if (hit.kind === 'dog') { petDog(hit.id); return; }
   if (hit.kind === 'woodpile' || hit.kind === 'fire') { tossLog(hit.id); return; }
   if (hit.kind === 'toys') { goCounter(hit.point, 'toys'); return; }
+  if (hit.kind === 'apron') { toggleApron(hit.point); return; }
+  if (hit.kind === 'kiosk') { openArtUpload(); return; }
+  if (hit.kind === 'art') { openArt(hit.slot, hit.point); return; }
   if (hit.kind === 'store') { ui.showStore(); return; }
   if (hit.kind === 'fwbox') { openFireworks(); return; }
   if (fires.gaze) exitGaze();
@@ -604,8 +644,8 @@ function exitGaze() {
 ui.onFireLog = (id) => tossLog(id);
 ui.onFireGaze = (id) => startGaze(id);
 ui.onGazeLog = () => { if (fires.gaze) doToss(fires.gaze.id); };
-ui.onGazeExit = () => { if (star.on) exitStar(); else exitGaze(); };
-window.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if (fires.gaze) exitGaze(); if (star.on) exitStar(); if (hs.on) stopHide(); });
+ui.onGazeExit = () => { if (star.on) exitStar(); else if (woodView.on) exitWood(); else exitGaze(); };
+window.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if (woodView.on) exitWood(); if (fires.gaze) exitGaze(); if (star.on) exitStar(); if (hs.on) stopHide(); });
 let gazeTick = 0;
 function updateFire(dt) {
   fires.update(dt);
@@ -833,6 +873,66 @@ copy.onFinish = (n, r) => {
 copy.onNotebook = (list) => ui.openCopybook(list);
 document.querySelector('#copyChip').addEventListener('click', () => startCopy());
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && copy.on) exitCopy(); });
+// ---------- 목공방: 앞치마 · 10명 · 목공 멍 ----------
+function shopCount() { let n = 0; for (const r of remotes.values()) if (inShop(r.pos)) n++; return n; }
+function toggleApron(point) {
+  if (Math.hypot(point.x - me.pos.x, point.z - me.pos.z) > 2.2) { const to = new THREE.Vector3(point.x - 0.9, 0, point.z); walkTo(to, { type: 'apron' }); ripple(to); return; }
+  me.apron = !me.apron;
+  store.set('apron', me.apron);
+  me.avatar?.setApron(me.apron);
+  net.send(helloMsg());
+  ui.toast(me.apron ? '🧑‍🔧 앞치마를 둘렀어요' : '앞치마를 벗어 걸어 두었어요');
+}
+const woodView = { on: false, t: 0, saved: null };
+function startWood() {
+  if (woodView.on || !me.seat?.wood) return;
+  if (fires.gaze) exitGaze();
+  if (star.on) exitStar();
+  woodView.on = true; woodView.t = 0;
+  woodView.saved = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, zoomed: cam.userZoomed };
+  workshop.focus = true;
+  sound.ensure(); sound.setFocus(1);
+  ui.setGaze(true, '', 'wood');
+  if (!sound.enabled) ui.soundNudge();
+}
+function exitWood() {
+  if (!woodView.on) return;
+  woodView.on = false; workshop.focus = false;
+  sound.setFocus(0);
+  ui.setGaze(false);
+  const s0 = woodView.saved; if (s0) { cam.yaw = s0.yaw; cam.pitch = s0.pitch; cam.dist = s0.dist; cam.userZoomed = s0.zoomed; }
+}
+document.querySelector('#woodChip').addEventListener('click', () => startWood());
+let woodChipOn = false, woodTick = 0;
+function updateWood(dt) {
+  workshop.update(dt);
+  const show = me.entered && !!me.seat?.wood && !woodView.on && !copy.on;
+  if (show !== woodChipOn) { woodChipOn = show; document.querySelector('#woodChip').classList.toggle('show', show); }
+  if (woodView.on) {
+    if (!me.seat?.wood) { exitWood(); return; }
+    woodTick += dt;
+    if (woodTick > 1) { woodTick = 0; const { act, u } = workshop.now(); ui.gazeInfo(`🪚 목공 멍 · 공방지기가 ${act.name} 중 · ${Math.ceil(16 - u)}초 뒤 다음 일`); }
+  }
+}
+
+// ---------- 미술관: 작품 보기 · 하트 · 신고 · 올리기 ----------
+function openArt(slot, point) {
+  const s = gallery.slots[slot];
+  const f = room.gallery.frames[slot];
+  if (Math.hypot(f.pos.x - me.pos.x, f.pos.z - me.pos.z) > 4 && !inHall(me.pos)) {
+    const to = f.pos.clone().add(new THREE.Vector3(Math.sin(f.rotY) * 1.8, 0, Math.cos(f.rotY) * 1.8)).setY(0);
+    walkTo(to, { type: 'place', name: `${f.no}번 벽 앞` }); ripple(to); return;
+  }
+  if (!s) { ui.toast(gallery.on ? `${f.no}번 벽은 비어 있어요 — 입구 안쪽 기둥에서 작품을 올릴 수 있어요` : '🖼️ 미술관은 곧 문을 열어요 (작품 서버 준비 중)'); return; }
+  ui.showArt({ ...s, no: f.no, img: gallery.imgUrl(s), hearted: gallery.hearted.has(s.id), queue: gallery.queue }, {
+    heart: async () => { const ok = await gallery.heart(slot); return ok; },
+    report: async () => gallery.report(slot),
+  });
+}
+function openArtUpload() {
+  ui.openArtUpload({ on: gallery.on, name: me.name }, (form) => gallery.upload(form));
+}
+
 let copyChipOn = false;
 function updateCopy(dt) {
   copy.update(dt);
@@ -922,7 +1022,7 @@ function sendCatSync() {
   syncTimer = setTimeout(() => { if (cats.isHost && remotes.size) net.send({ t: 'cs', c: cats.syncMsg() }); }, 400);
 }
 
-function helloMsg() { return { t: 'hi', n: me.name, l: me.look, d: me.drink?.id || null, mc: me.myCatInfo ? { ...me.myCatInfo, swatches: undefined } : null, y: me.toy || null, uid }; }
+function helloMsg() { return { t: 'hi', n: me.name, l: me.look, d: me.drink?.id || null, mc: me.myCatInfo ? { ...me.myCatInfo, swatches: undefined } : null, y: me.toy || null, a: me.apron ? 1 : 0, uid }; }
 let lastSent = '';
 function sendState(force = false, goal = null) {
   if (!me.entered) return;
@@ -999,6 +1099,7 @@ function handle(m) {
       r.drink = drinkOf(m.d);
       r.avatar.setDrink(r.drink);
       r.avatar.setToy(toyOf(m.y)?.id || null);
+      r.avatar.setApron(!!m.a);
       const ck = JSON.stringify(m.mc || null);
       if (ck !== r.catKey) {
         r.cat?.dispose(); r.cat = null;
@@ -1187,6 +1288,8 @@ ui.places = [
   { ico: '🛶', name: '선착장 끝', note: '바다 위 숨은 벤치', to: [40.5, 0, 32.5] },
   { ico: '🚶', name: '둘레길 한 바퀴', note: '맵 가장자리 숲 둘레길을 천천히 한 바퀴 걸어요', to: [2.0, 0, 25.5], loop: true },
   ...TRAIL_SPOTS,
+  { ico: '🪚', name: '목공방', note: '북쪽 숲 · 대패 · 톱 소리 · 한 번에 10명', to: [1.5, 0, -16.2] },
+  { ico: '🖼️', name: 'MK 갤러리', note: '동쪽 미술관 · 손님이 찍은 사진 30점', to: [60.6, 0, 1.0] },
   { ico: '🏡', name: '서점 벽난로', note: '돌아가기', to: [-12.5, 0, 3.7] },
 ];
 ui.onGoPlace = (p) => {
@@ -1268,6 +1371,7 @@ ui.onEnter = async ({ name, look, soundOn, room: roomChoice }) => {
   me.avatar = new Avatar(name, look);
   me.avatar.setDrink(me.drink);
   me.avatar.setToy(me.toy);
+  me.avatar.setApron(me.apron);
   scene.add(me.avatar.root);
   me.entered = true;
   if (soundOn) { sound.setEnabled(true); sound.setNight(dayNight.target); ui.setSound(true); }
@@ -1340,7 +1444,7 @@ function updateDoors(dt) {
   }
 }
 
-window.addEventListener('pagehide', () => { try { net.send({ t: 'bye' }); } catch { /* 무시 */ } });
+window.addEventListener('pagehide', () => { try { gallery.flushSeen(true); } catch { /* 무시 */ } try { net.send({ t: 'bye' }); } catch { /* 무시 */ } });
 
 let tick = 0;
 setInterval(() => {
@@ -1369,6 +1473,8 @@ function frame() {
   updateFwView(dt);
   updateHide(dt);
   updateCopy(dt);
+  updateWood(dt);
+  if (me.entered) gallery.update(dt, me.pos);
   updateRemotes(dt);
   updateDoors(dt);
   fx.update(dt);
@@ -1398,4 +1504,4 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-window.shop = { sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { workshop, gallery, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };

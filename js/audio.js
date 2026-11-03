@@ -411,6 +411,26 @@ export class Sound {
   // 필사 · 불멍 · 별멍처럼 한곳에 마음 두는 동안 배경 소리를 낮춤 (0 = 평소, 1 = 많이 낮춤)
   setFocus(k) { this.focus = k; this.mix(); }
 
+  // 목공방 소리 (임시 — 나중에 후보를 들려 드리고 고름). kind: plane 대패 · saw 톱 · sand 사포 · chisel 끌
+  wood(kind, vol = 1) {
+    if (!this.enabled || !this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime + 0.01;
+    const noise = (dur, f0, f1, q, peak, type = 'bandpass', buf = this.pinkBuf, a = 0.04) => {
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const f = ctx.createBiquadFilter(); f.type = type; f.Q.value = q;
+      f.frequency.setValueAtTime(f0, t); f.frequency.linearRampToValueAtTime(f1, t + dur);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5000;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak * vol, t + a); g.gain.setValueAtTime(peak * vol * 0.8, t + dur * 0.7); g.gain.linearRampToValueAtTime(0, t + dur);
+      src.connect(f).connect(lp).connect(g).connect(this.fxOut);
+      src.start(t, Math.random() * 2, dur + 0.05);
+    };
+    if (kind === 'plane') { noise(0.85, 1800, 1300, 0.9, 0.28, 'bandpass', this.pinkBuf, 0.12); this.click(t + 0.86, 700, 0.12 * vol, 0.05, this.fxOut); }
+    else if (kind === 'saw') { const up = Math.random() < 0.5; noise(0.42, up ? 2200 : 1700, up ? 2600 : 1500, 1.6, 0.22, 'bandpass', this.pinkBuf, 0.05); }
+    else if (kind === 'sand') noise(0.42, 2600, 2300, 0.6, 0.12, 'bandpass', this.pinkBuf, 0.1);
+    else if (kind === 'chisel') { this.click(t, 260, 0.6 * vol, 0.09, this.fxOut); this.click(t + 0.01, 1400, 0.25 * vol, 0.04, this.fxOut); noise(0.12, 2400, 1800, 1.2, 0.08, 'bandpass', this.pinkBuf, 0.01); }
+  }
+
   // 아기 고양이 야옹 (작고 높게)
   mew() {
     if (!this.enabled || !this.ctx) return;

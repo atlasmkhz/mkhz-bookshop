@@ -260,3 +260,10 @@ body.copying .bottombar, body.copying .chat-log, body.copying .star-chip, body.c
 .cp-row #cpMode { background: var(--wood-dark); color: #fff; border-color: var(--wood-dark); }
 /* 필사 중엔 흐림 효과를 끔 — 휴대폰에서 3D 화면 위에 흐림 판이 크게 번져 공책을 가리는 일이 있음 */
 body.copying #hud *, body.copying .panel { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
+/* ---------- 목공 멍 단추 (필사 단추와 같은 자리) · 미술관 ---------- */
+#woodChip { bottom: calc(136px + var(--safe-bot)); }
+.art-img { display: block; width: 100%; max-height: 46vh; object-fit: contain; background: #1e2126; border-radius: 10px; margin: 6px 0 8px; }
+.art-rules { margin: 6px 0 4px; padding-left: 18px; display: grid; gap: 2px; }
+.au-prev img { display: block; max-width: 100%; max-height: 220px; border-radius: 10px; margin: 4px 0 8px; }
+.btn:disabled { opacity: .55; cursor: default; }

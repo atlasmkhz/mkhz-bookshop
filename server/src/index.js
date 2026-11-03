@@ -303,7 +303,7 @@ export class BookRoom extends DurableObject {
       mc.whiteAmount = Math.max(0, Math.min(1, +m.mc.whiteAmount || 0));
       mc.name = cleanText(clean(m.mc.name, 10));
     }
-    return { t: 'hi', uid, n: cleanText(clean(m.n, 12)) || '손님', l, d: m.d ? clean(m.d, 16) : null, mc, y: m.y ? clean(m.y, 8) : null };
+    return { t: 'hi', uid, n: cleanText(clean(m.n, 12)) || '손님', l, d: m.d ? clean(m.d, 16) : null, mc, y: m.y ? clean(m.y, 8) : null, a: m.a ? 1 : 0 };
   }
 
   ensureHost() {
