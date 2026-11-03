@@ -19,6 +19,10 @@ export const CONFIG = {
   chatRange: 9,
 
   // 배경 음악: audio/ 폴더에 파일을 넣으면 낮 · 밤에 따라 자연스럽게 바뀝니다. 없으면 조용히 넘어갑니다.
+  // 필사 소리 종류 (js/audio.js 의 PENCILS): hb · soft4b · coarse · sharp · asmr · fountain
+  // 서점지기가 일곱 후보를 직접 듣고 만년필(fountain)을 골랐어요
+  pencil: 'fountain',
+
   music: {
     day: 'audio/bgm-day.mp3',
     night: 'audio/bgm-night.mp3',
