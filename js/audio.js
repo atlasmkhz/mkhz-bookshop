@@ -310,6 +310,36 @@ export class Sound {
     }
   }
 
+  // 필기: 펜이 종이를 긁는 사각사각 (글자 수만큼 짧은 획 두세 번)
+  pen(n = 1) {
+    if (!this.enabled || !this.ctx) return;
+    const ctx = this.ctx;
+    let t = ctx.currentTime + 0.005;
+    for (let c = 0; c < n; c++) {
+      const strokes = 2 + Math.floor(Math.random() * 2);
+      for (let k = 0; k < strokes; k++) {
+        const dur = 0.03 + Math.random() * 0.05;
+        const src = ctx.createBufferSource(); src.buffer = this.pinkBuf;
+        const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.4;
+        const f0 = 2600 + Math.random() * 2400;
+        bp.frequency.setValueAtTime(f0, t); bp.frequency.linearRampToValueAtTime(f0 * (0.8 + Math.random() * 0.5), t + dur);
+        const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1200;
+        const g = ctx.createGain(); const v = 0.05 + Math.random() * 0.05;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.008); g.gain.setValueAtTime(v * 0.8, t + dur * 0.7); g.gain.linearRampToValueAtTime(0, t + dur);
+        src.connect(bp).connect(hp).connect(g).connect(this.master);
+        src.start(t, Math.random() * 2, dur + 0.02);
+        t += dur + 0.01 + Math.random() * 0.025;
+      }
+      t += 0.015;
+    }
+  }
+  // 마침표 · 쉼표: 펜 끝을 톡
+  penDot() {
+    if (!this.enabled || !this.ctx) return;
+    const t = this.ctx.currentTime + 0.005;
+    this.click(t, 2200, 0.12, 0.025, this.master);
+  }
+
   // 아기 고양이 야옹 (작고 높게)
   mew() {
     if (!this.enabled || !this.ctx) return;

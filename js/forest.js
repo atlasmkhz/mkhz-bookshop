@@ -317,7 +317,7 @@ export function buildForest(scene, room, program) {
       const t = lowTable(scene, room, 21.8, -6.6, 0.3, 1.6, 0.8, 0.74, { cup: true });
       t.add(mesh(rbox(0.3, 0.22, 0.2, 0.04), M.color('#e9e2d6', 0.4), -0.5, 0.74 + 0.11, 0.1));
       const rr = 0.3;
-      for (const s of [-1, 1]) bench(scene, room, 21.8 + Math.sin(rr) * 0.7 * s, -6.6 + Math.cos(rr) * 0.7 * s, rr + (s > 0 ? Math.PI : 0), 1.5, 2, { back: false, name: '피크닉 테이블', appr: 0.5 });
+      for (const s of [-1, 1]) bench(scene, room, 21.8 + Math.sin(rr) * 0.7 * s, -6.6 + Math.cos(rr) * 0.7 * s, rr + (s > 0 ? Math.PI : 0), 1.5, 2, { back: false, name: '피크닉 테이블', appr: 0.5, desk: { h: 0.75, d: 0.55 } });
     }
     scene.add(mesh(rbox(0.6, 0.4, 0.4, 0.05), M.color('#7f97a8', 0.5), 17.0, 0.2, -4.8));
     obst(16.7, 17.3, -5.0, -4.6);
@@ -890,6 +890,8 @@ export function buildForest(scene, room, program) {
           const nx = -(bz - az) / len, nz = (bx - ax) / len;
           const x = ax + (bx - ax) * u + nx * 1.0, z = az + (bz - az) * u + nz * 1.0;
           if (Math.abs(x - streamX(z)) < 1.6 || (x > CABIN.minX - 0.5 && x < CABIN.maxX + 0.5 && z > CABIN.minZ - 0.5 && z < CABIN.maxZ + 0.5)) continue;
+          // 계단 입구 · 현관 앞은 비워 둠 (길을 막지 않게)
+          if (PLATFORMS.some((pl) => Math.hypot(x - pl.bottomPt.x, z - pl.bottomPt.z) < 2.2 || Math.hypot(x - pl.topPt.x, z - pl.topPt.z) < 1.2) || Math.hypot(x + 1.75, z - 11.2) < 1.8) continue;
           scene.add(mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.85, 6), M.woodDark(), x, 0.42, z));
           const m = new THREE.MeshStandardMaterial({ color: '#fff3d6', emissive: '#ffc766', emissiveIntensity: 0.05, roughness: 0.6 });
           scene.add(mesh(lgeo, m, x, 0.95, z, { cast: false }));

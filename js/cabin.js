@@ -296,7 +296,7 @@ export function buildCabin(scene, books) {
   {
     const desk = lowTable(loft, room, -2.3, -9.3, 0, 1.2, 0.55, 0.74, { ...lo, book: '#5f6b2e' });
     deskLamp(desk, room, 0.35, 0.74, -0.1);
-    chair(loft, room, -2.3, -8.65, Math.PI, '#7f97a8', { ...lo, name: '다락 책상', appr: -0.5 });
+    chair(loft, room, -2.3, -8.65, Math.PI, '#7f97a8', { ...lo, name: '다락 책상', appr: -0.5, desk: { h: 0.75, d: 0.5 } });
     chair(loft, room, -3.4, -9.0, Math.PI / 2, '#a9bba0', { ...lo, name: '다락 책상 옆', appr: -0.5 });
   }
   rug(loft, -7.0, -6.9, 3.4, 1.8, ['#7f97a8', '#e9d6b9'], { fy: LY });
@@ -410,7 +410,7 @@ export function buildCabin(scene, books) {
       g2.position.set(2.6, 0, -5.8);
       scene.add(g2);
       obst(footprint(2.6, -5.8, 1.5, 1.5));
-      for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + 0.3; const sx = 2.6 + Math.cos(a) * 1.15, sz = -5.8 + Math.sin(a) * 1.15; chair(scene, room, sx, sz, face(sx, sz, 2.6, -5.8), ['#c98f6b', '#a9bba0', '#e6cf9c', '#7f97a8', '#d9a07a'][k], { name: '둥근 독서 탁자', appr: -0.5 }); }
+      for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + 0.3; const sx = 2.6 + Math.cos(a) * 1.15, sz = -5.8 + Math.sin(a) * 1.15; chair(scene, room, sx, sz, face(sx, sz, 2.6, -5.8), ['#c98f6b', '#a9bba0', '#e6cf9c', '#7f97a8', '#d9a07a'][k], { name: '둥근 독서 탁자', appr: -0.5, desk: { h: 0.77, d: 0.55 } }); }
     }
   }
 
@@ -426,7 +426,7 @@ export function buildCabin(scene, books) {
       plank(g, 0.03, 0.5, 0.88, x + 0.29, 1.0, z, M.woodLight(), 0.008);
       for (const sz of [-0.38, 0.38]) plank(g, 0.04, 0.72, 0.04, x - 0.26, 0.36, z + sz, M.woodMid(), 0.008);
       deskLamp(g, room, x + 0.1, 0.76, z + 0.25);
-      chair(scene, room, x - 0.75, z, Math.PI / 2, ['#c98f6b', '#a9bba0', '#e6cf9c'][i], { name: '독서 칸막이', nook: true, appr: -0.5 });
+      chair(scene, room, x - 0.75, z, Math.PI / 2, ['#c98f6b', '#a9bba0', '#e6cf9c'][i], { name: '독서 칸막이', nook: true, appr: -0.5, desk: { h: 0.77, d: 0.62 } });
     }
     scene.add(g);
     obst({ minX: x - 0.32, maxX: CABIN.maxX, minZ: 1.2, maxZ: 4.1 });
@@ -452,8 +452,8 @@ export function buildCabin(scene, books) {
       g.position.set(tx, 0, tz);
       scene.add(g);
       obst(footprint(tx, tz, 0.72, 0.72));
-      chair(scene, room, tx - 0.68, tz, Math.PI / 2, col, { name: '캣타워 코너 테이블', appr: -0.5 });
-      chair(scene, room, tx + 0.68, tz, -Math.PI / 2, col, { name: '캣타워 코너 테이블', appr: -0.5 });
+      chair(scene, room, tx - 0.68, tz, Math.PI / 2, col, { name: '캣타워 코너 테이블', appr: -0.5, desk: { h: 0.77, d: 0.5 } });
+      chair(scene, room, tx + 0.68, tz, -Math.PI / 2, col, { name: '캣타워 코너 테이블', appr: -0.5, desk: { h: 0.77, d: 0.5 } });
     }
     rug(scene, 4.2, 6.6, 3.6, 2.6, ['#e9d6b9', '#d9a77e']);
     // 고양이 밥그릇 · 공
@@ -480,8 +480,8 @@ export function buildCabin(scene, books) {
     deskLamp(g, room, -0.7, 0.76, 0.1);
     deskLamp(g, room, 0.7, 0.76, -0.1);
     [-8.9, -8.0, -7.1].forEach((xx, i) => {
-      chair(scene, room, xx, 2.8, 0, ['#c98f6b', '#a9bba0', '#e6cf9c'][i], { name: '긴 책상', appr: -0.5 });
-      chair(scene, room, xx, 4.4, Math.PI, '#7f97a8', { name: '긴 책상', appr: -0.5 });
+      chair(scene, room, xx, 2.8, 0, ['#c98f6b', '#a9bba0', '#e6cf9c'][i], { name: '긴 책상', appr: -0.5, desk: { h: 0.77, d: 0.48 } });
+      chair(scene, room, xx, 4.4, Math.PI, '#7f97a8', { name: '긴 책상', appr: -0.5, desk: { h: 0.77, d: 0.48 } });
     });
   }
   {
@@ -542,7 +542,7 @@ export function buildCabin(scene, books) {
     scene.add(g);
     obst({ minX: cxp - L / 2 - 0.05, maxX: cxp + L / 2 + 0.05, minZ: CABIN.maxZ - 0.85, maxZ: CABIN.maxZ });
     room.counter = V(cxp, 0, CABIN.maxZ - 1.45);
-    for (const xx of [cxp - 0.9, cxp, cxp + 0.9]) stool(scene, room, xx, CABIN.maxZ - 1.25, 0, 0.72, '#c98f6b', { name: '카운터 걸상', appr: -0.45 });
+    for (const xx of [cxp - 0.9, cxp, cxp + 0.9]) stool(scene, room, xx, CABIN.maxZ - 1.25, 0, 0.72, '#c98f6b', { name: '카운터 걸상', appr: -0.45, desk: { h: 1.03, d: 0.58 } });
     for (const xx of [cxp - 0.9, cxp + 0.9]) pendant(scene, room, xx, 2.4, CABIN.maxZ - 0.5);
     room.benchSpots.push(V(cxp + 1.2, 1.05, CABIN.maxZ - 0.5));
     toyBasket(scene, cxp - 1.25, Hh, CABIN.maxZ - 0.5);
@@ -667,7 +667,7 @@ function buildRooftop(scene, roof, room) {
     g.position.set(4.5, RY, 9.6);
     roof.add(g);
     obst(footprint(4.5, 9.6, 2.1, 0.6));
-    for (const xx of [3.7, 4.5, 5.3]) stool(roof, room, xx, 8.85, 0, 0.72, '#c98f6b', { ...o, name: '루프탑 바', appr: -0.45 });
+    for (const xx of [3.7, 4.5, 5.3]) stool(roof, room, xx, 8.85, 0, 0.72, '#c98f6b', { ...o, name: '루프탑 바', appr: -0.45, desk: { h: 0.95, d: 0.62 } });
   }
   // 망원경 (동쪽 난간)
   {
@@ -767,7 +767,7 @@ function secretStudy(scene, room, books) {
   deskLamp(desk, room, 0.45, 0.76, -0.15);
   desk.add(mesh(new THREE.SphereGeometry(0.14, 16, 12), M.color('#7fa36d', 0.6), -0.45, 0.76 + 0.2, 0.0));   // 지구본
   desk.add(mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.12, 8), M.woodDark(), -0.45, 0.76 + 0.06, 0.0));
-  chair(scene, room, -14.4, 8.45, Math.PI, '#5a3a30', { name: '비밀 서재 책상', nook: true, appr: -0.5 });
+  chair(scene, room, -14.4, 8.45, Math.PI, '#5a3a30', { name: '비밀 서재 책상', nook: true, appr: -0.5, desk: { h: 0.77, d: 0.55 } });
   armchair(scene, room, -15.2, 6.6, face(-15.2, 6.6, -13.5, 7.5), '#5a3a30', { name: '비밀 서재 안락의자', nook: true, blanket: '#c9a24a' });
   armchair(scene, room, -13.1, 6.6, face(-13.1, 6.6, -14.5, 7.5), '#3b4660', { name: '비밀 서재 안락의자', nook: true });
   cushion(scene, room, -12.9, 9.4, Math.PI, '#c9a24a', { name: '비밀 서재 구석 방석', nook: true });

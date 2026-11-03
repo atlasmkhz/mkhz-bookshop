@@ -298,6 +298,12 @@ export function buildNav(room) {
   return grids;
 }
 
+function bottomOut(pl) {
+  const R = pl.ramp, b = pl.bottomPt;
+  const d = Math.sign(R.bottom - R.top) * 0.6;
+  return R.axis === 'x' ? new THREE.Vector3(b.x + d, 0, b.z) : new THREE.Vector3(b.x, 0, b.z + d);
+}
+
 // from → to 길 (지나갈 점 목록, 마지막이 도착점). 층이 다르면 계단을 거쳐 감
 export function findPath(room, from, to) {
   const grids = room.grids;
@@ -317,8 +323,10 @@ export function findPath(room, from, to) {
   if (lvA !== lvB) {
     if (lvA) {
       const pl = platformById(lvA);
-      out.push(...grids.get(lvA).path(cur, pl.topPt), pl.bottomPt.clone());
-      cur = pl.bottomPt.clone();
+      // 계단을 다 내려오면 계단 방향으로 한 걸음 더 나간 뒤 길을 찾음 (계단 모서리를 비스듬히 가로지르지 않게)
+      const out1 = bottomOut(pl);
+      out.push(...grids.get(lvA).path(cur, pl.topPt), pl.bottomPt.clone(), out1);
+      cur = out1.clone();
     }
     if (lvB) {
       const pl = platformById(lvB);

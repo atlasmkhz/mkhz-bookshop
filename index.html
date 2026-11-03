@@ -11,7 +11,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📚%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Nanum+Pen+Script&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
   <script type="importmap">
     { "imports": {
@@ -86,6 +86,28 @@
     </div>
     <div id="gazeVeil" class="gaze-veil"></div>
     <button id="starChip" class="star-chip" type="button">🌌 별멍</button>
+    <button id="copyChip" class="copy-chip" type="button">✍️ 필사하기</button>
+    <div id="copyPanel" class="copy-panel panel" role="dialog" aria-label="필사">
+      <button id="cpClose" class="x" type="button" aria-label="필사 그만하기">×</button>
+      <div class="cp-scroll">
+      <div id="cpKicker" class="cp-kicker">✍️ 오늘의 필사</div>
+      <div id="cpOrigin" class="cp-origin"></div>
+      <div id="cpKo" class="cp-ko"></div>
+      <div class="cp-src"><span id="cpSrc"></span> · <a id="cpLink" href="#" target="_blank" rel="noopener">철학아틀라스에서 보기 ↗</a></div>
+      <div class="cp-prog"><i id="cpBar"></i></div>
+      <div class="cp-step"><span id="cpStep">단락 1 / 5</span></div>
+      <p id="cpPara" class="cp-para"></p>
+      <textarea id="cpInput" class="cp-input" rows="3" placeholder="위 단락을 천천히 따라 써 보세요. 쓸 때마다 사각사각 소리가 나요." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+      <p id="cpQ" class="cp-q"></p>
+      <div class="cp-row">
+        <button id="cpMode" type="button">🎧 소리만 듣기</button>
+        <button id="cpPrev" type="button">◀ 지난 편</button>
+        <button id="cpToday" type="button">오늘 편</button>
+        <button id="cpNext" type="button">다음 편 ▶</button>
+        <button id="cpBook" type="button">📓 내 필사 공책</button>
+      </div>
+      </div>
+    </div>
     <div id="gameBar" class="game-bar" role="status"><span id="gameText">🔍 숨은 아깽이 찾기</span><button id="gameStop" type="button">그만</button></div>
     <div id="gazeBar" class="gaze-bar" role="group" aria-label="불멍">
       <span id="gazeInfo" class="gaze-info">🔥 불멍 중</span>

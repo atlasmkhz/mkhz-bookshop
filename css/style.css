@@ -230,3 +230,33 @@ body.gazing .star-chip, body.gazing .game-bar { opacity: 0 !important; visibilit
 .store-line a { color: var(--wood-dark); }
 
 .tab2.store-tab { display: inline-block; text-decoration: none; color: var(--wood-dark); background: #f6ead6; border-color: #d8b88c; }
+
+/* ---------- 필사 ---------- */
+.copy-chip { position: absolute; right: 12px; bottom: calc(136px + var(--safe-bot)); border: 0; border-radius: 999px; padding: 10px 15px; background: rgba(252, 247, 238, 0.97); color: var(--wood-dark); font: inherit; font-size: 14px; box-shadow: 0 4px 16px rgba(60, 38, 20, 0.25); pointer-events: auto; cursor: pointer; opacity: 0; visibility: hidden; transition: opacity .3s, visibility .3s; }
+.copy-chip.show { opacity: 1; visibility: visible; }
+/* 판은 움직이지 않는 틀, 스크롤은 안쪽 .cp-scroll 에서만 (바깥 판이 스크롤되면 휴대폰에서 3D 화면 위에 빈 판이 번지는 일이 있음) */
+.cp-scroll { max-height: min(56dvh, 520px); overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 12px; }
+.copy-panel { position: fixed; left: 50%; bottom: calc(10px + var(--safe-bot)); transform: translateX(-50%); width: min(640px, calc(100vw - 16px)); overflow: hidden; padding: 0; z-index: 11; pointer-events: auto; display: none; background: #fbf6ec; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.copy-panel.show { display: block; animation: up .28s ease-out; }
+body.copying .bottombar, body.copying .chat-log, body.copying .star-chip, body.copying .copy-chip, body.copying .fire-bar, body.copying .pet-bubble, body.copying .game-bar { opacity: 0 !important; visibility: hidden !important; }
+.cp-kicker { font-size: 12.5px; color: var(--ink-soft); margin: 0 36px 6px 0; }
+.cp-origin { font-family: var(--serif); color: #5a4636; font-size: 15px; }
+.cp-ko { font-family: var(--serif); font-weight: 700; color: var(--wood-dark); font-size: 17px; line-height: 1.5; margin: 2px 0; }
+.cp-src { font-size: 12.5px; color: var(--ink-soft); }
+.cp-src a { color: var(--wood-dark); }
+.cp-prog { height: 4px; border-radius: 4px; background: rgba(109, 70, 48, 0.12); margin: 10px 0 6px; overflow: hidden; }
+.cp-prog i { display: block; height: 100%; width: 0; background: var(--wood); transition: width .2s; }
+.cp-step { font-size: 12px; color: var(--ink-soft); }
+.cp-para { font-family: var(--serif); font-size: 16px; line-height: 1.85; margin: 4px 0 8px; letter-spacing: 0.2px; }
+.cp-para .todo { color: #b9aa98; }
+.cp-para .ok { color: #2c3550; }
+.cp-para .bad { color: #b4462e; text-decoration: underline wavy rgba(180, 70, 46, 0.6); }
+.cp-input { width: 100%; font-family: 'Nanum Pen Script', var(--sans); font-size: 22px; line-height: 1.5; color: #1f2a55; padding: 8px 10px; border-radius: 12px; border: 1.5px solid var(--line); background: repeating-linear-gradient(#fffdf8, #fffdf8 31px, rgba(110, 140, 190, 0.25) 32px); resize: vertical; outline: none; min-height: 84px; }
+.copy-panel.auto .cp-input { display: none; }
+.cp-q { font-family: var(--serif); color: var(--wood-dark); font-size: 14px; margin: 6px 0; }
+.cp-q:empty { display: none; }
+.cp-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.cp-row button { border: 1.5px solid var(--line); background: #fffdf9; border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 13.5px; cursor: pointer; color: var(--ink); }
+.cp-row #cpMode { background: var(--wood-dark); color: #fff; border-color: var(--wood-dark); }
+/* 필사 중엔 흐림 효과를 끔 — 휴대폰에서 3D 화면 위에 흐림 판이 크게 번져 공책을 가리는 일이 있음 */
+body.copying #hud *, body.copying .panel { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }

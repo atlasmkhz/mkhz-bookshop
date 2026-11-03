@@ -272,6 +272,14 @@ export class UI {
   }
 
   // ---------- 우리 집 고양이 입장시키기 ----------
+  // 내 필사 공책 (이 브라우저에만 저장)
+  openCopybook(list) {
+    this.sheetKind = 'copybook';
+    this.openSheet(`<h2>📓 내 필사 공책</h2>
+      <p class="note">책상 자리에서 끝까지 따라 쓴 「오늘의 필사」가 여기에 남아요. 이 기기에만 저장돼요. 문장은 철학아틀라스의 「오늘의 필사」에서 왔어요.</p>
+      ${list.length ? `<ol class="toc">${list.map((e) => `<li><a href="${esc(e.url)}" target="_blank" rel="noopener"><b style="font-weight:400">${esc(e.ko)}</b><br><small style="color:var(--ink-soft)">${esc(e.day)} · ${esc(e.src)} · ${e.min}분 · 정확도 ${e.acc}%</small></a></li>`).join('')}</ol>` : '<div class="empty">아직 끝까지 쓴 편이 없어요. 한 편을 다 쓰면 여기에 남아요.</div>'}`);
+  }
+
   openMyCat() {
     this.sheetKind = 'mycat';
     const cur = this.getMyCat?.();

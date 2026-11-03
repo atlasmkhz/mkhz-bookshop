@@ -175,6 +175,7 @@ export class Avatar {
   }
   // 장난감을 흔드는 몸짓 (몇 초)
   playToy(sec = 3) { this.playT = sec; }
+  writing(sec = 0.5) { this.writeT = Math.max(this.writeT || 0, sec); }
   sparkler(sec = 40) { this.sparkT = sec; this.setToy('sparkler'); }
 
   setDrink(d) {
@@ -246,7 +247,15 @@ export class Avatar {
       if (this.sparkTip) this.sparkTip.scale.setScalar(0.8 + Math.random() * 0.8);
       if (this.sparkT <= 0) this.setToy(this.restoreToy || null);
     }
-    if (this.playT > 0 && this.toy && this.toy !== 'sparkler') {
+    if (this.writeT > 0) {
+      // 필사: 오른손을 책상 위로 뻗고 고개를 숙여 사각사각
+      this.writeT -= dt;
+      const a = this.arms[1];
+      a.rotation.x = -1.05 + Math.sin(this.t * 22) * 0.05;
+      a.rotation.z = 0.32 + Math.cos(this.t * 17) * 0.05;
+      this.head.rotation.x = 0.28;
+    } else if (this.head.rotation.x > 0.001) this.head.rotation.x *= 0.9;
+    if (this.writeT > 0) { /* 위에서 처리 */ } else if (this.playT > 0 && this.toy && this.toy !== 'sparkler') {
       this.playT -= dt;
       const a = this.arms[1];
       a.rotation.x = -0.9 + Math.sin(this.t * (this.toy === 'wand' ? 9 : 5)) * 0.45;

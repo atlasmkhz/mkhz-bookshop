@@ -12,6 +12,7 @@ export function addSeat(room, x, y, z, rotY, o = {}) {
   const s = {
     pos: V(x, y, z), rotY, fy, lv: o.lv || 0, kind: o.kind || 'chair', nook: !!o.nook,
     name: o.name || '', taken: null, cinema: !!o.cinema,
+    desk: o.desk || null,   // 책상 있는 자리: { h: 책상 윗면 높이, d: 자리에서 책상(공책 놓을 곳)까지 } → 필사하기
     appr: V(x + f.x * off, fy, z + f.z * off),
   };
   room.seats.push(s);

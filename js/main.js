@@ -15,6 +15,7 @@ import { Sky } from './sky.js';
 import { Fireworks, FW_KINDS } from './fireworks.js';
 import { HideSeek } from './hideseek.js';
 import { TRAIL_SPOTS } from './trail.js';
+import { CopyDesk } from './copydesk.js';
 import { Avatar, LOOKS } from './avatar.js';
 import { FX } from './fx.js';
 import { Sound } from './audio.js';
@@ -78,6 +79,7 @@ const fires = new Fires(scene, room, fx, sound);
 const sky = new Sky(scene, renderer.getPixelRatio());
 const fw = new Fireworks(scene, sound);
 const hs = new HideSeek(scene, room, fx, sound);
+const copy = new CopyDesk(scene, sound, fx);
 const ui = new UI();
 ui.seatCount = room.seats.length;
 room.seats.forEach((s, i) => { s.idx = i; });
@@ -113,6 +115,33 @@ window.addEventListener('resize', resize);
 resize();
 
 function updateCamera(dt) {
+  // 필사: 내 어깨 뒤에서 공책을 내려다봄. 아래 필사 창에 가리지 않게 화면을 위로 조금 올림
+  if (copy.on) {
+    // 공책이 필사 창 위 빈자리 가운데에 오도록, 카메라는 공책보다 조금 내 쪽을 봄
+    const panelH = document.querySelector('#copyPanel')?.offsetHeight || 0;
+    const H = window.innerHeight;
+    const visH = 2 * cam.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const shift = Math.min(0.4, (panelH / (2 * H)) * visH);
+    const fwd = new THREE.Vector3(Math.sin(me.seat.rotY), 0, Math.cos(me.seat.rotY));
+    const w = copy.book.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.05, 0)).addScaledVector(fwd, -shift);
+    // 휴대폰은 한 프레임이 길 수 있어 처음 1.5초는 빠르게 붙고, 그 뒤엔 끌기로 둘러보기
+    const k = copy.t < 1.5 ? 6 : 3;
+    cam.target.lerp(w, 1 - Math.exp(-k * dt));
+    if (copy.t < 2.5) {
+      const portrait = camera.aspect < 1;
+      // 내 눈 자리 뒤에서 공책을 내려다봄 — 글씨가 바로 읽히는 방향. 내 몸은 잠시 숨김 (공책을 가리지 않게)
+      cam.dist += ((portrait ? 1.45 : 1.45) - cam.dist) * (1 - Math.exp(-k * dt));
+      cam.pitch += ((portrait ? 1.36 : 1.2) - cam.pitch) * (1 - Math.exp(-k * dt));
+      cam.yaw = dampAngle(cam.yaw, me.seat.rotY + Math.PI, k, dt);
+    }
+    cam.dist = Math.min(cam.dist, 4);
+    copy.t += dt;
+    const cp = Math.cos(cam.pitch);
+    camera.position.set(cam.target.x + Math.sin(cam.yaw) * cp * cam.dist, cam.target.y + Math.sin(cam.pitch) * cam.dist, cam.target.z + Math.cos(cam.yaw) * cp * cam.dist);
+    camera.lookAt(cam.target);
+    room.viewCenter = cam.target;
+    return;
+  }
   if (star.on) {
     // 별멍: 내 머리 자리에서 하늘을 올려다봄. 끌면 둘러보기, 아주 느리게 돎
     const head = me.pos.clone().add(new THREE.Vector3(0, me.seat ? 1.05 : 1.4, 0));
@@ -232,6 +261,7 @@ cats.getGuests = () => {
 // ---------- 앉기 · 걷기 ----------
 function standUp() {
   if (!me.seat) return;
+  if (copy.on) exitCopy();
   me.pos.copy(me.seat.appr);
   pushOut(room, me.pos, 0.22);
   me.seat.taken = null;
@@ -766,6 +796,48 @@ function fireFw(kind) {
   if (!sound.enabled) ui.soundNudge();
 }
 
+// ---------- 필사 (책상 있는 자리) ----------
+// 철학아틀라스 「오늘의 필사」를 공책에 옮겨 쓰기. 내 화면에서만 (메시지 0건)
+let copySaved = null;
+async function startCopy() {
+  if (!me.seat?.desk || copy.on) return;
+  if (fires.gaze) exitGaze();
+  if (star.on) exitStar();
+  if (fwView.on) endFwView();
+  sound.ensure();
+  copySaved = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, zoomed: cam.userZoomed };
+  copy.t = 0;
+  const ok = await copy.open(me.seat);
+  if (!ok) { ui.toast('필사 문장을 불러오지 못했어요'); return; }
+  if (me.avatar) me.avatar.root.visible = false;
+  ui.hideCard();
+  if (!sound.enabled) ui.soundNudge();
+  if (!IS_MOBILE) setTimeout(() => document.querySelector('#cpInput')?.focus(), 400);
+}
+function exitCopy() {
+  if (!copy.on) return;
+  copy.close();
+  if (me.avatar) me.avatar.root.visible = true;
+  if (copySaved) { cam.yaw = copySaved.yaw; cam.pitch = copySaved.pitch; cam.dist = copySaved.dist; cam.userZoomed = copySaved.zoomed; }
+  copySaved = null;
+}
+copy.onClose = () => exitCopy();
+copy.onInk = () => me.avatar?.writing(0.5);
+copy.onFinish = (n, r) => {
+  fx.hearts(copy.book.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.2, 0)), 4);
+  sound.pageTurn?.(1);
+  ui.toast(r ? `✍️ 「${n.ko.slice(0, 16)}…」 필사를 마쳤어요 · ${r.min}분 · 정확도 ${r.acc}% · 공책에 ${r.count}편` : '🎧 한 편을 다 들었어요');
+};
+copy.onNotebook = (list) => ui.openCopybook(list);
+document.querySelector('#copyChip').addEventListener('click', () => startCopy());
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && copy.on) exitCopy(); });
+let copyChipOn = false;
+function updateCopy(dt) {
+  copy.update(dt);
+  const show = me.entered && !!me.seat?.desk && !copy.on && !fires.gaze && !star.on;
+  if (show !== copyChipOn) { copyChipOn = show; document.querySelector('#copyChip').classList.toggle('show', show); }
+}
+
 let lastTreat = 0;
 function giveTreat(id) {
   if (performance.now() - lastTreat < 3500) { ui.toast('천천히, 아직 먹는 중이에요'); return; }
@@ -1281,6 +1353,7 @@ function frame() {
   updateFire(dt);
   updateFwView(dt);
   updateHide(dt);
+  updateCopy(dt);
   updateRemotes(dt);
   updateDoors(dt);
   fx.update(dt);
@@ -1310,4 +1383,4 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-window.shop = { loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };

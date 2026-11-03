@@ -407,6 +407,9 @@ def load_history(src):
 # =====================================================================
 # 철학아틀라스
 # =====================================================================
+COPYNOTE = []   # 철학아틀라스 「오늘의 필사」 원본 (load_philo 가 채움)
+
+
 def load_philo(src):
     repo = os.path.join(src, 'philo-atlas')
     P = SITE['philo']
@@ -491,6 +494,7 @@ def load_philo(src):
                           blurb='정의 한 줄, 쉬운 말 한 단락, 이 말이 왜 생겼나. 서양철학 · 동양사상 · 한국사상 · 예술 · 과학철학.', first=first_sentence(G[0].get('easyKo')),
                           url=f'{P}/glossary', toc=[(f"{t['ko']} ({GC.get(t['cat'], t['cat'])})", f"{P}/glossary#t-{t['id']}") for t in G]))
         CN = D['PHILO_COPYNOTE']['notes']
+        COPYNOTE[:] = CN   # 책상 자리 「필사하기」용 (data/copynote.json)
         books.append(book(key='copynote', atlas='philo', field='philo', shelf='daily', shelfName='오늘의 필사', kind='collection', title='오늘의 필사', subtitle=f'{len(CN)}편 · 손으로 옮겨 쓰는 한 줄',
                           blurb='하루 한 편. 원문 한 줄과 우리말, 출처, 따라 쓰는 다섯 문단, 그리고 질문.', first=first_sentence(CN[0].get('ko')),
                           url=f'{P}/copynote', toc=[(f"{n['no']}. {n['ko']} — {n['themeKo']}", f"{P}/copynote#{n['id']}") for n in CN]))
@@ -988,6 +992,17 @@ def main():
     os.makedirs(os.path.join(ROOT, 'data'), exist_ok=True)
     with open(os.path.join(ROOT, 'data', 'books.json'), 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
+    # 책상 자리 「필사하기」: 철학아틀라스 「오늘의 필사」를 그대로 (편 순서 · 문장 그대로, 주소는 canonical)
+    if COPYNOTE:
+        keep = ('id', 'no', 'themeKo', 'pid', 'origin', 'originLang', 'ko', 'srcKo', 'srcNote', 'bodyKo', 'qKo')
+        cn = {
+            '_읽는법': '철학아틀라스 data/copynote.js 의 「오늘의 필사」를 scripts/build_books.py 가 옮긴 것. 손으로 고치지 않는다. 오늘 편 = (한국 날짜 일련번호) % 편수 — 철학아틀라스와 같은 날 같은 편.',
+            'site': 'https://philo.mkhz.kr/copynote',
+            'notes': [{**{k: n.get(k) for k in keep}, 'url': f"https://philo.mkhz.kr/copynote#{n['id']}"} for n in COPYNOTE],
+        }
+        with open(os.path.join(ROOT, 'data', 'copynote.json'), 'w', encoding='utf-8') as f:
+            json.dump(cn, f, ensure_ascii=False, separators=(',', ':'))
+        log(f'오늘의 필사 {len(COPYNOTE)}편 → data/copynote.json')
     by_field = Counter(b['field'] for b in out_books)
     log('분야별 권수: ' + ' · '.join(f'{field_name[k]} {v}' for k, v in sorted(by_field.items(), key=lambda kv: forder[kv[0]])))
     covers = sum(1 for b in out_books if b['cover'])
