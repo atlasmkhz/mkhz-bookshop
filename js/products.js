@@ -1,5 +1,5 @@
 // 고양이서가 제품 가구: 오르미캣타워, 커스텀B 월캣타워, 월스텝 선반, 계단형 숨숨집, 집사4호(책장 캣타워), 벨라4호
-// 커스텀B · 계단형 숨숨집 · 집사4호 · 벨라4호는 스마트스토어 치수표 그대로(cm → m) 만들었습니다.
+// 오르미 · 커스텀B · 계단형 숨숨집 · 집사4호 · 벨라4호는 스마트스토어 치수표 그대로(cm → m) 만들었습니다.
 // - 처음엔 코드로 만든 모델을 쓰고, config.js 에 glb 경로를 넣으면 그 파일로 바뀝니다.
 // - 고양이가 오르내리는 길(path)과 숨숨집(box) 자리는 모델과 따로 정의되어 있어
 //   GLB로 바꿔도 고양이 동작은 그대로 유지됩니다.
@@ -8,7 +8,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CONFIG } from './config.js';
 import { M, rbox, mesh, plank } from './kit.js';
 
-const U = 0.45;   // 오르미 한 칸 폭 · 깊이 (m)
+const U = 0.45;   // 계단형 숨숨집 · 월스텝 한 칸 폭 (m)
 const T = 0.03;   // 판재 두께
 const POST = 0.042;
 
@@ -125,102 +125,148 @@ function zigzag(g, steps, D, w, mat, dir = -1) {
   }
 }
 
-// 열린 프레임 한 칸 (기둥 4개 + 위판 + 아래 테두리)
-function frameColumn(g, cx, H, opts = {}) {
-  const wood = M.wood();
-  const dark = M.woodMid();
-  const half = U / 2 - POST / 2;
-  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-    if (opts.skipPosts && opts.skipPosts.includes(`${dx},${dz}`)) continue;
-    const isSisal = opts.sisal && dx === 1 && dz === 1;
-    if (isSisal) {
-      const m = mesh(new THREE.CylinderGeometry(0.036, 0.036, H - T, 18), sisal(), cx + dx * half, (H - T) / 2, dz * half);
-      g.add(m);
-    } else {
-      plank(g, POST, H - T, POST, cx + dx * half, (H - T) / 2, dz * half, dark, 0.008);
-    }
-  }
-  // 위판 (조금 튀어나오게)
-  plank(g, U + 0.02, T, U + 0.02, cx, H - T / 2, 0, wood, 0.012);
-  // 아래 테두리
-  plank(g, U - POST, 0.03, 0.025, cx, 0.05, half, dark, 0.006);
-  plank(g, U - POST, 0.03, 0.025, cx, 0.05, -half, dark, 0.006);
-  if (opts.midShelf) plank(g, U - 0.01, T * 0.8, U - 0.01, cx, opts.midShelf, 0, wood, 0.01);
-}
-
-// 숨숨집 상자 한 칸 (구멍 뚫린 닫힌 상자, 위가 첫 계단)
-function hideBox(g, cx, H) {
-  const wood = M.woodLight();
-  const mid = M.wood();
-  // 바닥
-  plank(g, U, T, U, cx, T / 2, 0, mid, 0.01);
-  // 옆판, 뒤판
-  plank(g, T, H - T * 2, U, cx - U / 2 + T / 2, H / 2, 0, wood, 0.01);
-  plank(g, T, H - T * 2, U, cx + U / 2 - T / 2, H / 2, 0, wood, 0.01);
-  plank(g, U - T * 2, H - T * 2, T, cx, H / 2, -U / 2 + T / 2, wood, 0.01);
-  // 앞판 (둥근 입구)
-  const front = holePanel(U - T * 2 + 0.004, H - T * 2, 0.13, -0.02, wood);
-  front.position.set(cx, H / 2, U / 2 - T / 2);
-  g.add(front);
-  // 위판 = 계단
-  plank(g, U + 0.02, T, U + 0.02, cx, H - T / 2, 0, M.wood(), 0.012);
-  // 안쪽 쿠션
-  const cushion = mesh(rbox(U - 0.08, 0.04, U - 0.08, 0.018), M.fabric('#efe4d2'), cx, T + 0.02, 0);
-  g.add(cushion);
-}
-
-// 옆 수납칸 (서랍 + 열린 칸)
-function sideStorage(g, cx, w, H) {
-  const wood = M.woodLight();
-  const mid = M.wood();
-  plank(g, w, T, U, cx, T / 2, 0, mid, 0.01);
-  plank(g, T, H - T, U, cx - w / 2 + T / 2, (H - T) / 2 + T / 2, 0, wood, 0.01);
-  plank(g, T, H - T, U, cx + w / 2 - T / 2, (H - T) / 2 + T / 2, 0, wood, 0.01);
-  plank(g, w - T * 2, H - T, T, cx, (H - T) / 2 + T / 2, -U / 2 + T / 2, wood, 0.01);
-  plank(g, w + 0.02, T, U + 0.02, cx, H - T / 2, 0, M.wood(), 0.012);
-  plank(g, w - T * 2, T * 0.8, U - T, cx, H * 0.45, 0, mid, 0.01);
-  // 아래 서랍
-  const dh = H * 0.45 - T * 1.5;
-  plank(g, w - T * 2 - 0.01, dh - 0.01, T, cx, T + dh / 2, U / 2 - T / 2, M.woodLight(), 0.01);
-  const knob = mesh(new THREE.SphereGeometry(0.017, 14, 10), M.woodDark(), cx, T + dh / 2, U / 2 + 0.008);
-  g.add(knob);
-  // 위 칸 안의 소품: 장난감 공, 털실
-  const ball = mesh(new THREE.SphereGeometry(0.045, 16, 12), M.color('#e98b7a', 0.9), cx - 0.04, H * 0.45 + 0.06, 0.05);
-  g.add(ball);
-  const yarn = mesh(new THREE.TorusKnotGeometry(0.03, 0.012, 40, 6, 2, 3), M.color('#8fb3c9', 1), cx + 0.06, H * 0.45 + 0.055, -0.04);
-  g.add(yarn);
-}
-
 function felt(g, x, y, color = '#d9d2c6') {
   const m = mesh(rbox(U - 0.06, 0.018, U - 0.06, 0.008), M.fabric(color), x, y + 0.009, 0);
   g.add(m);
 }
 
-// ---------- 오르미캣타워 ----------
-// 로컬 좌표: x = 길이 방향, +z = 앞, 원점 = 바닥 중심
+// ---------- 오르미캣타워 (실제 치수: 가로 120 × 폭 40 × 높이 144.2 cm) ----------
+// 칸 셋(안폭 37.6, 판재 1.8): 왼쪽 칸은 아래 수납 서랍(세로 손잡이 홈 둘) · 고양이 얼굴 문 숨숨집 · 위에 Z자 선반(18.8 둘),
+// 가운데 · 오른쪽 칸은 지그재그 계단(디딤판 18.8 · 맨 아래 19.6, 단 높이 17.8)이 오른쪽 아래에서 왼쪽 위로,
+// 오른쪽 위에 가드 7cm 달린 52cm 선반, 꼭대기는 가드 달린 넓은 전망대. 오른쪽 옆판 아래에 아치 문.
+// 로컬 좌표: x = 길이 방향(-0.6~0.6), +z = 앞, 원점 = 바닥 중심
+const OT = 0.018;      // 판재 두께
+const OD = 0.40;       // 깊이
+const OH = 1.442;      // 높이
+// 세로 손잡이 홈 둘 뚫린 판 (서랍 앞판)
+function slotPanel(w, h, mat) {
+  const s = new THREE.Shape();
+  s.moveTo(-w / 2, -h / 2); s.lineTo(w / 2, -h / 2); s.lineTo(w / 2, h / 2); s.lineTo(-w / 2, h / 2); s.lineTo(-w / 2, -h / 2);
+  for (const sx of [-0.08, 0.08]) {
+    const hole = new THREE.Path();
+    const r = 0.013, y0 = -h / 2 + 0.07, y1 = h / 2 - 0.05;
+    hole.moveTo(sx - r, y0 + r); hole.lineTo(sx - r, y1 - r); hole.absarc(sx, y1 - r, r, Math.PI, 0, true); hole.lineTo(sx + r, y0 + r); hole.absarc(sx, y0 + r, r, 0, Math.PI, true);
+    s.holes.push(hole);
+  }
+  const geo = new THREE.ExtrudeGeometry(s, { depth: OT, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 1, curveSegments: 12 });
+  geo.translate(0, 0, -OT / 2);
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 1.6, uv.getY(i) * 1.6);
+  const m = new THREE.Mesh(geo, mat);
+  m.castShadow = m.receiveShadow = true;
+  return m;
+}
+// 고양이 얼굴(둥근 구멍 + 귀 둘) 뚫린 판 (숨숨집 앞판)
+function catFacePanel(w, h, mat) {
+  const s = new THREE.Shape();
+  s.moveTo(-w / 2, -h / 2); s.lineTo(w / 2, -h / 2); s.lineTo(w / 2, h / 2); s.lineTo(-w / 2, h / 2); s.lineTo(-w / 2, -h / 2);
+  const hole = new THREE.Path();
+  const r = 0.085, cy = -0.005;
+  // 왼귀 → 머리 둘레(시계 방향) → 오른귀
+  hole.moveTo(-r * 0.92, cy + r * 0.38);
+  hole.lineTo(-r * 0.98, cy + r * 1.28);
+  hole.lineTo(-r * 0.42, cy + r * 0.9);
+  hole.lineTo(r * 0.42, cy + r * 0.9);
+  hole.lineTo(r * 0.98, cy + r * 1.28);
+  hole.lineTo(r * 0.92, cy + r * 0.38);
+  hole.absarc(0, cy, r, Math.asin(0.38), Math.PI - Math.asin(0.38), true);   // 아래쪽 둥근 턱선 (귀 사이를 뺀 큰 호)
+  s.holes.push(hole);
+  const geo = new THREE.ExtrudeGeometry(s, { depth: OT, bevelEnabled: true, bevelThickness: 0.003, bevelSize: 0.003, bevelSegments: 2, curveSegments: 28 });
+  geo.translate(0, 0, -OT / 2);
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 1.6, uv.getY(i) * 1.6);
+  const m = new THREE.Mesh(geo, mat);
+  m.castShadow = m.receiveShadow = true;
+  return m;
+}
 export function buildOrmiModel() {
   const g = new THREE.Group();
-  hideBox(g, -U, U);                                   // 1칸: 숨숨집 상자 (위가 첫 계단)
-  frameColumn(g, 0, U * 2, { midShelf: U });           // 2칸
-  frameColumn(g, U, U * 3, { midShelf: U * 1.5, sisal: true }); // 3칸 (스크래쳐 기둥)
-  sideStorage(g, U * 1.5 + 0.15, 0.3, U * 2);          // 옆 수납칸
-  felt(g, 0, U * 2, '#d8cfc1');
-  felt(g, U, U * 3, '#c9b8a3');
-  // 위층 연결 받침
+  const wd = pine(), T = OT, D = OD;
+  const Z = (y) => y;   // 읽기 쉽게
+  const cA = -0.394, cB = 0, cC = 0.394;               // 칸 가운데
+  const xA0 = -0.582, xA1 = -0.206, xB0 = -0.188, xB1 = 0.188, xC0 = 0.206, xC1 = 0.582;   // 칸 안쪽 가장자리
+  const hs = (x0, x1, yTop, d = D, z = 0) => plank(g, x1 - x0, T, d, (x0 + x1) / 2, yTop - T / 2, z, wd, 0.003);   // 가로판 (윗면 높이로)
+  const vs = (x, y0, y1, d = D, z = 0) => plank(g, T, y1 - y0, d, x, (y0 + y1) / 2, z, wd, 0.003);                 // 세로판
+  const back = (x0, x1, y0, y1) => plank(g, x1 - x0, y1 - y0, T, (x0 + x1) / 2, (y0 + y1) / 2, -D / 2 + T / 2, wd, 0.003);
+  // 바닥 · 받침(살짝 들어간 굽)
+  hs(-0.6, 0.6, T);
+  plank(g, 1.14, 0.025, D - 0.06, 0, -0.012 + 0.0125, 0, M.woodMid(), 0.003);
+  // 바깥 세로판 둘 + 왼쪽 칸 오른쪽 세로판 (바닥에서 꼭대기까지)
+  vs(-0.591, T, OH - T);
+  vs(-0.197, T, OH - T);
+  // 오른쪽 바깥판: 아래에 아치 문 (옆에서 드나드는 입구)
+  {
+    const y0 = T, y1 = OH - T, h = y1 - y0;
+    const side = archPanel(D, h, 0.2, 0.3, wd, 0.02, T);   // 판의 가로 = 깊이 방향
+    side.rotation.y = Math.PI / 2;
+    side.position.set(0.591, (y0 + y1) / 2, 0);
+    // archPanel 은 구멍이 판 아래쪽에 붙어 있음 → 디딤판 1 높이로 올리려고 판을 둘로: 아래 막힌 띠 + 아치 판
+    side.position.y = 0.204 + (y1 - 0.204) / 2;
+    side.scale.y = (y1 - 0.204) / h;
+    g.add(side);
+    vs(0.591, T, 0.204);
+  }
+  // 가운데 · 오른쪽 칸 사이 세로판: 바닥 → 가운데 칸 선반(0.738), 그 위 → 52 선반 밑
+  vs(0.197, T, 0.738 - T);
+  vs(0.197, 0.738, 1.075 - T);
+  // ---- 왼쪽 칸: 수납 서랍(안높이 ~34) · 숨숨집(안높이 ~34) · Z자 선반 ----
+  const yDrawTop = 0.36, yHideTop = 0.738;
+  back(xA0, xA1, T, yHideTop - T);
+  hs(xA0, xA1, yDrawTop);                              // 서랍 위 = 숨숨집 바닥
+  hs(xA0, xA1, yHideTop);                              // 숨숨집 윗판 = 첫 발판
+  { const f = slotPanel(xA1 - xA0 + 0.002, yDrawTop - T * 2 + 0.002, wd); f.position.set(cA, (T + yDrawTop - T) / 2, D / 2 - T / 2); g.add(f); }
+  { const f = catFacePanel(xA1 - xA0 + 0.002, yHideTop - T - yDrawTop + 0.002, wd); f.position.set(cA, (yDrawTop + yHideTop - T) / 2, D / 2 - T / 2); g.add(f); }
+  g.add(mesh(rbox(xA1 - xA0 - 0.06, 0.035, D - 0.08, 0.015), M.fabric('#efe4d2'), cA, yDrawTop + 0.02, 0));   // 숨숨집 안 방석
+  // Z자 선반: 오른쪽 아래 발판(0.916, 18.8) ← 세로판 ← 왼쪽 위 선반(1.094, 18.8)
+  hs(cA, xA1, 0.916); pad(g, (cA + xA1) / 2, 0.916, xA1 - cA - 0.03, D - 0.1);
+  vs(cA, 0.916, 1.094);
+  hs(xA0, cA, 1.094); pad(g, (xA0 + cA) / 2, 1.094, cA - xA0 - 0.03, D - 0.1);
+  // 왼쪽 칸 윗판 (꼭대기)
+  hs(-0.6, -0.188, OH);
+  // ---- 가운데 칸: 아래 선반(0.248) · 가운데 선반(0.738, 왼쪽 반에 방석) ----
+  hs(xB0, xB1, 0.248);
+  hs(xB0, xB1, 0.738); pad(g, (xB0 + 0) / 2, 0.738, 0.188 - 0.03, D - 0.1);
+  back(xB0, xB1, T, 0.248 - T);
+  // ---- 지그재그 계단 (오른쪽 아래 → 왼쪽 위, 단 높이 17.8, 세로판은 디딤판 왼쪽 끝) ----
+  hs(0.386, xC1, 0.204); pad(g, (0.386 + xC1) / 2, 0.204, xC1 - 0.386 - 0.03, D - 0.1);   // 디딤판 1 (19.6)
+  vs(0.386, T, 0.382);
+  hs(0.206, 0.386, 0.382); pad(g, (0.206 + 0.386) / 2, 0.382, 0.18 - 0.03, D - 0.1);     // 디딤판 2 (칸 사이 세로판이 다음 단)
+  hs(0.0, 0.188, 0.56); pad(g, 0.094, 0.56, 0.188 - 0.03, D - 0.1);                      // 디딤판 3
+  vs(0.0, 0.56, 0.738 - T);
+  // ---- 오른쪽 위: 가드 7cm 달린 52 선반 (왼쪽 끝 아래 세로판이 받침) ----
+  hs(0.06, xC1, 1.075);
+  plank(g, xC1 - 0.06, 0.07, T, (0.06 + xC1) / 2, 1.075 + 0.035, D / 2 - T / 2, wd, 0.003);     // 앞 가드
+  plank(g, xC1 - 0.06, 0.07, T, (0.06 + xC1) / 2, 1.075 + 0.035, -D / 2 + T / 2, wd, 0.003);    // 뒤 가드
+  vs(0.06, 1.075, 1.075 + 0.07, T, D / 2 - T / 2); vs(0.06, 1.075, 1.075 + 0.07, T, -D / 2 + T / 2);
+  // ---- 꼭대기 전망대 (가운데 · 오른쪽 칸 위, 가드 9cm) ----
+  const xT0 = -0.285;
+  hs(xT0, 0.6, OH, D + 0.01);
+  plank(g, 0.6 - xT0, 0.09, T, (xT0 + 0.6) / 2, OH - T - 0.045, D / 2 - T / 2 + 0.005, wd, 0.003);    // 앞 가드
+  plank(g, 0.6 - xT0, 0.09, T, (xT0 + 0.6) / 2, OH - T - 0.045, -D / 2 + T / 2 - 0.005, wd, 0.003);   // 뒤 가드
+  plank(g, T, 0.09, D + 0.01, xT0 + T / 2, OH - T - 0.045, 0, wd, 0.003);
+  plank(g, T, 0.09, D + 0.01, 0.6 - T / 2, OH - T - 0.045, 0, wd, 0.003);
+  // 뒤판 (가운데 칸 선반 위 · 오른쪽 칸은 없음 — 사진처럼 뒤가 트여 있음)
+  // 작은 상표 (오른쪽 위 가드)
+  g.add(mesh(rbox(0.05, 0.012, 0.002, 0.001), M.color('#8c7a66', 0.6), 0.52, OH - 0.03, D / 2 + 0.004));
   return g;
 }
 const ORMI_NAV = {
-  // 고양이 길: 양 끝이 바닥(y=0)이면 바닥과 이어진 출입구
+  // 고양이 길: 오른쪽 앞 바닥 → 계단 1 · 2 · 3 → 가운데 선반 → 왼쪽 칸 Z 선반 둘 → 꼭대기(왼쪽) → 꼭대기(오른쪽) → 52 선반
   path: [
-    [-U, 0, 0.62],
-    [-U, U, 0],
-    [0, U * 2, 0],
-    [U, U * 3, 0],
-    [U * 1.5 + 0.15, U * 2, 0.02],
-    [U * 1.5 + 0.15, 0, 0.62],
+    [0.48, 0, 0.6],
+    [0.484, 0.204, 0.0],
+    [0.296, 0.382, 0.0],
+    [0.094, 0.56, 0.0],
+    [-0.094, 0.738, 0.0],
+    [-0.3, 0.916, 0.0],
+    [-0.488, 1.094, 0.0],
+    [-0.1, OH, 0.0],
+    [0.35, OH, 0.0],
+    [0.32, 1.075, 0.0],
   ],
-  boxes: [{ floor: [-U, 0, 0.62], inside: [-U, 0.07, -0.02] }],
-  bounds: [-U * 1.5 - 0.02, U * 1.5 + 0.31, -U / 2 - 0.02, U / 2 + 0.02],
+  boxes: [{ floor: [-0.394, 0, 0.6], inside: [-0.394, 0.4, -0.02] }],
+  hides: [[0.0, 0.03, -0.02]],   // 가운데 칸 맨 아래(앞이 트인 낮은 칸)
+  bounds: [-0.6, 0.6, -OD / 2, OD / 2],
 };
 
 // ---------- 커스텀B 월캣타워 (실제 치수: 폭 40 + 90 + 120 = 250, 깊이 46, 높이 179.8 cm) ----------

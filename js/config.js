@@ -80,7 +80,7 @@ export const CONFIG = {
     customB: { name: '커스텀B 월캣타워', desc: '벽을 따라 250 × 46 × 179.8 cm. 흰 숨숨집 상자를 계단처럼 쌓고, 오른쪽은 둥근 창 칸과 지그재그 계단, 투명 해먹 30 cm', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
     bella4: { name: '벨라4호 원목 캣타워', desc: '120 × 45.4 × 165 cm. 40 × 40 선반, 둥근 창 숨숨집, 아치 숨숨집, 스크래쳐 기둥, 투명 해먹과 옆 계단 상자(37 × 30 × 30)', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
     cathouse: { name: '계단형 숨숨집', desc: '상자 넷을 계단처럼 — 맨 위는 아치 문 숨숨집, 아래는 열린 칸, 계단마다 펠트 방석', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
-    ormi: { name: '오르미캣타워', desc: '계단 프레임 · 숨숨집 상자 · 옆 수납칸', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
+    ormi: { name: '오르미캣타워', desc: '120 × 40 × 144.2 cm. 왼쪽은 수납 서랍과 고양이 얼굴 문 숨숨집, 지그재그 계단(18.8 · 단 17.8)이 오른쪽 아래에서 왼쪽 위로, 가드 7cm 달린 52 선반과 꼭대기 전망대, 옆판 아치 문', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
     catwalk: { name: '월스텝 선반', desc: '벽에 붙이는 계단 선반 네 칸과 꼭대기 전망 선반', glb: null, scale: 1, rotationY: 0, offset: [0, 0, 0] },
   },
 
