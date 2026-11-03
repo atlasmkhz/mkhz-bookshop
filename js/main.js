@@ -323,7 +323,12 @@ function pick(x, y) {
   const hits = raycaster.intersectObjects(scene.children, true).filter((h) => usable(h.object));
   if (gh.length && (!hits.length || gh[0].distance < hits[0].distance + 0.3)) return { kind: 'guest', id: gh[0].object.userData.guest };
   if (!hits.length) return null;
-  const h = hits[0];
+  // 책장 캣타워(집사4호)처럼 제품 판정 상자 안에 책이 꽂혀 있으면 책을 먼저
+  let h = hits[0];
+  if (h.object.userData.product || h.object.parent?.userData.product) {
+    const bk = hits.find((k) => (k.object.userData.bookIds || k.object.userData.bookId) && k.distance < hits[0].distance + 0.5);
+    if (bk) h = bk;
+  }
   const o = h.object;
   if (o.userData.bookIds && h.faceIndex != null) return { kind: 'book', id: o.userData.bookIds[Math.floor(h.faceIndex / o.userData.trisPerBook)], point: h.point };
   if (o.userData.bookId) return { kind: 'book', id: o.userData.bookId, point: h.point };

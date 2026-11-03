@@ -15,7 +15,7 @@
 - 표지 그림은 assets/covers/ 에 줄여 복사한 것이다. 그림 아래 출처(coverNote)는 라이선스 조건이니 빼지 않는다.
 - 배경 음악 자리는 audio/bgm-day.mp3, audio/bgm-night.mp3 (없어도 동작).
 - 야외 영화관 상영 목록은 data/program.json. items 가 비어 있으면 채널 올린 영상(playlist)을 차례로 튼다. 3D 스크린 예고 영상 자리는 video/screen-loop.mp4 (없어도 동작).
-- 고양이서가 캣타워 제품(오르미 · 커스텀B · 월스텝 선반 · 2층 숨숨집)은 js/config.js 의 products 에 있다. 스마트스토어 주소(url)와 GLB 경로는 거기서만 고친다. 고양이가 오르는 좌표는 js/products.js 의 *_NAV.
+- 고양이서가 캣타워 제품(집사4호 · 커스텀B · 벨라4호 · 계단형 숨숨집 · 오르미 · 월스텝 선반)은 js/config.js 의 products 에 있다. 스마트스토어 주소(url)와 GLB 경로는 거기서만 고친다. 고양이가 오르는 좌표는 js/products.js 의 *_NAV. 집사4호 · 커스텀B · 벨라4호 · 계단형 숨숨집은 스마트스토어 치수표(cm)를 그대로 m 로 옮겨 만든 것이니 치수를 바꾸지 않는다. 집사4호는 책장이라 열린 칸(bookSlots)에 학년별 과학 책이 꽂힌다 — 둥근 독서 탁자 옆. 벨라4호는 동쪽 창가 벽, 나머지는 남동쪽 캣타워 코너.
 - 판의 크기 · 2층(다락 · 나무 위 오두막 · 루프탑)과 계단 위치는 js/nav.js 의 CABIN · WORLD · PLATFORMS 가 기준이다. 가구를 옮길 때 계단 아래 · 문 앞을 막지 않도록 하고, 바꾼 뒤엔 길찾기 시험(모든 「가볼 곳」에 닿는지)을 돌린다.
 
 프로젝트 규칙: Cloudflare 무료 플랜(Workers Free)에서 오래 버티기 (고양이서가 카페와 같음)

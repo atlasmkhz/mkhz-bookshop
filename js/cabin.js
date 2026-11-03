@@ -6,6 +6,7 @@ import { CABIN, DOOR, FRONT, PLATFORMS } from './nav.js';
 import { armchair, cushion, beanbag, stool, bench, floorLamp, deskLamp, rug, lowTable, chair, addSeat } from './furniture.js';
 import { bookcase, displayTable } from './shelves.js';
 import { createProduct } from './products.js';
+import { fillSlots, shelfLabel } from './shelves.js';
 import { CONFIG } from './config.js';
 
 const WT = 0.22;
@@ -39,6 +40,16 @@ export function buildCabin(scene, books) {
   const byShelf = (atlas, shelf) => books.filter((b) => b.atlas === atlas && (!shelf || b.shelf === shelf));
   const half = (arr, k) => (k === 0 ? arr.slice(0, Math.ceil(arr.length / 2)) : arr.slice(Math.ceil(arr.length / 2)));
   const obst = (r, lv) => { if (lv) r.lv = lv; room.obstacles.push(r); return r; };
+  // 고양이서가 제품 가구 놓기: 모양 + 장애물 + 고양이가 오르는 길 · 숨는 칸
+  const putProduct = (key, x, z, rotY) => {
+    const p = createProduct(key, { x, z, rotY });
+    scene.add(p.root);
+    room.products.push(p);
+    obst(p.obstacle);
+    room.boxes.push(...p.boxes.map((b, i) => ({ ...b, key: `${key}:box${i}`, product: key })));
+    room.climbs.push({ key, rotY: p.rotY, path: p.path, product: true });
+    return p;
+  };
 
   // ---------- 마루 ----------
   const floorMat = new THREE.MeshStandardMaterial({ map: floorTexture(), roughness: 0.66 });
@@ -344,9 +355,11 @@ export function buildCabin(scene, books) {
     // 학년별 과학 책장 (낮은 책장, 앞은 초등 · 뒤는 중학) — 둥근 독서 탁자 옆
     const kids = sci.filter((b) => b.grade === 'kids-low' || b.grade === 'kids-high');
     const middle = sci.filter((b) => b.grade === 'middle');
-    bookcase(scene, room, { x: -1.6, z: -3.4, w: 3.0, h: 1.5, d: 0.52, rows: 3, sides: 2, books: [kids, middle], label: '학년별 과학' });
+    // 집사4호 원목 캣타워 = 책장 + 고양이 계단. 열린 칸에 어린이 · 중학 과학 책을 꽂음
+    const jipsa = putProduct('jipsa4', -1.6, -3.1, 0);
+    fillSlots(jipsa.root, jipsa.bookSlots, [...kids, ...middle]);
+    shelfLabel(jipsa.root, '학년별 과학 · 집사4호', 2.0, 1.8, 0.4, 1, '#1f6f6b');
     catalogBoard(scene, room, -3.6, -3.4, Math.PI / 2, 'science', '학년별 과학', ['초등 3~4학년', '초등 5~6학년', '중학교 과학 · 수학', '과학 대사관', '오늘의 과학'], '#1f6f6b');
-    room.climbs.push({ key: 'kidsShelf', rotY: Math.PI, path: [V(0.1, 0, -3.4), V(-0.1, 0.5, -3.4), V(-1.0, 1.53, -3.4)] });
   }
 
   // ---------- 높은 책장 + 사다리 (과학아틀라스, 북동쪽 벽) ----------
@@ -410,19 +423,13 @@ export function buildCabin(scene, books) {
 
   // ---------- 고양이서가 캣타워 코너 (남동쪽) ----------
   {
-    const put = (key, x, z, rotY) => {
-      const p = createProduct(key, { x, z, rotY });
-      scene.add(p.root);
-      room.products.push(p);
-      obst(p.obstacle);
-      room.boxes.push(...p.boxes.map((b, i) => ({ ...b, key: `${key}:box${i}`, product: key })));
-      room.climbs.push({ key, rotY: p.rotY, path: p.path, product: true });
-      return p;
-    };
+    const put = putProduct;
     put('customB', 4.2, CABIN.maxZ - 0.3, Math.PI);
     put('ormi', CABIN.maxX - 0.3, 5.6, -Math.PI / 2);
     put('catwalk', CABIN.maxX - 0.24, 8.3, -Math.PI / 2);
     put('cathouse', -0.6, 0.6, 0.5);
+    // 벨라4호 — 동쪽 창가 벽 (창가 독서 의자와 정원 문 사이)
+    put('bella4', CABIN.maxX - 0.3, -3.3, -Math.PI / 2);
     // 카페 테이블 두 개
     for (const [tx, tz, col] of [[3.0, 5.6, '#e7c58e'], [5.6, 4.2, '#a9bba0']]) {
       const g = new THREE.Group();

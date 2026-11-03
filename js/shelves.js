@@ -94,6 +94,37 @@ export function bookcase(scene, room, o) {
   return g;
 }
 
+// 제품 가구(집사4호 같은 책장 캣타워)의 열린 칸에 책 꽂기. slots 는 root 기준 좌표 {x, y0, w, h, d, front}
+export function fillSlots(root, slots, list) {
+  root.updateMatrixWorld(true);
+  const per = slots.map(() => []);
+  list.forEach((b, k) => per[k % slots.length].push(b));
+  slots.forEach((sl, i) => {
+    const mine = per[i];
+    let xx = sl.x - sl.w / 2 + 0.02;
+    const end = sl.x + sl.w / 2 - 0.02;
+    const maxH = Math.min(sl.h - 0.03, 0.44);
+    const at = mine.map((_, k) => xx + (end - xx) * ((k + 0.5) / mine.length) - 0.04);
+    let next = 0;
+    while (xx < end - 0.03) {
+      if (next < mine.length && xx >= at[next]) {
+        const b = mine[next++];
+        const bw = THREE.MathUtils.clamp(0.04 + b.parts * 0.0022, 0.045, 0.11);
+        const bh = Math.min(maxH, 0.25 + (b.parts % 5) * 0.012);
+        addBook(root, 0, xx + bw / 2, sl.y0, bh, bw, Math.min(sl.d, 0.24), sl.front, b);
+        xx += bw + 0.006;
+        continue;
+      }
+      if (rnd() < 0.08) { xx += 0.06 + rnd() * 0.08; continue; }
+      const bw = 0.025 + rnd() * 0.035;
+      const bh = Math.min(maxH, 0.17 + rnd() * 0.12);
+      if (xx + bw > end) break;
+      addFiller(root, 0, xx + bw / 2, sl.y0, bh, bw, Math.min(sl.d, 0.18 + rnd() * 0.05), sl.front - 0.012, 0);
+      xx += bw + 0.003;
+    }
+  });
+}
+
 // side 0: 앞(+z)으로 책등, side 1: 뒤(-z). front = 책등이 서는 면
 function addBook(g, side, x, y0, h, w, d, front, book) {
   const ry = side === 0 ? 0 : Math.PI;
@@ -113,7 +144,7 @@ function addFiller(g, side, x, y0, h, w, d, front, lean) {
   fillers.push({ matrix: new THREE.Matrix4().multiplyMatrices(g.matrixWorld, local), color: FILL[Math.floor(rnd() * FILL.length)] });
 }
 
-function shelfLabel(g, text, w, h, d, sides, color = '#3b2a20') {
+export function shelfLabel(g, text, w, h, d, sides, color = '#3b2a20') {
   const c = document.createElement('canvas'); c.width = 512; c.height = 96;
   const draw = () => {
     const x = c.getContext('2d');
