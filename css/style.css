@@ -104,11 +104,13 @@ body.gazing .gaze-bar { opacity: 1; visibility: visible; }
 body.gazing .topbar, body.gazing .bottombar, body.gazing .chat-log, body.gazing .fire-bar, body.gazing .pet-bubble, body.gazing .toast { opacity: 0 !important; visibility: hidden !important; transition: opacity .8s, visibility .8s; }
 
 /* ---------- 채팅 ---------- */
-.chat-log { position: absolute; left: 12px; bottom: calc(84px + var(--safe-bot)); width: min(320px, calc(100vw - 24px)); display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
-.chat-log div { align-self: flex-start; max-width: 100%; background: rgba(252, 247, 238, 0.9); padding: 5px 11px; border-radius: 13px; font-size: 13px; color: var(--ink); box-shadow: 0 2px 8px rgba(60, 38, 20, 0.12); transition: opacity 1s; overflow-wrap: anywhere; }
-.chat-log div b { color: var(--wood-dark); font-weight: 400; margin-right: 5px; }
-.chat-log div.me { background: rgba(239, 226, 204, 0.92); }
-.chat-log div.sys { background: rgba(55, 36, 22, 0.6); color: #fbf1e2; }
+.chat-log { position: absolute; left: 10px; bottom: calc(92px + var(--safe-bot)); width: min(380px, calc(100vw - 20px)); display: flex; flex-direction: column; gap: 5px; pointer-events: none; transition: bottom .2s; }
+/* 말하기 창을 열면 그 위로 올라감 (창에 가리지 않게) */
+body.chatting .chat-log { bottom: calc(150px + var(--safe-bot)); }
+.chat-log div { align-self: flex-start; max-width: 100%; background: rgba(255, 251, 244, 0.97); padding: 7px 13px; border-radius: 15px; font-size: 15px; line-height: 1.45; color: var(--ink); box-shadow: 0 3px 12px rgba(60, 38, 20, 0.18); transition: opacity 1s; overflow-wrap: anywhere; }
+.chat-log div b { color: var(--wood-dark); font-weight: 700; margin-right: 6px; }
+.chat-log div.me { background: rgba(243, 231, 210, 0.97); }
+.chat-log div.sys { background: rgba(55, 36, 22, 0.72); color: #fbf1e2; font-size: 13.5px; }
 .chat-log div.old { opacity: 0; }
 .chat-bar { position: absolute; left: 50%; bottom: calc(80px + var(--safe-bot)); transform: translateX(-50%); width: min(440px, calc(100vw - 20px)); display: flex; gap: 6px; padding: 6px; border-radius: 18px; background: var(--paper); box-shadow: var(--shadow); pointer-events: auto; }
 .chat-bar input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 9px 13px; border-radius: 13px; border: 1.5px solid var(--line); background: #fffdf9; outline: none; color: var(--ink); }
@@ -287,3 +289,13 @@ body.crafting .bottombar, body.crafting .chat-log, body.crafting .star-chip, bod
 .art-rules { margin: 6px 0 4px; padding-left: 18px; display: grid; gap: 2px; }
 .au-prev img { display: block; max-width: 100%; max-height: 220px; border-radius: 10px; margin: 4px 0 8px; }
 .btn:disabled { opacity: .55; cursor: default; }
+
+/* ---------- 머리 위 이름표 · 말풍선 (화면 위 글자) ---------- */
+.tag-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+.av-tag { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; transform-origin: 50% 100%; will-change: transform; }
+.av-name { font-size: 13px; font-weight: 600; color: #5a3d2b; background: rgba(255, 250, 242, 0.92); padding: 2px 10px; border-radius: 999px; white-space: nowrap; box-shadow: 0 1px 4px rgba(60, 38, 20, 0.15); }
+.av-bubble { display: none; position: relative; max-width: min(240px, 62vw); width: max-content; font-size: 16px; line-height: 1.45; color: #3f2c20; background: #fffbf4; border: 1.5px solid rgba(141, 90, 53, 0.35); padding: 8px 13px; border-radius: 16px; box-shadow: 0 4px 14px rgba(60, 38, 20, 0.2); overflow-wrap: anywhere; word-break: keep-all; text-align: center; margin-bottom: 6px; }
+.av-bubble.show { display: block; animation: pop .22s ease-out; }
+.av-bubble::after { content: ''; position: absolute; left: 50%; bottom: -8px; margin-left: -8px; border: 8px solid transparent; border-bottom: 0; border-top-color: #fffbf4; }
+@keyframes pop { from { transform: scale(.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+body.gazing .tag-layer, body.copying .tag-layer, body.starring .tag-layer { opacity: 0; }

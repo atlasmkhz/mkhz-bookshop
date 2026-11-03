@@ -1,6 +1,5 @@
 // 손님 캐릭터 (작고 동글동글한 사람) + 손에 든 음료 · 말풍선
 import * as THREE from 'three';
-import { textSprite } from './kit.js';
 
 export const LOOKS = {
   tops: ['#e8a87c', '#9fb7a0', '#c9b6e4', '#f2d16b', '#8fb2d6', '#e58f8f', '#f4efe6'],
@@ -10,6 +9,19 @@ export const LOOKS = {
 
 const std = (c, r = 0.8) => new THREE.MeshStandardMaterial({ color: c, roughness: r });
 const lerp = THREE.MathUtils.lerp;
+
+// ---------- 이름표 · 말풍선: 3D 그림 대신 화면 위 글자(HTML)로 — 휴대폰 해상도 그대로 또렷하고 크게 ----------
+const TAGS = new Set();
+let tagLayer = null;
+const layer = () => {
+  if (!tagLayer) { tagLayer = document.createElement('div'); tagLayer.id = 'tagLayer'; tagLayer.className = 'tag-layer'; (document.getElementById('hud') || document.body).prepend(tagLayer); }
+  return tagLayer;
+};
+const _tp = new THREE.Vector3();
+// 매 프레임 그린 뒤 한 번: 모든 이름표를 머리 위 화면 자리로
+// center = 내 자리. 이름표는 16 m, 말풍선은 22 m 안에서만 (벽 너머 먼 이름표가 화면에 떠 보이지 않게)
+const _c = new THREE.Vector3();
+export function placeTags(camera, W, H, center) { for (const a of TAGS) a.placeTag(camera, W, H, center); }
 
 export class Avatar {
   constructor(name, look) {
@@ -140,11 +152,40 @@ export class Avatar {
   }
 
   setName(name) {
-    if (this.label) { this.root.remove(this.label); this.label.material.map.dispose(); }
-    this.label = textSprite(name, { height: 0.026, screen: true });
-    this.label.position.y = 1.42;
-    this.label.userData.noHit = true;
-    this.root.add(this.label);
+    if (!this.tag) {
+      const el = document.createElement('div');
+      el.className = 'av-tag';
+      el.innerHTML = '<div class="av-bubble"></div><div class="av-name"></div>';
+      el.style.display = 'none';
+      layer().appendChild(el);
+      this.tag = el; this.tagBubble = el.firstChild; this.tagName = el.lastChild;
+      this.labelOn = true; this.tagShown = false;
+      TAGS.add(this);
+    }
+    this.tagName.textContent = name;
+  }
+  dispose() { this.tag?.remove(); TAGS.delete(this); this.tag = null; }
+  placeTag(camera, W, H, center) {
+    const el = this.tag;
+    if (!el) return;
+    let vis = !!this.root.parent;
+    for (let o = this.root; o && vis; o = o.parent) if (!o.visible) vis = false;
+    if (vis) {
+      this.head.getWorldPosition(_tp);
+      _tp.y += 0.3;
+      this.tagDist = camera.position.distanceTo(_tp);
+      _tp.project(camera);
+      if (_tp.z > 1 || Math.abs(_tp.x) > 1.2 || Math.abs(_tp.y) > 1.2) vis = false;
+    }
+    const far = center ? this.root.getWorldPosition(_c).distanceTo(center) : 0;
+    const showName = this.labelOn !== false && far < 16, showBubble = !!this.bubble && far < 22;
+    if (!vis || (!showName && !showBubble)) { if (this.tagShown) { el.style.display = 'none'; this.tagShown = false; } return; }
+    if (!this.tagShown) { el.style.display = ''; this.tagShown = true; }
+    const x = (_tp.x * 0.5 + 0.5) * W, y = (-_tp.y * 0.5 + 0.5) * H;
+    const sc = Math.max(0.72, Math.min(1.08, 1.22 - this.tagDist / 30));
+    el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-100%) scale(${sc.toFixed(3)})`;
+    el.style.zIndex = String(Math.max(1, 2000 - Math.round(this.tagDist * 20)));
+    this.tagName.style.display = showName ? '' : 'none';
   }
 
   wave() { this.waveT = 2.2; }
@@ -237,48 +278,25 @@ export class Avatar {
 
   // 말풍선 (몇 초 뒤 사라짐)
   say(text) {
-    this.clearBubble();
-    const lines = wrap(text, 15).slice(0, 3);
-    const font = '500 34px "Gowun Dodum", sans-serif';
-    const c = document.createElement('canvas');
-    const g = c.getContext('2d');
-    g.font = font;
-    const tw = Math.max(...lines.map((l) => g.measureText(l).width));
-    const lh = 44, pad = 22;
-    c.width = Math.ceil(tw + pad * 2); c.height = lines.length * lh + pad * 2 + 14;
-    g.font = font;
-    g.fillStyle = 'rgba(255,251,244,0.96)';
-    g.strokeStyle = 'rgba(141,90,53,0.35)'; g.lineWidth = 3;
-    g.beginPath(); g.roundRect(2, 2, c.width - 4, c.height - 18, 22); g.fill(); g.stroke();
-    g.beginPath(); g.moveTo(c.width / 2 - 12, c.height - 17); g.lineTo(c.width / 2, c.height - 2); g.lineTo(c.width / 2 + 12, c.height - 17); g.fill();
-    g.fillStyle = '#4a3426'; g.textBaseline = 'middle';
-    lines.forEach((l, i) => g.fillText(l, pad, pad + lh * i + lh / 2));
-    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, depthTest: false, transparent: true, sizeAttenuation: false }));
-    const h = 0.022 * (c.height / 76);
-    s.scale.set(h * c.width / c.height, h, 1);
-    s.center.set(0.5, 0);
-    s.position.y = 1.55;
-    s.renderOrder = 30;
-    s.userData.noHit = true;
-    this.root.add(s);
-    this.bubble = s;
-    this.bubbleT = 5 + Math.min(4, text.length * 0.08);
+    if (!this.tag) this.setName('');
+    this.tagBubble.textContent = String(text).slice(0, 120);
+    this.tagBubble.style.opacity = '1';
+    this.tagBubble.classList.add('show');
+    this.bubble = true;
+    this.bubbleT = 6 + Math.min(6, text.length * 0.12);
   }
   clearBubble() {
     if (!this.bubble) return;
-    this.root.remove(this.bubble);
-    this.bubble.material.map.dispose();
-    this.bubble.material.dispose();
+    this.tagBubble.classList.remove('show');
     this.bubble = null;
   }
-  setLabelVisible(v) { if (this.label) this.label.visible = v; }
+  setLabelVisible(v) { this.labelOn = v; }
 
   update(dt, speed, sitTarget) {
     this.t += dt;
     if (this.bubble) {
       this.bubbleT -= dt;
-      this.bubble.material.opacity = Math.min(1, this.bubbleT / 0.6);
+      if (this.bubbleT < 0.6) this.tagBubble.style.opacity = String(Math.max(0, this.bubbleT / 0.6));
       if (this.bubbleT <= 0) this.clearBubble();
     }
     const walking = speed > 0.05;

@@ -665,6 +665,7 @@ export class UI {
     const bar = $('#chatBar');
     const show = force ?? bar.classList.contains('hidden');
     bar.classList.toggle('hidden', !show);
+    document.body.classList.toggle('chatting', show);
     $('#btnChat').classList.toggle('on', show);
     if (show) setTimeout(() => $('#chatInput').focus(), 30);
     else $('#chatInput').blur();
@@ -675,8 +676,8 @@ export class UI {
     if (kind) d.className = kind;
     d.innerHTML = name ? `<b>${esc(name)}</b>${esc(text)}` : esc(text);
     log.appendChild(d);
-    while (log.children.length > 5) log.firstChild.remove();
-    setTimeout(() => d.classList.add('old'), 14000);
-    setTimeout(() => d.remove(), 15500);
+    while (log.children.length > 6) log.firstChild.remove();
+    setTimeout(() => d.classList.add('old'), 24000);
+    setTimeout(() => d.remove(), 25500);
   }
 }

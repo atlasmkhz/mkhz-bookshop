@@ -19,7 +19,7 @@ import { CopyDesk } from './copydesk.js';
 import { Workshop, SHOP_CAP, inShop } from './woodshop.js';
 import { GalleryClient, inHall } from './gallery.js';
 import { Craft, CRAFTS } from './craft.js';
-import { Avatar, LOOKS } from './avatar.js';
+import { Avatar, LOOKS, placeTags } from './avatar.js';
 import { FX } from './fx.js';
 import { Sound } from './audio.js';
 import { Net } from './net.js';
@@ -1194,6 +1194,7 @@ function dropRemote(id) {
   const r = remotes.get(id);
   if (!r) return;
   scene.remove(r.avatar.root);
+  r.avatar.dispose();
   r.cat?.dispose();
   remotes.delete(id);
   ui.setCount(remotes.size + 1);
@@ -1232,6 +1233,7 @@ function handle(m) {
       if (lookKey !== r.lookKey || name !== r.name) {
         const fresh = new Avatar(name, sanitizeLook(m.l));
         scene.remove(r.avatar.root);
+        r.avatar.dispose();
         r.avatar = fresh;
         scene.add(fresh.root);
         if (!r.lookKey && !blocked.has(m.uid)) ui.chatLine('', `${name} 님이 서점에 들어왔어요`, 'sys');
@@ -1518,7 +1520,7 @@ ui.onEnter = async ({ name, look, soundOn, room: roomChoice }) => {
   me.name = name; me.look = look;
   ui.myName = name;
   store.set('name', name); store.set('look', look);
-  if (me.avatar) scene.remove(me.avatar.root);
+  if (me.avatar) { scene.remove(me.avatar.root); me.avatar.dispose(); }
   me.avatar = new Avatar(name, look);
   me.avatar.setDrink(me.drink);
   me.avatar.setToy(me.toy);
@@ -1651,6 +1653,7 @@ function frame() {
   sun.target.position.set(cam.target.x, 0, cam.target.z);
   sun.position.copy(sun.target.position).add(SUN_OFFSET);
   renderer.render(scene, camera);
+  placeTags(camera, renderer.domElement.clientWidth || window.innerWidth, renderer.domElement.clientHeight || window.innerHeight, me.entered ? me.pos : cam.target);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
