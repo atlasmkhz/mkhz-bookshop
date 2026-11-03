@@ -1,5 +1,6 @@
 // 미술관 (동쪽으로 넓힌 땅, 억새 언덕 건너) — 손님이 직접 찍은 사진 30점을 거는 통유리 전시관
-// 바깥벽은 모두 유리, 작품은 유리 안쪽에 떠 있듯 선 흰 패널 18장과 가운데 양면 벽(12점)에 걸림
+// 바깥벽은 모두 유리, 작품은 유리 안쪽에 떠 있듯 선 흰 패널 22장과 가운데 짧은 양면 섬 둘(8점)에 걸림.
+// 가운데(입구 앞)는 비워 둔 넓은 쉼터 — 섬 사이 · 섬과 유리 사이 통로가 4 m 남짓
 // 서버는 채팅 서버와 따로인 gallery-server/ (사진 창고 R2 · 자동 검사 · 하트 · 본 사람 · 신고 · 대기열)
 // 요청 수: 미술관에 다가갈 때 벽 목록 1건 · 나갈 때 본 작품 모아 1건 · 하트 · 신고 · 올리기는 누를 때만.
 //         사진은 R2 공개 주소(config gallery.imageBase)에서 바로 받으면 서버 요청에 잡히지 않음.
@@ -7,7 +8,8 @@ import * as THREE from 'three';
 import { M, rbox, mesh, glowSprite, textSprite } from './kit.js';
 import { bench } from './furniture.js';
 
-export const HALL = { x0: 62.5, x1: 72.5, z0: -7, z1: 9, H: 4.2, door: [0.0, 2.0] };
+export const HALL = { x0: 62.5, x1: 72.8, z0: -11, z1: 13, H: 4.2, door: [0.0, 2.0] };
+const ISLE_X = 67.65, ISLES = [-5.0, 7.0], ISLE_L = 3.6, ISLE_H = 2.6;   // 가운데 양면 섬 (x, 가운데 z들, 길이, 높이)
 export const inHall = (p, m = 0) => p.x > HALL.x0 - m && p.x < HALL.x1 + m && p.z > HALL.z0 - m && p.z < HALL.z1 + m && p.y < 1.5;
 export const SLOTS = 30;
 
@@ -15,12 +17,14 @@ export const SLOTS = 30;
 function slotSpots() {
   const { x0, x1, z0, z1 } = HALL, out = [];
   const IN = 0.78;   // 통유리 벽에서 패널 앞면까지
-  for (const x of [64.0, 66.3, 68.7, 71.0]) out.push([x, z0 + IN, 0]);
-  for (const z of [-5.25, -2.75, -0.25, 2.25, 4.75, 7.25]) out.push([x1 - IN, z, -Math.PI / 2]);
-  for (const x of [71.0, 68.7, 66.3, 64.0]) out.push([x, z1 - IN, Math.PI]);
-  for (const z of [7.2, 4.6, -2.6, -5.2]) out.push([x0 + IN, z, Math.PI / 2]);
-  for (const z of [-3.75, -1.85, 0.05, 1.95, 3.85, 5.75]) out.push([67.5 - 0.16, z, -Math.PI / 2]);
-  for (const z of [5.75, 3.85, 1.95, 0.05, -1.85, -3.75]) out.push([67.5 + 0.16, z, Math.PI / 2]);
+  const along = [-8.4, -5.65, -2.9, -0.15, 2.6, 5.35, 8.1, 10.85];   // 긴 벽 (2.75 m 간격)
+  const cross = [64.2, 66.6, 69.0, 71.4];                              // 짧은 벽 (2.4 m 간격)
+  for (const x of cross) out.push([x, z0 + IN, 0]);
+  for (const z of along) out.push([x1 - IN, z, -Math.PI / 2]);
+  for (const x of [...cross].reverse()) out.push([x, z1 - IN, Math.PI]);
+  for (const z of [10.4, 7.65, 4.9, -2.9, -5.65, -8.4]) out.push([x0 + IN, z, Math.PI / 2]);   // 입구(z 0~2) 둘레는 비움
+  for (const c of ISLES) for (const d of [-0.95, 0.95]) out.push([ISLE_X - 0.16, c + d, -Math.PI / 2]);
+  for (const c of ISLES) for (const d of [0.95, -0.95]) out.push([ISLE_X + 0.16, c + d, Math.PI / 2]);
   return out;
 }
 
@@ -42,7 +46,7 @@ function waitingTexture(no, text) {
 export function buildGallery(scene, room, { obst, excl }) {
   const { x0, x1, z0, z1, H } = HALL;
   const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, W = x1 - x0, D = z1 - z0;
-  excl.push([cx, cz, 10.5], [60.8, 1.0, 2.6]);
+  excl.push([cx, -8, 6.5], [cx, -2, 6.5], [cx, 4, 6.5], [cx, 10, 6.5], [60.8, 1.0, 2.6]);
   room.buildingRects = room.buildingRects || [];
   room.buildingRects.push({ minX: x0 - 3, maxX: x1 + 1.5, minZ: z0 - 1.5, maxZ: z1 + 1.5 });
   const white = new THREE.MeshStandardMaterial({ color: '#f1f1ee', roughness: 0.6 });
@@ -92,23 +96,27 @@ export function buildGallery(scene, room, { obst, excl }) {
   // 작품 패널 (통유리 안쪽에 떠 있듯 선 흰 판, 바닥과 사이가 살짝 떠 있음)
   const panelMat = new THREE.MeshStandardMaterial({ color: '#f6f6f3', roughness: 0.7 });
   const panelAt = (x, z, rotY) => {
-    const pm = mesh(new THREE.BoxGeometry(1.6, 2.75, 0.14), panelMat, 0, 0, 0);
-    pm.position.set(x - Math.sin(rotY) * 0.09, 1.63, z - Math.cos(rotY) * 0.09);
+    const pm = mesh(new THREE.BoxGeometry(1.6, 2.45, 0.14), panelMat, 0, 0, 0);
+    pm.position.set(x - Math.sin(rotY) * 0.09, 1.5, z - Math.cos(rotY) * 0.09);
     pm.rotation.y = rotY;
     scene.add(pm);
     const w = Math.abs(Math.sin(rotY)) > 0.5;
     obst(pm.position.x - (w ? 0.12 : 0.82), pm.position.x + (w ? 0.12 : 0.82), pm.position.z - (w ? 0.82 : 0.12), pm.position.z + (w ? 0.82 : 0.12));
   };
-  // 가운데 세운 벽 (양면)
-  scene.add(mesh(new THREE.BoxGeometry(0.3, 3.1, 11.0), white, 67.5, 1.55 + 0.12, 1.0));
-  obst(67.3, 67.7, -4.5, 6.5);
+  // 가운데 짧은 양면 섬 둘 (사이로 지나다닐 수 있게 띄움, 낮게 해 너머가 보이게)
+  for (const c of ISLES) {
+    scene.add(mesh(new THREE.BoxGeometry(0.3, ISLE_H, ISLE_L), white, ISLE_X, ISLE_H / 2 + 0.12, c));
+    scene.add(mesh(new THREE.BoxGeometry(0.34, 0.05, ISLE_L + 0.04), steel, ISLE_X, ISLE_H + 0.14, c, { cast: false }));
+    obst(ISLE_X - 0.2, ISLE_X + 0.2, c - ISLE_L / 2 - 0.05, c + ISLE_L / 2 + 0.05);
+  }
   // 떠 있는 지붕 판 + 밤에 빛나는 가장자리 띠 — 안에 들어가면 접힘
   const roof = new THREE.Group();
-  roof.add(mesh(new THREE.BoxGeometry(W + 2.4, 0.28, D + 2.0), white, cx + 0.2, H + 0.32, cz));
+  const RW = W + 1.9, rcx = cx - 0.45;   // 지붕은 입구 쪽(서쪽)으로 처마를 길게, 둘레길 쪽(동쪽)은 짧게
+  roof.add(mesh(new THREE.BoxGeometry(RW, 0.28, D + 2.0), white, rcx, H + 0.32, cz));
   const led = new THREE.MeshStandardMaterial({ color: '#dff6ff', emissive: '#9fe7ff', emissiveIntensity: 0.15 });
-  for (const [w, d, x, z] of [[W + 2.4, 0.05, cx + 0.2, cz - (D + 2) / 2], [W + 2.4, 0.05, cx + 0.2, cz + (D + 2) / 2], [0.05, D + 2, cx + 0.2 - (W + 2.4) / 2, cz], [0.05, D + 2, cx + 0.2 + (W + 2.4) / 2, cz]]) roof.add(mesh(new THREE.BoxGeometry(w, 0.06, d), led, x, H + 0.17, z, { cast: false }));
+  for (const [w, d, x, z] of [[RW, 0.05, rcx, cz - (D + 2) / 2], [RW, 0.05, rcx, cz + (D + 2) / 2], [0.05, D + 2, rcx - RW / 2, cz], [0.05, D + 2, rcx + RW / 2, cz]]) roof.add(mesh(new THREE.BoxGeometry(w, 0.06, d), led, x, H + 0.17, z, { cast: false }));
   // 천창 줄 (빛 띠)
-  for (const z of [-4, 1, 6]) roof.add(mesh(new THREE.BoxGeometry(W - 1, 0.02, 0.35), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.6 }), cx, H + 0.17, z, { cast: false }));
+  for (const z of [-7, -2, 4, 9]) roof.add(mesh(new THREE.BoxGeometry(W - 1, 0.02, 0.35), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.6 }), cx, H + 0.17, z, { cast: false }));
   scene.add(roof);
   (room.roofs ||= []).push({ g: roof, rect: { minX: x0 - 0.3, maxX: x1 + 0.3, minZ: z0 - 0.3, maxZ: z1 + 0.3 } });
   // 지붕을 받치는 가는 기둥 (밖으로 나온 처마)
@@ -127,9 +135,9 @@ export function buildGallery(scene, room, { obst, excl }) {
     ringMat.emissiveIntensity = 0.1 + n * (1.6 + Math.sin(t * 0.8) * 0.4);
     ring.rotation.y = 0.6 + t * 0.15;
   });
-  // 실내 쉼터 벤치
-  bench(scene, room, 65.0, 1.0, Math.PI / 2, 1.6, 2, { name: '미술관 벤치', back: false });
-  bench(scene, room, 70.0, 1.0, -Math.PI / 2, 1.6, 2, { name: '미술관 벤치', back: false });
+  // 실내 쉼터 — 입구 앞 넓은 가운데에 등을 맞댄 벤치 둘 (양쪽 긴 벽의 작품을 바라봄)
+  bench(scene, room, ISLE_X - 0.42, 1.0, -Math.PI / 2, 2.0, 2, { name: '미술관 벤치', back: false });
+  bench(scene, room, ISLE_X + 0.42, 1.0, Math.PI / 2, 2.0, 2, { name: '미술관 벤치', back: false });
   // 작품 올리기 기둥 (입구 안쪽)
   {
     const g = new THREE.Group();
@@ -149,7 +157,7 @@ export function buildGallery(scene, room, { obst, excl }) {
   }
   // ---------- 작품 자리 30 ----------
   const frames = [];
-  slotSpots().forEach(([x, z, rotY], i) => { if (i < 18) panelAt(x, z, rotY); });
+  slotSpots().forEach(([x, z, rotY], i) => { if (i < 22) panelAt(x, z, rotY); });
   slotSpots().forEach(([x, z, rotY], i) => {
     const g = new THREE.Group();
     const border = mesh(rbox(1.16, 0.92, 0.04, 0.01), steel, 0, 0, 0);

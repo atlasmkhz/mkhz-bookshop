@@ -203,6 +203,19 @@ function updateCamera(dt) {
     room.viewCenter = cam.target;
     return;
   }
+  if (artLook.on) {
+    // 작품 앞에 서면 카메라가 작품을 똑바로 바라보는 눈높이로 내려옴
+    const k = 3;
+    cam.yaw = dampAngle(cam.yaw, artLook.yaw, k, dt);
+    cam.pitch += (0.2 - cam.pitch) * (1 - Math.exp(-k * dt));
+    cam.dist += (3.3 - cam.dist) * (1 - Math.exp(-k * dt));
+    cam.target.lerp(artLook.at, 1 - Math.exp(-k * dt));
+    const cp = Math.cos(cam.pitch);
+    camera.position.set(cam.target.x + Math.sin(cam.yaw) * cp * cam.dist, cam.target.y + Math.sin(cam.pitch) * cam.dist, cam.target.z + Math.cos(cam.yaw) * cp * cam.dist);
+    camera.lookAt(cam.target);
+    room.viewCenter = cam.target;
+    return;
+  }
   const want = me.entered ? me.pos.clone() : new THREE.Vector3(-4, 0, 2);
   want.x = THREE.MathUtils.clamp(want.x, WORLD.minX + 1, WORLD.maxX - 1);
   want.z = THREE.MathUtils.clamp(want.z, WORLD.minZ + 1, WORLD.maxZ - 1);
@@ -292,6 +305,7 @@ function standUp() {
 }
 function walkTo(p, pending = null) {
   standUp();
+  endArtLook();
   const goal = p.clone();
   const wps = findPath(room, me.pos, goal);
   me.target = wps.shift();
@@ -314,6 +328,7 @@ function updateMe(dt) {
     if (star.on) exitStar();
     if (fwView.on) endFwView();
     if (woodView.on) exitWood();
+    endArtLook();
     standUp();
     me.target = null; me.pending = null; me.route = [];
     const fwd = new THREE.Vector3(-Math.sin(cam.yaw), 0, -Math.cos(cam.yaw));
@@ -402,6 +417,7 @@ function arrive() {
   else if (p.type === 'place') { sendState(true); ui.toast(`${p.name}에 왔어요`); }
   else if (p.type === 'log') { sendState(true); doToss(p.id); }
   else if (p.type === 'apron') { sendState(true); toggleApron(me.pos.clone().add(new THREE.Vector3(0.9, 0, 0))); }
+  else if (p.type === 'art') { sendState(true); lookAtArt(p.slot); }
   else if (p.type === 'loop') { if (loopWalk.on) loopArrive(); else sendState(true); }
   else sendState(true);
 }
@@ -491,7 +507,7 @@ function onTap(x, y) {
   if (hit.kind === 'toys') { goCounter(hit.point, 'toys'); return; }
   if (hit.kind === 'apron') { toggleApron(hit.point); return; }
   if (hit.kind === 'kiosk') { openArtUpload(); return; }
-  if (hit.kind === 'art') { openArt(hit.slot, hit.point); return; }
+  if (hit.kind === 'art') { openArt(hit.slot); return; }
   if (hit.kind === 'store') { ui.showStore(); return; }
   if (hit.kind === 'fwbox') { openFireworks(); return; }
   if (fires.gaze) exitGaze();
@@ -916,13 +932,37 @@ function updateWood(dt) {
 }
 
 // ---------- 미술관: 작품 보기 · 하트 · 신고 · 올리기 ----------
-function openArt(slot, point) {
+// 작품을 누르면 그 작품 앞(1.9 m)으로 걸어가서 작품을 마주 보고, 카메라도 눈높이로 내려와 작품을 비춤
+const artLook = { on: false, yaw: 0, at: new THREE.Vector3(), saved: null };
+const artFront = (f, d = 1.9) => f.pos.clone().add(new THREE.Vector3(Math.sin(f.rotY) * d, 0, Math.cos(f.rotY) * d)).setY(0);
+function openArt(slot) {
+  const f = room.gallery.frames[slot];
+  const front = artFront(f);
+  if (Math.hypot(front.x - me.pos.x, front.z - me.pos.z) > 0.7) {
+    walkTo(front, { type: 'art', slot }); ripple(front); return;
+  }
+  lookAtArt(slot);
+}
+function lookAtArt(slot) {
+  const f = room.gallery.frames[slot];
+  me.yaw = f.rotY + Math.PI;
+  if (!artLook.on) artLook.saved = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, zoomed: cam.userZoomed };
+  artLook.on = true; artLook.yaw = f.rotY;
+  artLook.at.copy(artFront(f, 0.45)).setY(1.55);
+  if (me.avatar) me.avatar.root.visible = false;   // 내 몸이 작품을 가리지 않게
+  showArtCard(slot);
+}
+function endArtLook() {
+  if (!artLook.on) return;
+  artLook.on = false;
+  if (me.avatar) me.avatar.root.visible = true;
+  const s0 = artLook.saved;
+  if (s0) { cam.pitch = s0.pitch; cam.dist = s0.dist; cam.userZoomed = s0.zoomed; }
+  artLook.saved = null;
+}
+function showArtCard(slot) {
   const s = gallery.slots[slot];
   const f = room.gallery.frames[slot];
-  if (Math.hypot(f.pos.x - me.pos.x, f.pos.z - me.pos.z) > 4 && !inHall(me.pos)) {
-    const to = f.pos.clone().add(new THREE.Vector3(Math.sin(f.rotY) * 1.8, 0, Math.cos(f.rotY) * 1.8)).setY(0);
-    walkTo(to, { type: 'place', name: `${f.no}번 벽 앞` }); ripple(to); return;
-  }
   if (!s) { ui.toast(gallery.on ? `${f.no}번 벽은 비어 있어요 — 입구 안쪽 기둥에서 작품을 올릴 수 있어요` : '🖼️ 미술관은 곧 문을 열어요 (작품 서버 준비 중)'); return; }
   ui.showArt({ ...s, no: f.no, img: gallery.imgUrl(s), hearted: gallery.hearted.has(s.id), queue: gallery.queue }, {
     heart: async () => { const ok = await gallery.heart(slot); return ok; },
@@ -1504,4 +1544,4 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-window.shop = { workshop, gallery, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { workshop, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
