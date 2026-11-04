@@ -319,7 +319,7 @@ export class BookRoom extends DurableObject {
   }
 
   hiOf(m, uid) {
-    const l = m.l && typeof m.l === 'object' ? { top: clean(m.l.top, 7), hair: clean(m.l.hair, 7), skin: clean(m.l.skin, 7) } : null;
+    const l = m.l && typeof m.l === 'object' ? { top: clean(m.l.top, 7), hair: clean(m.l.hair, 7), skin: clean(m.l.skin, 7), bc: clean(m.l.bc, 7), hs: clean(m.l.hs, 8), bt: clean(m.l.bt, 8), ac: clean(m.l.ac, 8) } : null;
     let mc = null;
     if (m.mc && typeof m.mc === 'object') {
       mc = {};

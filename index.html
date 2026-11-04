@@ -34,9 +34,18 @@
         <span>닉네임</span>
         <input id="nameInput" maxlength="12" placeholder="서점에서 쓸 이름" enterkeyhint="go" />
       </label>
-      <div class="field"><span>옷</span><div id="topSwatches" class="swatches"></div></div>
-      <div class="field"><span>머리</span><div id="hairSwatches" class="swatches"></div></div>
-      <div class="field"><span>피부</span><div id="skinSwatches" class="swatches"></div></div>
+      <div class="look-box">
+        <canvas id="lookPreview" class="look-preview" width="180" height="230" aria-label="내 모습 미리 보기"></canvas>
+        <div class="look-fields">
+          <div class="field"><span>윗옷</span><div id="topSwatches" class="swatches"></div></div>
+          <div class="field"><span>아래옷</span><div id="bcSwatches" class="swatches"></div></div>
+          <div class="field"><span>머리</span><div id="hairSwatches" class="swatches"></div></div>
+          <div class="field"><span>피부</span><div id="skinSwatches" class="swatches"></div></div>
+        </div>
+      </div>
+      <div class="field"><span>머리형</span><div id="hsChips" class="chips"></div></div>
+      <div class="field"><span>아래옷</span><div id="btChips" class="chips"></div></div>
+      <div class="field"><span>소품</span><div id="acChips" class="chips"></div></div>
       <div class="field hidden" id="roomField"><span>방</span>
         <select id="roomSelect"><option value="">빈자리 있는 방으로</option></select>
       </div>

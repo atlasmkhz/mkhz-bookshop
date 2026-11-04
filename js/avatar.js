@@ -2,10 +2,16 @@
 import * as THREE from 'three';
 
 export const LOOKS = {
-  tops: ['#e8a87c', '#9fb7a0', '#c9b6e4', '#f2d16b', '#8fb2d6', '#e58f8f', '#f4efe6'],
-  hairs: ['#3b2a22', '#6b4630', '#a8784f', '#2b2b30', '#d9b98a'],
+  tops: ['#e8a87c', '#9fb7a0', '#c9b6e4', '#f2d16b', '#8fb2d6', '#e58f8f', '#f4efe6', '#3f5a73', '#6b4a3a', '#2f3b33', '#f2b8c6', '#7fbfb4'],
+  hairs: ['#3b2a22', '#6b4630', '#a8784f', '#2b2b30', '#d9b98a', '#8a3b3b', '#cfc8bd', '#e3a1b4'],
   skins: ['#f7dcc5', '#efc9a8', '#d9a982', '#b98563'],
+  bottoms: ['#6d5a4c', '#3b4a63', '#8c8578', '#2f2f33', '#b48a5e', '#7a4b5a', '#e9e2d6', '#5f6b4e'],
+  // 고르기 (누구나 무엇이든): 머리 모양 · 아래옷 · 소품
+  hairStyles: [['short', '짧은 머리'], ['bob', '단발'], ['long', '긴 머리'], ['bun', '올림 머리'], ['twin', '양갈래'], ['curly', '곱슬']],
+  bottomStyles: [['pants', '긴 바지'], ['shorts', '반바지'], ['skirt', '치마'], ['dress', '원피스']],
+  accs: [['none', '없음'], ['glasses', '안경'], ['beanie', '털모자'], ['beret', '베레모'], ['cap', '야구모자'], ['ribbon', '리본']],
 };
+const pick = (list, v) => (list.some(([k]) => k === v) ? v : list[0][0]);
 
 const std = (c, r = 0.8) => new THREE.MeshStandardMaterial({ color: c, roughness: r });
 const lerp = THREE.MathUtils.lerp;
@@ -25,13 +31,15 @@ export function placeTags(camera, W, H, center) { for (const a of TAGS) a.placeT
 
 export class Avatar {
   constructor(name, look) {
-    this.look = { top: LOOKS.tops[0], hair: LOOKS.hairs[0], skin: LOOKS.skins[0], ...look };
+    this.look = { top: LOOKS.tops[0], hair: LOOKS.hairs[0], skin: LOOKS.skins[0], bc: LOOKS.bottoms[0], ...look };
+    const hs = pick(LOOKS.hairStyles, this.look.hs), bt = pick(LOOKS.bottomStyles, this.look.bt), ac = pick(LOOKS.accs, this.look.ac);
     this.root = new THREE.Group();
     this.body = new THREE.Group();
     this.root.add(this.body);
     const skin = std(this.look.skin, 0.86);   // 무광 점토 느낌 (디오라마)
     const top = std(this.look.top, 0.95);
-    const pants = std('#6d5a4c', 0.9);
+    const pants = std(this.look.bc || '#6d5a4c', 0.9);
+    const bare = bt === 'skirt' || bt === 'dress' || bt === 'shorts';   // 다리를 피부로 (짧은 아래옷)
     const hair = std(this.look.hair, 0.92);
     const S = (o) => { o.castShadow = true; o.receiveShadow = true; return o; };
 
@@ -40,9 +48,10 @@ export class Avatar {
     for (const s of [-1, 1]) {
       const hip = new THREE.Group();
       hip.position.set(s * 0.075, 0.38, 0);
-      const leg = S(new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.22, 4, 10), pants));
+      const leg = S(new THREE.Mesh(new THREE.CapsuleGeometry(bare ? 0.05 : 0.06, 0.22, 4, 10), bare ? skin : pants));
       leg.position.y = -0.17;
       hip.add(leg);
+      if (bt === 'shorts') { const sh = S(new THREE.Mesh(new THREE.CapsuleGeometry(0.068, 0.06, 4, 10), pants)); sh.position.y = -0.05; hip.add(sh); }
       const shoe = S(new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), std('#4d3a30', 0.6)));
       shoe.scale.set(1, 0.6, 1.4);
       shoe.position.set(0, -0.34, 0.03);
@@ -55,6 +64,15 @@ export class Avatar {
     torso.position.y = 0.55;
     torso.scale.set(1, 1, 0.82);
     this.body.add(torso);
+    // 치마 · 원피스 (몸통 아래 퍼지는 통)
+    if (bt === 'skirt' || bt === 'dress') {
+      const len = bt === 'dress' ? 0.3 : 0.2;
+      const sk = S(new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.235, len, 20, 1, true), bt === 'dress' ? top : pants));
+      sk.material.side = THREE.DoubleSide;
+      sk.position.y = 0.44 - len / 2 + 0.05;
+      sk.scale.z = 0.86;
+      this.body.add(sk);
+    }
     // 목도리 느낌의 칼라
     const collar = S(new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.035, 8, 20), std(new THREE.Color(this.look.top).offsetHSL(0, 0, -0.12), 0.95)));
     collar.rotation.x = Math.PI / 2;
@@ -82,16 +100,47 @@ export class Avatar {
     const headM = S(new THREE.Mesh(new THREE.SphereGeometry(0.22, 28, 20), skin));
     headM.scale.set(1, 0.95, 0.95);
     this.head.add(headM);
-    // 머리카락
-    const hairM = S(new THREE.Mesh(new THREE.SphereGeometry(0.235, 28, 20, 0, Math.PI * 2, 0, Math.PI * 0.55), hair));
-    hairM.rotation.x = -0.35;
-    hairM.position.set(0, 0.015, -0.015);
-    this.head.add(hairM);
-    const bangs = S(new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 10), hair));
-    bangs.scale.set(1.6, 0.55, 0.8);
-    bangs.position.set(0.03, 0.13, 0.15);
-    bangs.rotation.z = -0.2;
-    this.head.add(bangs);
+    // 머리카락 (모양 여섯 가지)
+    const H = (geo, x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, rz = 0) => { const m = S(new THREE.Mesh(geo, hair)); m.position.set(x, y, z); m.scale.set(sx, sy, sz); m.rotation.set(rx, 0, rz); this.head.add(m); return m; };
+    if (hs === 'curly') {
+      // 곱슬: 작은 구슬을 동그랗게 얹음
+      for (let i = 0; i < 22; i++) {
+        const a = (i / 22) * Math.PI * 2 * 2.618, t = Math.acos(1 - (i + 0.5) / 22 * 1.15);
+        H(new THREE.SphereGeometry(0.075, 10, 8), Math.sin(t) * Math.cos(a) * 0.2, Math.cos(t) * 0.2 + 0.02, Math.sin(t) * Math.sin(a) * 0.2 - 0.02);
+      }
+    } else {
+      const cap = H(new THREE.SphereGeometry(0.235, 28, 20, 0, Math.PI * 2, 0, Math.PI * 0.55), 0, 0.015, -0.015);
+      cap.rotation.x = -0.35;
+      H(new THREE.SphereGeometry(0.1, 14, 10), 0.03, 0.13, 0.15, 1.6, 0.55, 0.8, 0, -0.2);   // 앞머리
+    }
+    // 옆 · 뒤로 내려오는 머리 (얼굴 앞은 비움)
+    const sideHair = (lo) => H(new THREE.SphereGeometry(0.245, 26, 18, Math.PI * 0.78, Math.PI * 1.44, Math.PI * 0.22, Math.PI * lo), 0, 0.0, -0.005);
+    if (hs === 'bob' || hs === 'long' || hs === 'twin') sideHair(hs === 'twin' ? 0.38 : 0.5);
+    if (hs === 'long') { const back = H(new THREE.CapsuleGeometry(0.15, 0.2, 6, 14), 0, -0.24, -0.11, 1.05, 1, 0.5); back.rotation.x = 0.12; }
+    if (hs === 'bun') { H(new THREE.SphereGeometry(0.095, 16, 12), 0, 0.23, -0.1); H(new THREE.TorusGeometry(0.06, 0.018, 8, 16), 0, 0.19, -0.08, 1, 1, 1, Math.PI / 2.4); }
+    if (hs === 'twin') for (const sx of [-1, 1]) { H(new THREE.SphereGeometry(0.05, 10, 8), sx * 0.21, 0.02, -0.06); const tail = H(new THREE.CapsuleGeometry(0.045, 0.14, 4, 10), sx * 0.25, -0.1, -0.06); tail.rotation.z = sx * 0.25; }
+    // 소품
+    const accM = std(new THREE.Color(this.look.top).offsetHSL(0, -0.05, -0.18), 0.85);
+    const A = (geo, mat, x, y, z) => { const m = S(new THREE.Mesh(geo, mat)); m.position.set(x, y, z); this.head.add(m); return m; };
+    if (ac === 'glasses') {
+      const gm = std('#3a2c24', 0.4);
+      for (const sx of [-1, 1]) A(new THREE.TorusGeometry(0.043, 0.008, 8, 20), gm, sx * 0.075, 0.0, 0.212);
+      A(new THREE.CylinderGeometry(0.006, 0.006, 0.05, 6).rotateZ(Math.PI / 2), gm, 0, 0.005, 0.215);
+    } else if (ac === 'beanie') {
+      const b = A(new THREE.SphereGeometry(0.25, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.5), accM, 0, 0.04, -0.01); b.scale.y = 0.95;
+      A(new THREE.TorusGeometry(0.235, 0.035, 8, 28).rotateX(Math.PI / 2), accM, 0, 0.05, -0.01);
+      A(new THREE.SphereGeometry(0.05, 10, 8), accM, 0, 0.3, -0.01);
+    } else if (ac === 'beret') {
+      const b = A(new THREE.SphereGeometry(0.23, 22, 12), accM, 0.04, 0.17, -0.02); b.scale.set(1.05, 0.32, 1.05); b.rotation.z = -0.25;
+      A(new THREE.CylinderGeometry(0.012, 0.012, 0.04, 6), accM, 0.07, 0.25, -0.02);
+    } else if (ac === 'cap') {
+      A(new THREE.SphereGeometry(0.24, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.5), accM, 0, 0.05, -0.01);
+      const brim = A(new THREE.CylinderGeometry(0.16, 0.16, 0.02, 20, 1, false, -Math.PI / 2, Math.PI), accM, 0, 0.07, 0.12); brim.scale.z = 1.1;
+    } else if (ac === 'ribbon') {
+      const rm = std('#d9566e', 0.6);
+      for (const sx of [-1, 1]) { const w = A(new THREE.ConeGeometry(0.05, 0.09, 10), rm, 0.14 + sx * 0.05, 0.2, 0.02); w.rotation.z = sx * Math.PI / 2; }
+      A(new THREE.SphereGeometry(0.022, 8, 6), rm, 0.14, 0.2, 0.02);
+    }
     // 눈 · 볼
     const eyeM = std('#2b211d', 0.3);
     this.eyes = [];

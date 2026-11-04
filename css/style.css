@@ -350,3 +350,16 @@ body.clubbing .space-tag, body.copying .space-tag, body.gazing .space-tag { disp
 .cr-form { display: flex; gap: 6px; margin-top: 6px; }
 .cr-form input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 7px 11px; border-radius: 12px; border: 1.5px solid var(--line); background: #fffdf9; outline: none; color: var(--ink); }
 .cr-form .btn { padding: 7px 12px; }
+
+/* ---------- 들어가기: 내 모습 고르기 ---------- */
+#enterForm { max-height: calc(100dvh - 20px); overflow-y: auto; overscroll-behavior: contain; }
+.look-box { display: flex; gap: 10px; align-items: center; }
+.look-preview { width: 90px; height: 115px; flex: none; border-radius: 14px; background: radial-gradient(circle at 50% 35%, #fbf3e4, #ead9bf); }
+.look-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.look-fields .field > span { width: 40px; }
+.look-fields .sw { width: 22px; height: 22px; }
+.look-fields .swatches { gap: 5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chips button { border: 1.5px solid var(--line); background: #fffdf9; border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12.5px; cursor: pointer; color: var(--ink); }
+.chips button.on { background: var(--wood-dark); border-color: var(--wood-dark); color: #fff; }
+.field > span { line-height: 1.2; }

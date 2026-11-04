@@ -1,5 +1,6 @@
 // 화면 위 UI: 입장 · 안내 · 펼친 책 · 책바구니 · 음료 · 건의함 · 채팅 (안내는 화면 위에 짧게)
-import { LOOKS } from './avatar.js';
+import * as THREE from 'three';
+import { LOOKS, Avatar } from './avatar.js';
 import { CONFIG, store } from './config.js';
 import { coverHTML } from './covers.js';
 
@@ -36,10 +37,16 @@ export class UI {
     this.swatches('#topSwatches', LOOKS.tops, 'top');
     this.swatches('#hairSwatches', LOOKS.hairs, 'hair');
     this.swatches('#skinSwatches', LOOKS.skins, 'skin');
+    this.swatches('#bcSwatches', LOOKS.bottoms, 'bc');
+    this.chips('#hsChips', LOOKS.hairStyles, 'hs');
+    this.chips('#btChips', LOOKS.bottomStyles, 'bt');
+    this.chips('#acChips', LOOKS.accs, 'ac');
+    this.startPreview();
     $('#enterForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const n = $('#nameInput').value.trim().slice(0, 12);
       if (!n) { $('#nameInput').focus(); $('#nameInput').classList.add('shake'); setTimeout(() => $('#nameInput').classList.remove('shake'), 400); return; }
+      this.stopPreview();
       $('#entry').classList.add('gone');
       $('#hud').classList.remove('hidden');
       this.onEnter?.({ name: n, look: this.look, soundOn: $('#soundOnEnter').checked, room: +$('#roomSelect').value || null });
@@ -90,10 +97,67 @@ export class UI {
         this.look[key] = c;
         box.querySelectorAll('.sw').forEach((x) => x.classList.remove('on'));
         b.classList.add('on');
+        this.refreshPreview();
       });
       box.appendChild(b);
     });
     if (!colors.includes(this.look[key])) { this.look[key] = colors[0]; box.firstChild.classList.add('on'); }
+  }
+
+  // 글자 단추 고르기 (머리 모양 · 아래옷 · 소품)
+  chips(sel, list, key) {
+    const box = $(sel);
+    box.innerHTML = '';
+    if (!list.some(([k]) => k === this.look[key])) this.look[key] = list[0][0];
+    for (const [k, label] of list) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.className = this.look[key] === k ? 'on' : '';
+      b.addEventListener('click', () => { this.look[key] = k; box.querySelectorAll('button').forEach((x) => x.classList.remove('on')); b.classList.add('on'); this.refreshPreview(); });
+      box.appendChild(b);
+    }
+  }
+  // 들어가기 전 내 모습 미리 보기 (작은 그림판 하나, 들어가면 치움)
+  startPreview() {
+    const cv = $('#lookPreview');
+    if (!cv) return;
+    try {
+      const r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+      r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      r.setSize(90, 115, false);
+      r.outputColorSpace = THREE.SRGBColorSpace;
+      const sc = new THREE.Scene();
+      sc.add(new THREE.HemisphereLight('#fff1dc', '#8a7a5a', 1.6));
+      const dl = new THREE.DirectionalLight('#ffe8c8', 1.6); dl.position.set(1.5, 3, 2.5); sc.add(dl);
+      const cam = new THREE.PerspectiveCamera(30, 90 / 115, 0.1, 20);
+      cam.position.set(0, 0.95, 3.1); cam.lookAt(0, 0.68, 0);
+      this.pv = { r, sc, cam, av: null, t: 0, last: performance.now() };
+      this.refreshPreview();
+      const tick = () => {
+        if (!this.pv) return;
+        const now = performance.now(), dt = Math.min(0.05, (now - this.pv.last) / 1000); this.pv.last = now;
+        this.pv.t += dt;
+        if (this.pv.av) { this.pv.av.root.rotation.y = Math.sin(this.pv.t * 0.6) * 0.6; this.pv.av.update(dt, 0, false); }
+        this.pv.r.render(this.pv.sc, this.pv.cam);
+        this.pv.raf = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch { cv.style.display = 'none'; }
+  }
+  refreshPreview() {
+    if (!this.pv) return;
+    if (this.pv.av) this.pv.sc.remove(this.pv.av.root);
+    const a = new Avatar('', this.look);
+    a.dispose();   // 이름표는 쓰지 않음
+    this.pv.sc.add(a.root);
+    this.pv.av = a;
+  }
+  stopPreview() {
+    if (!this.pv) return;
+    cancelAnimationFrame(this.pv.raf);
+    try { this.pv.r.dispose(); this.pv.r.forceContextLoss(); } catch { /* 무시 */ }
+    this.pv = null;
   }
 
   async refreshRooms() {

@@ -1242,7 +1242,8 @@ function dropRemote(id) {
 }
 
 const isHex = (s) => typeof s === 'string' && /^#[0-9a-fA-F]{6}$/.test(s);
-const sanitizeLook = (l = {}) => ({ top: isHex(l.top) ? l.top : LOOKS.tops[0], hair: isHex(l.hair) ? l.hair : LOOKS.hairs[0], skin: isHex(l.skin) ? l.skin : LOOKS.skins[0] });
+const lookKey = (list, v) => (list.some(([k]) => k === v) ? v : list[0][0]);
+const sanitizeLook = (l = {}) => ({ top: isHex(l.top) ? l.top : LOOKS.tops[0], hair: isHex(l.hair) ? l.hair : LOOKS.hairs[0], skin: isHex(l.skin) ? l.skin : LOOKS.skins[0], bc: isHex(l.bc) ? l.bc : LOOKS.bottoms[0], hs: lookKey(LOOKS.hairStyles, l.hs), bt: lookKey(LOOKS.bottomStyles, l.bt), ac: lookKey(LOOKS.accs, l.ac) });
 function sanitizeCat(c = {}) {
   const o = {};
   for (const k of ['base', 'dark', 'light', 'orange', 'eye']) o[k] = isHex(c[k]) ? c[k] : undefined;
