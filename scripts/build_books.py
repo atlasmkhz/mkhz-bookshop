@@ -1043,7 +1043,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--src', default=os.path.dirname(ROOT))
     ap.add_argument('--no-covers', action='store_true')
-    ap.add_argument('--program', action='store_true', help='data/program.json 의 items 를 채널 영상으로 채움 (비어 있을 때만)')
+    ap.add_argument('--program', action='store_true', help='data/program.json 의 items 를 채널 영상으로 채움 (비었거나 자동 목록일 때만)')
     args = ap.parse_args()
 
     loaders = {'history': load_history, 'philo': load_philo, 'science': load_science, 'politics': load_politics}
@@ -1191,14 +1191,16 @@ def main():
             prog = json.load(open(pp, encoding='utf-8'))
         except OSError:
             prog = {}
-        if not prog.get('items'):
-            prog['items'] = build_program(args.src)
+        # 비어 있거나, 전에 자동으로 채운 목록(_items_note 가 있음)이면 새로 채움 → 아틀라스에 새 영상이 적히면 따라옴.
+        # 서점지기가 직접 고른 대표 모음(_items_note 를 지운 것)은 그대로 둔다.
+        if not prog.get('items') or prog.get('_items_note'):
+            prog['items'] = build_program(args.src) or prog.get('items') or []
             prog['_items_note'] = '역사 · 과학 아틀라스에 적힌 채널 영상으로 자동으로 채운 목록. 대표 모음을 만들면 이 items 를 통째로 바꾸면 됩니다.'
             with open(pp, 'w', encoding='utf-8') as f:
                 json.dump(prog, f, ensure_ascii=False, indent=1)
             log(f'상영 목록 {len(prog["items"])}편 → data/program.json')
         else:
-            log('상영 목록은 이미 채워져 있어 그대로 둠')
+            log('상영 목록은 서점지기가 고른 모음이라 그대로 둠')
 
 
 if __name__ == '__main__':

@@ -1,0 +1,85 @@
+# 매일 새벽, 네 아틀라스 저장소를 읽기만 해서 책 목록 · 필사 문장 · 영화관 상영 목록을 새로 만들고,
+# 바뀐 것이 있을 때만 서점에 반영합니다. (Cloudflare 서버는 쓰지 않음 → 하루 한도와 상관없음)
+# 아틀라스 저장소가 비공개라 읽기 전용 열쇠가 필요해요: 저장소 비밀값 ATLAS_READ_TOKEN
+#   (GitHub 세밀한 토큰, 네 저장소 atlas · philo-atlas · science-atlas · politics-atlas 의 Contents 읽기만)
+name: Sync atlases
+
+on:
+  schedule:
+    - cron: '17 18 * * *'   # 매일 한국 시각 새벽 3시 17분
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-atlases
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 열쇠 확인
+        id: key
+        env:
+          T: ${{ secrets.ATLAS_READ_TOKEN }}
+        run: |
+          if [ -z "$T" ]; then echo "ATLAS_READ_TOKEN 비밀값이 없어 건너뜀 (아틀라스 저장소가 비공개라 읽을 열쇠가 필요해요)"; echo "ok=0" >> "$GITHUB_OUTPUT"; else echo "ok=1" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.ok == '1'
+        with: { ref: main, path: mkhz-bookshop, fetch-depth: 0 }
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.ok == '1'
+        with: { repository: atlasmkhz/atlas, token: '${{ secrets.ATLAS_READ_TOKEN }}', path: atlas, persist-credentials: false }
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.ok == '1'
+        with: { repository: atlasmkhz/philo-atlas, token: '${{ secrets.ATLAS_READ_TOKEN }}', path: philo-atlas, persist-credentials: false }
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.ok == '1'
+        with: { repository: atlasmkhz/science-atlas, token: '${{ secrets.ATLAS_READ_TOKEN }}', path: science-atlas, persist-credentials: false }
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.ok == '1'
+        with: { repository: atlasmkhz/politics-atlas, token: '${{ secrets.ATLAS_READ_TOKEN }}', path: politics-atlas, persist-credentials: false }
+
+      - uses: actions/setup-python@v5
+        if: steps.key.outputs.ok == '1'
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        if: steps.key.outputs.ok == '1'
+        with: { node-version: '20' }
+
+      - name: 책 목록 · 필사 · 상영 목록 다시 만들기
+        if: steps.key.outputs.ok == '1'
+        working-directory: mkhz-bookshop
+        run: |
+          pip install --quiet pillow
+          python3 scripts/build_books.py --src "$GITHUB_WORKSPACE" --program
+
+      - name: 바뀐 것이 있으면 서점에 반영
+        if: steps.key.outputs.ok == '1'
+        working-directory: mkhz-bookshop
+        run: |
+          # 날짜(generated)만 바뀐 책 목록은 되돌림
+          python3 - <<'PY'
+          import json, subprocess
+          old = subprocess.run(['git', 'show', 'HEAD:data/books.json'], capture_output=True, text=True).stdout
+          new = open('data/books.json', encoding='utf-8').read()
+          try:
+              o, n = json.loads(old), json.loads(new)
+              o.pop('generated', None); n.pop('generated', None)
+              if o == n:
+                  subprocess.run(['git', 'checkout', '--', 'data/books.json'])
+          except ValueError:
+              pass
+          PY
+          git add -A data assets/covers
+          if git diff --cached --quiet; then echo "바뀐 것 없음"; exit 0; fi
+          git diff --cached --stat
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "아틀라스 동기화: 책 목록 · 필사 · 상영 목록 ($(date -u +%F))"
+          git push origin HEAD:main
+          # 봇이 올린 것은 Publish site 를 깨우지 않으니 여기서 같이 내보냄
+          git push -f origin HEAD:gh-pages
