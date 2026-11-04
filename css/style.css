@@ -300,3 +300,30 @@ body.crafting .bottombar, body.crafting .chat-log, body.crafting .star-chip, bod
 .av-bubble::after { content: ''; position: absolute; left: 50%; bottom: -8px; margin-left: -8px; border: 8px solid transparent; border-bottom: 0; border-top-color: #fffbf4; }
 @keyframes pop { from { transform: scale(.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 body.gazing .tag-layer, body.copying .tag-layer, body.starring .tag-layer { opacity: 0; }
+
+/* ---------- 독서 모임 방 단체 채팅 ---------- */
+.club-panel { position: fixed; left: 50%; bottom: calc(8px + var(--safe-bot)); transform: translateX(-50%); width: min(560px, calc(100vw - 16px)); height: min(58dvh, 540px); display: none; flex-direction: column; padding: 0; overflow: hidden; z-index: 11; pointer-events: auto; background: #fbf6ec; }
+.club-panel.show { display: flex; animation: up .28s ease-out; }
+body.clubbing .bottombar, body.clubbing .chat-log, body.clubbing .chat-bar, body.clubbing .copy-chip, body.clubbing .star-chip, body.clubbing .fire-bar, body.clubbing .pet-bubble, body.clubbing .game-bar { opacity: 0 !important; visibility: hidden !important; }
+body.clubbing #hud *, body.clubbing .panel { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.cl-head { display: flex; align-items: center; gap: 8px; padding: 10px 44px 8px 14px; border-bottom: 1px solid var(--line); position: relative; }
+.cl-head b { font-family: var(--serif); color: var(--wood-dark); font-size: 16px; }
+.cl-count { font-size: 12.5px; color: #3f7a3a; font-weight: 700; margin-left: 4px; }
+.cl-who { flex: 1; min-width: 0; font-size: 12px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-btn { border: 0; background: transparent; font-size: 17px; cursor: pointer; padding: 4px; }
+.cl-head .x { top: 6px; right: 8px; }
+.cl-topic { font-size: 12.5px; color: #4f5c4a; background: #eef1e6; padding: 6px 14px; line-height: 1.45; }
+.cl-topic:empty { display: none; }
+.cl-list { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; background: #f6efe3; }
+.cl-msg { display: flex; flex-direction: column; align-items: flex-start; max-width: 82%; }
+.cl-msg .n { font-size: 12px; color: var(--wood-dark); font-weight: 700; margin: 0 0 2px 4px; }
+.cl-msg .row { display: flex; align-items: flex-end; gap: 5px; }
+.cl-msg .b { background: #fff; color: var(--ink); font-size: 15.5px; line-height: 1.45; padding: 8px 12px; border-radius: 4px 16px 16px 16px; box-shadow: 0 1px 3px rgba(60, 38, 20, 0.12); overflow-wrap: anywhere; }
+.cl-msg .t { font-size: 10.5px; color: var(--ink-soft); white-space: nowrap; }
+.cl-msg.me { align-self: flex-end; align-items: flex-end; }
+.cl-msg.me .row { flex-direction: row-reverse; }
+.cl-msg.me .b { background: #f3d48a; border-radius: 16px 4px 16px 16px; }
+.cl-sys { align-self: center; font-size: 12px; color: #fbf1e2; background: rgba(90, 64, 44, 0.55); padding: 3px 11px; border-radius: 999px; }
+.cl-form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); background: #fbf6ec; }
+.cl-form input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 9px 13px; border-radius: 13px; border: 1.5px solid var(--line); background: #fffdf9; outline: none; color: var(--ink); }
+body.clubbing .av-bubble { display: none !important; }   /* 모임 방에선 말이 채팅창에 쌓이니 머리 위 말풍선은 숨김 */

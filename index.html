@@ -91,6 +91,12 @@
     <button id="starChip" class="star-chip" type="button">🌌 별멍</button>
     <button id="copyChip" class="copy-chip" type="button">✍️ 필사하기</button>
     <button id="woodChip" class="copy-chip" type="button">🪵 나무 다듬기</button>
+    <div id="clubPanel" class="club-panel panel" role="dialog" aria-label="독서 모임 방 단체 채팅">
+      <div class="cl-head"><div><b>📚 독서 모임 방</b> <span id="clCount" class="cl-count">1/10</span></div><div class="cl-who" id="clWho"></div><button id="clCopy" class="cl-btn" type="button" title="대화 복사">📋</button><button id="clClose" class="x" type="button" aria-label="자리에서 일어나기">×</button></div>
+      <div class="cl-topic" id="clTopic"></div>
+      <div class="cl-list" id="clList"></div>
+      <form id="clForm" class="cl-form" autocomplete="off"><input id="clInput" maxlength="80" placeholder="이 방 사람들에게만 보여요" enterkeyhint="send" /><button class="btn primary" type="submit">보내기</button></form>
+    </div>
     <div id="craftPanel" class="craft-panel panel" role="dialog" aria-label="나무 다듬기">
       <button id="crClose" class="x" type="button" aria-label="그만하기">×</button>
       <div class="cr-tools" id="crTools"></div>

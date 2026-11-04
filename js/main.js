@@ -15,7 +15,7 @@ import { Sky } from './sky.js';
 import { Fireworks, FW_KINDS } from './fireworks.js';
 import { HideSeek } from './hideseek.js';
 import { TRAIL_SPOTS } from './trail.js';
-import { CopyDesk } from './copydesk.js';
+import { CopyDesk, kstDay } from './copydesk.js';
 import { Workshop, SHOP_CAP, inShop } from './woodshop.js';
 import { GalleryClient, inHall } from './gallery.js';
 import { Craft, CRAFTS } from './craft.js';
@@ -136,6 +136,26 @@ window.addEventListener('resize', resize);
 resize();
 
 function updateCamera(dt) {
+  // 독서 모임 방: 테이블을 비스듬히 내려다봄. 아래 채팅창에 가리지 않게 화면을 위로 올림 (처음 2.5초 뒤엔 끌어서 둘러보기)
+  if (club.on && room.club) {
+    const panelH = document.querySelector('#clubPanel')?.offsetHeight || 0;
+    const visH = 2 * cam.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const shift = Math.min(3.2, (panelH / (2 * window.innerHeight)) * visH);
+    const toward = new THREE.Vector3(Math.sin(cam.yaw), 0, Math.cos(cam.yaw));
+    const w = room.club.center.clone().addScaledVector(toward, shift / Math.max(0.4, Math.sin(cam.pitch)));
+    const k = club.t < 1.5 ? 5 : 3;
+    cam.target.lerp(w, 1 - Math.exp(-k * dt));
+    if (club.t < 2.5) {
+      cam.dist += ((camera.aspect < 1 ? 7.5 : 6.2) - cam.dist) * (1 - Math.exp(-k * dt));
+      cam.pitch += (0.95 - cam.pitch) * (1 - Math.exp(-k * dt));
+      cam.yaw = dampAngle(cam.yaw, 0.35, k, dt);
+    }
+    const cp = Math.cos(cam.pitch);
+    camera.position.set(cam.target.x + Math.sin(cam.yaw) * cp * cam.dist, cam.target.y + Math.sin(cam.pitch) * cam.dist, cam.target.z + Math.cos(cam.yaw) * cp * cam.dist);
+    camera.lookAt(cam.target);
+    room.viewCenter = cam.target;
+    return;
+  }
   // 나무 다듬기: 내 어깨 너머로 테이블 위 나무를 내려다봄 (내 팔 · 도구가 보이게). 아래 판에 가리지 않게 조금 내 쪽을 봄
   if (craft.on && me.seat) {
     const w = craft.focus();
@@ -289,7 +309,7 @@ function updateCutaway(dt) {
   }
   room.roof.visible = me.entered && !inside;
   // 목공방 · 미술관 지붕: 그 안에 들어가면 접힘
-  for (const rf of room.roofs || []) { const R = rf.rect; rf.g.visible = !(me.entered && lv === 0 && ref.x > R.minX && ref.x < R.maxX && ref.z > R.minZ && ref.z < R.maxZ); }
+  for (const rf of room.roofs || []) { const R = rf.rect; rf.g.visible = !(me.entered && lv === (rf.lv || 0) && ref.x > R.minX && ref.x < R.maxX && ref.z > R.minZ && ref.z < R.maxZ); }
   for (const b of room.beams) {
     const cc = b.axis === 'z' ? c.z : c.x, rr = b.axis === 'z' ? ref.z : ref.x;
     const lo = Math.min(cc, rr) - 0.6, hi = Math.max(cc, rr) + 0.6;
@@ -1184,10 +1204,11 @@ function sendState(force = false, goal = null) {
   const st = [+me.pos.x.toFixed(2), +me.pos.z.toFixed(2), +me.yaw.toFixed(2), +me.pos.y.toFixed(2)];
   const seatIdx = me.seat ? me.seat.idx : -1;
   const g = goal ? [+goal.x.toFixed(2), +goal.z.toFixed(2), +goal.y.toFixed(2)] : null;
-  const key = JSON.stringify([st, seatIdx, g]);
+  const c = me.seat?.club ? 1 : 0;   // 독서 모임 방 의자 (서버가 채팅을 방 안끼리만 전하게)
+  const key = JSON.stringify([st, seatIdx, g, c]);
   if (!force && key === lastSent) return;
   lastSent = key;
-  net.send({ t: 'st', p: st, s: seatIdx, g });
+  net.send({ t: 'st', p: st, s: seatIdx, g, c });
 }
 
 function getRemote(id) {
@@ -1284,9 +1305,13 @@ function handle(m) {
     case 'chat': {
       const r = remotes.get(m.uid);
       if (!r || blocked.has(m.uid)) break;
-      if (near(r) > CONFIG.chatRange) break;
       const text = cleanText(m.m);
       if (!text) break;
+      // 독서 모임 방 말은 방 안끼리만, 방 밖 말은 방 안으로 들어오지 않음
+      const fromClub = !!m.c || inClubSeat(r);
+      if (fromClub !== club.on) break;
+      if (club.on) { r.avatar.say(text); ui.clubLine(r.name, text); break; }
+      if (near(r) > CONFIG.chatRange) break;
       r.avatar.say(text);
       ui.chatLine(r.name, text);
       break;
@@ -1396,8 +1421,14 @@ ui.onChatSend = (raw) => {
   const err = limiter.check(text);
   if (err) return err;
   me.avatar.say(text);
+  if (club.on) {
+    // 독서 모임 방: 이 방 의자에 앉은 사람에게만 (멀리 있어도 같은 방이면)
+    ui.clubLine(me.name, text, 'me');
+    if (clubMembers().length) net.send({ t: 'chat', m: text, c: 1 });
+    return null;
+  }
   ui.chatLine(me.name, text, 'me');
-  const anyone = [...remotes.values()].some((r) => near(r) <= CONFIG.chatRange + 2);
+  const anyone = [...remotes.values()].some((r) => !inClubSeat(r) && near(r) <= CONFIG.chatRange + 2);
   if (anyone) net.send({ t: 'chat', m: text });
   else if (remotes.size) ui.chatLine('', '가까이 아무도 없어서 혼잣말이 되었어요', 'sys');
   return null;
@@ -1446,6 +1477,7 @@ ui.places = [
   { ico: '🌊', name: '폭포 · 계곡', note: '바위에 앉아 물소리', to: [28.0, 0, -17.5] },
   { ico: '🏖️', name: '바닷가', note: '파라솔 · 선착장 · 모닥불', to: [13.5, 0, 24.5] },
   { ico: '🪜', name: '루프탑', note: '화로 · 해먹 · 망원경', to: [-1.0, 5.75, 4.0] },
+  { ico: '📖', name: '독서 모임 방', note: '루프탑 북서쪽 · 정원 10명 · 앉으면 단체 채팅', to: [-10.2, 5.75, 2.0] },
   { ico: '📚', name: '비밀 서재', note: '책장 문 뒤', to: [-14.2, 0, 7.6] },
   { ico: '🛖', name: '다락', note: '담요 굴 · 독서 천막', to: [-8.0, 2.7, -7.0] },
   { ico: '🌳', name: '나무 위 오두막', note: '사다리 계단 위', to: [44.0, 2.4, -16.0] },
@@ -1526,6 +1558,66 @@ async function flushSuggestions() {
   const rest = [];
   for (const it of q) { try { await postSuggestion(it); } catch { rest.push(it); } }
   store.set('suggestQueue', rest);
+}
+
+// ---------- 루프탑 독서 모임 방: 의자 10개가 정원, 앉으면 단체 채팅창 ----------
+// 메시지: 따로 없음. 'st' 의 c 칸(앉은 의자가 모임 방인지)과 채팅 'chat' 의 c 칸만. 누가 앉았는지는 이미 아는 자리로 각자 셈
+const club = { on: false, t: 0, saved: null, members: new Set(), seenAt: new Map(), names: new Map(), signN: -1, warnT: 0 };
+const inClubSeat = (r) => !!room.seats[r.seat]?.club;
+const clubMembers = () => [...remotes.entries()].filter(([id, r]) => inClubSeat(r) && !blocked.has(id));
+function todayTopic() {
+  const n = copy.notes || [];
+  if (!n.length) return '';
+  const note = n[kstDay() % n.length];
+  return note?.qKo ? `${note.qKo}` : '';
+}
+copy.ready?.then(() => room.club?.drawBoard(todayTopic()));
+function startClub() {
+  club.on = true; club.t = 0;
+  club.saved = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, zoomed: cam.userZoomed };
+  club.members = new Set(clubMembers().map(([id]) => id));
+  club.seenAt = new Map(); club.names = new Map(clubMembers().map(([id, r]) => [id, r.name]));
+  ui.clubOpen(todayTopic());
+  ui.clubLine('', '독서 모임 방에 앉았어요 — 여기서 한 말은 이 방 의자에 앉은 사람에게만 보여요', 'sys');
+  const names = clubMembers().map(([, r]) => r.name);
+  if (names.length) ui.clubLine('', `지금 함께: ${names.join(', ')}`, 'sys');
+  else ui.clubLine('', '아직 혼자예요. 누군가 앉으면 알려 드릴게요', 'sys');
+  sendState(true);
+}
+function exitClub() {
+  if (!club.on) return;
+  club.on = false;
+  ui.clubClose();
+  const s0 = club.saved; if (s0) { cam.pitch = s0.pitch; cam.dist = s0.dist; cam.userZoomed = s0.zoomed; }
+}
+ui.onClubLeave = () => { standUp(); sendState(true); };
+function updateClub(dt) {
+  if (!room.club) return;
+  const want = !!me.seat?.club;
+  if (want && !club.on) startClub();
+  else if (!want && club.on) exitClub();
+  const list = clubMembers();
+  const n = list.length + (want ? 1 : 0);
+  if (n !== club.signN) { club.signN = n; room.club.drawSign(n); }
+  if (club.on) {
+    club.t += dt;
+    // 앉은 지 1.5초가 지나야 알림 (이름이 아직 안 왔거나 잠깐 스친 것은 알리지 않음), 알린 사람만 일어났다고 알림
+    const now = new Set(list.map(([id]) => id));
+    const tnow = performance.now();
+    for (const [id, r] of list) {
+      if (!club.seenAt.has(id)) club.seenAt.set(id, tnow);
+      if (!club.members.has(id) && tnow - club.seenAt.get(id) > 1500) { club.members.add(id); club.names.set(id, r.name); ui.clubLine('', `${r.name} 님이 자리에 앉았어요`, 'sys'); }
+    }
+    for (const id of [...club.seenAt.keys()]) if (!now.has(id)) club.seenAt.delete(id);
+    for (const id of [...club.members]) if (!now.has(id)) { club.members.delete(id); ui.clubLine('', `${club.names.get(id) || remotes.get(id)?.name || '손님'} 님이 일어났어요`, 'sys'); }
+    ui.clubMembers(n, [me.name, ...list.map(([, r]) => r.name)]);
+  } else if (me.entered && !me.seat && levelOf(me.pos) === 3) {
+    // 꽉 찬 방에 들어서면 한 번 알려 줌
+    const R = room.club.rect, p = me.pos;
+    const inside = p.x > R.x0 && p.x < R.x1 && p.z > R.z0 && p.z < R.z1;
+    club.warnT -= dt;
+    if (inside && club.warnT <= 0) { club.warnT = 20; ui.toast(n >= 10 ? '📚 독서 모임 방이 꽉 찼어요 (10/10) — 자리가 비면 앉을 수 있어요' : '📚 빈 의자를 누르면 독서 모임에 들어가요 — 단체 채팅창이 열려요'); }
+  }
 }
 
 // ---------- 화면 UI 연결 ----------
@@ -1642,6 +1734,7 @@ function frame() {
   updateHide(dt);
   updateCopy(dt);
   updateWood(dt);
+  updateClub(dt);
   if (me.entered) gallery.update(dt, me.pos);
   updateRemotes(dt);
   updateDoors(dt);
@@ -1670,12 +1763,12 @@ function frame() {
   if (look.on) {
     // 흐림의 초점: 내 캐릭터(또는 카메라가 보는 곳)의 화면 높이. 별멍 · 작품 보기 · 필사 땐 흐림을 줄임
     const fx = look.fx || (look.fx = new Diorama(renderer));
-    const fp = me.entered && !copy.on && !craft.on && !artLook.on ? me.pos.clone().setY(me.pos.y + 0.8) : cam.target.clone();
+    const fp = me.entered && !copy.on && !craft.on && !artLook.on && !club.on ? me.pos.clone().setY(me.pos.y + 0.8) : cam.target.clone();
     const u = fx.mat.uniforms;
     u.focusDist.value += (camera.position.distanceTo(fp) - u.focusDist.value) * Math.min(1, dt * 4);
     const f = fp.project(camera);
     u.focus.value += ((THREE.MathUtils.clamp(f.y * 0.5 + 0.5, 0.25, 0.75)) - u.focus.value) * Math.min(1, dt * 4);
-    const want = star.on || fwView.on ? 0 : copy.on || artLook.on ? 0.3 : craft.on ? 0.55 : 1.0;
+    const want = star.on || fwView.on ? 0 : copy.on || artLook.on ? 0.3 : craft.on || club.on ? 0.55 : 1.0;
     u.blur.value += (want - u.blur.value) * Math.min(1, dt * 3);
     u.bloom.value = 0.12 + dayNight.night * 0.55;   // 밤에 등불 · 모닥불이 더 번지게
     u.time.value = t % 1000;
@@ -1696,4 +1789,4 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-window.shop = { renderer, look, setLook, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { club, startClub, handle, renderer, look, setLook, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };

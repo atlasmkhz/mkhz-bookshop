@@ -760,6 +760,7 @@ function buildRooftop(scene, roof, room) {
     obst(footprint(7.0, -6.5, 0.55, 0.55));
     stool(roof, room, 6.3, -5.7, face(6.3, -5.7, 9, -8), 0.46, '#a9bba0', { ...o, name: '망원경 옆 걸상', nook: true });
   }
+  clubRoom(roof, room);
   // 지붕 뒤 숨는 구석 (박공 지붕 양옆)
   cushion(roof, room, -15.1, -8.6, 0, '#d9a07a', { ...o, name: '루프탑 지붕 뒤 구석', nook: true });
   cushion(roof, room, -15.1, -7.5, 0, '#a9bba0', { ...o, name: '루프탑 지붕 뒤 구석', nook: true });
@@ -1418,4 +1419,124 @@ function storeStand(scene, x, y, z) {
   g.rotation.y = 0.25 + Math.PI;
   g.traverse((o) => { o.userData.store = true; });
   scene.add(g);
+}
+
+// ---------- 루프탑 독서 모임 방 (북서쪽): 통유리 · 긴 테이블 · 의자 10개(정원) · 오늘의 이야깃거리 칠판 · 문 옆 자리 수 팻말 ----------
+// 의자에 앉으면 단체 채팅창이 열림 (main.js club). 채팅은 이 방 의자에 앉은 사람끼리만
+export const CLUB = { x0: -15.2, x1: -8.9, z0: -4.2, z1: 1.0, H: 2.4, door: [-10.75, -9.6] };
+function clubRoom(roof, room) {
+  const { x0, x1, z0, z1, H } = CLUB;
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  const obst = (r) => { r.lv = 3; room.obstacles.push(r); };
+  const glass = new THREE.MeshStandardMaterial({ color: '#d6ecf2', transparent: true, opacity: 0.16, roughness: 0.05, metalness: 0.3, depthWrite: false, side: THREE.DoubleSide });
+  const frame = M.woodDark();
+  // 마루 (조금 밝은 널) · 러그
+  roof.add(mesh(new THREE.BoxGeometry(x1 - x0, 0.02, z1 - z0), M.woodLight(), cx, RY + 0.01, cz, { cast: false }));
+  rug(roof, cx, cz, 5.2, 2.8, ['#7f97a8', '#efe0c7'], { fy: RY + 0.02 });
+  // 통유리 벽 (가는 나무 세로살) — 문 자리는 비움
+  const wall = (ax, a0, a1, at, gap) => {
+    const pieces = gap ? [[a0, gap[0]], [gap[1], a1]] : [[a0, a1]];
+    for (const [p0, p1] of pieces) {
+      const len = p1 - p0, mid = (p0 + p1) / 2;
+      const gp = mesh(ax === 'x' ? new THREE.BoxGeometry(len, H, 0.03) : new THREE.BoxGeometry(0.03, H, len), glass, ax === 'x' ? mid : at, RY + H / 2, ax === 'x' ? at : mid, { cast: false });
+      gp.renderOrder = 2; gp.castShadow = false; roof.add(gp);
+      const n = Math.max(1, Math.round(len / 1.1));
+      for (let k = 0; k <= n; k++) { const a = p0 + (len * k) / n; roof.add(mesh(rbox(0.06, H, 0.06, 0.01), frame, ax === 'x' ? a : at, RY + H / 2, ax === 'x' ? at : a)); }
+      roof.add(mesh(ax === 'x' ? rbox(len, 0.08, 0.08, 0.01) : rbox(0.08, 0.08, len, 0.01), frame, ax === 'x' ? mid : at, RY + 0.04, ax === 'x' ? at : mid));
+      obst(ax === 'x' ? { minX: p0 - 0.05, maxX: p1 + 0.05, minZ: at - 0.12, maxZ: at + 0.12 } : { minX: at - 0.12, maxX: at + 0.12, minZ: p0 - 0.05, maxZ: p1 + 0.05 });
+    }
+  };
+  wall('x', x0, x1, z0);
+  wall('z', z0, z1, x0);
+  wall('z', z0, z1, x1);
+  wall('x', x0, x1, z1, CLUB.door);
+  // 문틀 위 들보
+  roof.add(mesh(rbox(CLUB.door[1] - CLUB.door[0] + 0.12, 0.1, 0.1, 0.01), frame, (CLUB.door[0] + CLUB.door[1]) / 2, RY + 2.05, z1));
+  // 지붕 판 (안에 들어가면 접힘) + 처마 아래 전구 한 줄
+  const top = new THREE.Group();
+  top.add(mesh(new THREE.BoxGeometry(x1 - x0 + 0.1, 0.12, z1 - z0 + 0.1), M.woodDark(), cx, RY + H + 0.06, cz));
+  top.add(mesh(new THREE.BoxGeometry(x1 - x0 - 0.4, 0.02, z1 - z0 - 0.4), M.woodLight(), cx, RY + H + 0.13, cz, { cast: false }));
+  roof.add(top);
+  (room.roofs ||= []).push({ g: top, rect: { minX: x0 - 0.2, maxX: x1 + 0.2, minZ: z0 - 0.2, maxZ: z1 + 0.2 }, lv: 3 });
+  // 긴 테이블 (4.4 × 1.0) + 책 · 찻잔 · 등
+  const tx = cx, tz = cz;
+  {
+    const g = new THREE.Group();
+    plank(g, 4.4, 0.06, 1.0, 0, 0.75, 0, M.wood(), 0.02);
+    for (const sx of [-2.0, 2.0]) for (const sz of [-0.38, 0.38]) plank(g, 0.08, 0.72, 0.08, sx, 0.36, sz, M.woodMid(), 0.01);
+    plank(g, 3.9, 0.05, 0.08, 0, 0.62, 0, M.woodMid(), 0.01);
+    const cols = ['#7a3b2a', '#1f2c4d', '#3e8e5a', '#8a4b6b', '#1f6f6b'];
+    for (let i = 0; i < 10; i++) {
+      const sx = -1.7 + (i % 5) * 0.85, sz = i < 5 ? -0.28 : 0.28;
+      g.add(mesh(rbox(0.16, 0.025, 0.22, 0.004), M.color(cols[i % 5], 0.8), sx - 0.12, 0.79, sz, { cast: false }));
+      g.add(mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.07, 12), M.color('#f6efe4', 0.35), sx + 0.15, 0.815, sz * 0.75));
+    }
+    for (const sx of [-1.1, 1.1]) { g.add(mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.03, 12), M.woodDark(), sx, 0.795, 0)); g.add(mesh(new THREE.SphereGeometry(0.06, 12, 10), new THREE.MeshStandardMaterial({ color: '#ffe3a0', emissive: '#ffcf7a', emissiveIntensity: 0.6 }), sx, 0.88, 0)); }
+    g.position.set(tx, RY, tz);
+    roof.add(g);
+    obst({ minX: tx - 2.25, maxX: tx + 2.25, minZ: tz - 0.55, maxZ: tz + 0.55 });
+  }
+  const lamp = new THREE.PointLight('#ffd49a', 0.3, 7, 1.6); lamp.position.set(tx, RY + 1.9, tz); roof.add(lamp);
+  room.nightParts.push((dt, t, n) => { lamp.intensity = 0.3 + n * 3.5; });
+  // 의자 10개 (긴 쪽마다 다섯, 테이블을 봄)
+  const seats = [];
+  const cc = ['#c98f6b', '#a9bba0', '#e6cf9c', '#7f97a8', '#d9a07a'];
+  for (let i = 0; i < 10; i++) {
+    const sx = tx - 1.7 + (i % 5) * 0.85, north = i < 5, sz = tz + (north ? -0.82 : 0.82);
+    const s = chair(roof, room, sx, sz, face(sx, sz, sx, tz), cc[i % 5], { fy: RY, lv: 3, name: '독서 모임 방', appr: -0.5 });
+    s.club = true;
+    seats.push(s);
+  }
+  // 오늘의 이야깃거리 칠판 (서쪽 벽 안쪽) — 철학아틀라스 「오늘의 필사」의 질문을 main.js 가 적어 줌
+  const bc = document.createElement('canvas'); bc.width = 512; bc.height = 320;
+  const bt = new THREE.CanvasTexture(bc); bt.colorSpace = THREE.SRGBColorSpace;
+  let boardText = '';
+  const drawBoard = (text) => {
+    if (text != null) boardText = text;
+    const g = bc.getContext('2d');
+    g.fillStyle = '#2f3b33'; g.fillRect(0, 0, 512, 320);
+    g.strokeStyle = '#8a5a3a'; g.lineWidth = 16; g.strokeRect(8, 8, 496, 304);
+    g.fillStyle = '#e9e4d4'; g.textAlign = 'center';
+    g.font = '700 34px "Gowun Dodum", sans-serif'; g.fillText('📚 독서 모임 방', 256, 62);
+    g.font = '24px "Gowun Dodum", sans-serif'; g.fillStyle = '#c9d6c4'; g.fillText('오늘의 이야깃거리', 256, 104);
+    g.fillStyle = '#f2efe4'; g.font = '26px "Gowun Batang", serif';
+    const words = (boardText || '앉으면 단체 채팅이 열려요 · 정원 10명').split(''); let line = '', y = 150;
+    for (const ch of words) { if (g.measureText(line + ch).width > 440) { g.fillText(line, 256, y); line = ch; y += 36; if (y > 290) break; } else line += ch; }
+    if (y <= 290) g.fillText(line, 256, y);
+    bt.needsUpdate = true;
+  };
+  drawBoard();
+  document.fonts?.ready.then(() => drawBoard());
+  const board = mesh(new THREE.PlaneGeometry(1.8, 1.125), new THREE.MeshStandardMaterial({ map: bt, roughness: 0.9 }), x0 + 0.08, RY + 1.35, tz, { cast: false });
+  board.rotation.y = Math.PI / 2; board.userData.noHit = true; roof.add(board);
+  // 창가 작은 책꽂이 (동쪽 벽 안, 문 북쪽)
+  {
+    const g = new THREE.Group();
+    plank(g, 0.32, 0.9, 1.1, 0, 0.45, 0, M.woodMid(), 0.01);
+    for (let i = 0; i < 9; i++) g.add(mesh(rbox(0.2, 0.26, 0.05, 0.004), M.color(['#7a3b2a', '#1f2c4d', '#3e8e5a', '#8a4b6b', '#1f6f6b', '#c9a45a'][i % 6], 0.8), -0.02, 0.62, -0.45 + i * 0.11));
+    g.position.set(x1 - 0.3, RY, z0 + 1.0);
+    roof.add(g);
+    obst(footprint(x1 - 0.3, z0 + 1.0, 0.36, 1.14));
+  }
+  // 문 옆 팻말: 지금 앉은 사람 수 (main.js 가 바뀔 때만 다시 그림)
+  const sc = document.createElement('canvas'); sc.width = 384; sc.height = 160;
+  const st = new THREE.CanvasTexture(sc); st.colorSpace = THREE.SRGBColorSpace;
+  let signN = -1;
+  const drawSign = (n) => {
+    if (n === signN) return;
+    signN = n;
+    const g = sc.getContext('2d');
+    g.fillStyle = '#efe2c8'; g.beginPath(); g.roundRect(4, 4, 376, 152, 18); g.fill();
+    g.strokeStyle = '#6b4a30'; g.lineWidth = 6; g.stroke();
+    g.fillStyle = '#4a3426'; g.textAlign = 'center';
+    g.font = '700 38px "Gowun Dodum", sans-serif'; g.fillText('독서 모임 방', 192, 62);
+    g.font = '700 34px "Gowun Dodum", sans-serif'; g.fillStyle = n >= 10 ? '#b4462e' : '#3f7a3a';
+    g.fillText(n >= 10 ? `꽉 찼어요 · ${n}/10` : `자리 있어요 · ${n}/10`, 192, 122);
+    st.needsUpdate = true;
+  };
+  drawSign(0);
+  document.fonts?.ready.then(() => { const k = signN; signN = -1; drawSign(k); });
+  const sign = mesh(new THREE.PlaneGeometry(0.9, 0.375), new THREE.MeshStandardMaterial({ map: st, roughness: 0.9 }), CLUB.door[0] - 0.62, RY + 1.6, z1 + 0.05, { cast: false });
+  sign.userData.noHit = true; roof.add(sign);
+  room.club = { seats, center: V(tx, RY + 0.78, tz), door: V((CLUB.door[0] + CLUB.door[1]) / 2, RY, z1 + 0.9), rect: CLUB, drawBoard, drawSign };
 }

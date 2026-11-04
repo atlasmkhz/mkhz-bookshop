@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 
 const VERT = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+const SAFE = 'vec3 safe(vec3 c){ return (c.r >= 0.0 && c.r < 6e4 && c.g >= 0.0 && c.g < 6e4 && c.b >= 0.0 && c.b < 6e4) ? c : vec3(0.0); }';
 const LIN = 'float lin(vec2 uv){ float z = texture2D(tDepth, uv).x * 2.0 - 1.0; return 2.0 * near * far / (far + near - z * (far - near)); }';
 
 // 절반 해상도: 구석 그늘 + 그림 줄이기 (rgb = 그림, a = 그늘)
@@ -16,14 +17,17 @@ const AO_FRAG = /* glsl */`
   uniform sampler2D tColor; uniform sampler2D tDepth; uniform vec2 res; uniform float near, far, ao;
   varying vec2 vUv;
   ${LIN}
+  ${SAFE}
   void main(){
     vec2 px = 1.0 / res;
-    vec3 c = texture2D(tColor, vUv).rgb;
+    // 장면 어딘가 계산이 깨진 점(무한대 · 숫자 아님)이 번짐으로 네모나게 퍼지지 않게 먼저 걸러 냄
+    vec3 c = safe(texture2D(tColor, vUv).rgb);
     float d = lin(vUv);
     // 점마다 다른 각도로 돌려 띠 무늬가 생기지 않게 (뒤에서 번지며 섞임)
     float n = fract(52.9829189 * fract(0.06711056 * gl_FragCoord.x + 0.00583715 * gl_FragCoord.y));
     float rad = clamp(16.0 / d, 1.6, 14.0);
     float occ = 0.0;
+    if (!(d > 0.0 && d < 1e5)) d = 1e5;
     for (int i = 0; i < 12; i++) {
       float a = float(i) * 2.39996 + n * 6.2832;
       float r = sqrt((float(i) + 0.5) / 12.0) * rad;
@@ -61,8 +65,9 @@ const MIX_FRAG = /* glsl */`
   uniform vec2 res; uniform float near, far, focus, band, blur, focusDist, aoMix, bloom, warm, grain, time;
   varying vec2 vUv;
   ${LIN}
+  ${SAFE}
   void main(){
-    vec3 c = texture2D(tColor, vUv).rgb;
+    vec3 c = safe(texture2D(tColor, vUv).rgb);
     vec4 b = texture2D(tBlur, vUv);
     // 흐릴 정도: 화면 위아래(틸트시프트) 와 내 캐릭터보다 많이 앞 · 뒤(깊이) 가운데 큰 쪽
     float wt = smoothstep(band, band + 0.34, abs(vUv.y - focus));

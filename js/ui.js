@@ -372,6 +372,47 @@ export class UI {
   }
   craftNeedle(v) { const n = $('#crNeedle'); if (n) n.style.left = `${(v * 100).toFixed(1)}%`; }
 
+  // ---------- 독서 모임 방 단체 채팅 ----------
+  clubOpen(topic) {
+    if (!this._clBound) {
+      this._clBound = true;
+      $('#clForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const v = $('#clInput').value;
+        const err = this.onChatSend?.(v);
+        if (err) this.toast(err); else $('#clInput').value = '';
+      });
+      $('#clClose').addEventListener('click', () => this.onClubLeave?.());
+      $('#clCopy').addEventListener('click', async () => {
+        const txt = [...document.querySelectorAll('#clList > div')].map((d) => d.dataset.line || d.textContent).join('\n');
+        try { await navigator.clipboard.writeText(txt); this.toast('📋 대화를 복사했어요'); } catch { this.toast('복사하지 못했어요'); }
+      });
+      $('#clInput').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); $('#clInput').blur(); } });
+    }
+    $('#clList').innerHTML = '';
+    $('#clTopic').textContent = topic ? `💬 오늘의 이야깃거리 — ${topic}` : '';
+    $('#clubPanel').classList.add('show');
+    document.body.classList.add('clubbing');
+    this.toggleChat(false);
+  }
+  clubClose() { $('#clubPanel').classList.remove('show'); document.body.classList.remove('clubbing'); $('#clInput').blur(); }
+  clubMembers(n, names) { $('#clCount').textContent = `${n}/10`; $('#clWho').textContent = names.join(' · '); }
+  clubLine(name, text, kind = '') {
+    const list = $('#clList');
+    const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+    const d = document.createElement('div');
+    const now = new Date(), tm = `${now.getHours() < 12 ? '오전' : '오후'} ${((now.getHours() + 11) % 12) + 1}:${String(now.getMinutes()).padStart(2, '0')}`;
+    if (kind === 'sys') { d.className = 'cl-sys'; d.textContent = text; d.dataset.line = `— ${text}`; }
+    else {
+      d.className = 'cl-msg' + (kind === 'me' ? ' me' : '');
+      d.innerHTML = `${kind === 'me' ? '' : `<span class="n">${esc(name)}</span>`}<div class="row"><span class="b">${esc(text)}</span><span class="t">${tm}</span></div>`;
+      d.dataset.line = `[${tm}] ${name}: ${text}`;
+    }
+    list.appendChild(d);
+    while (list.children.length > 300) list.firstChild.remove();
+    if (atBottom || kind === 'me') list.scrollTop = list.scrollHeight;
+  }
+
   openCopybook(list) {
     this.sheetKind = 'copybook';
     this.openSheet(`<h2>📓 내 필사 공책</h2>
