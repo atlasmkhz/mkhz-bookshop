@@ -643,7 +643,7 @@ export class UI {
     this.sheetKind = 'drinks';
     const guests = this.nearbyGuests?.() || [];
     let target = giftTo;
-    const tabs = (on) => giftTo ? '' : `<div class="tabs"><button type="button" class="tab2 ${on === 'drinks' ? 'on' : ''}" data-ct="drinks">☕ 음료</button><button type="button" class="tab2 ${on === 'toys' ? 'on' : ''}" data-ct="toys">🧸 고양이 장난감 대여</button><a class="tab2 store-tab" href="${esc(CONFIG.store?.url || '#')}" target="_blank" rel="noopener">🐈 고양이서가 캣타워 둘러보기 ↗</a></div>`;
+    const tabs = (on) => giftTo ? '' : `<div class="tabs"><button type="button" class="tab2 ${on === 'drinks' ? 'on' : ''}" data-ct="drinks">☕ 음료</button><button type="button" class="tab2 ${on === 'toys' ? 'on' : ''}" data-ct="toys">🧸 고양이 장난감 대여</button><a class="tab2 store-tab" href="${esc(CONFIG.store?.url || '#')}" target="_blank" rel="noopener">🐈 고양이서가 캣타워 둘러보기 ↗</a>${CONFIG.support?.kakao ? `<a class="tab2 store-tab" href="${esc(CONFIG.support.kakao)}" target="_blank" rel="noopener">💌 응원하기 ↗</a>` : ''}</div>`;
     const storeLine = giftTo ? '' : '<p class="note store-line">🐈 이 서점의 캣타워는 모두 고양이서가 원목 캣타워예요.</p>';
     const renderToys = () => {
       const mine = this.getToy?.();
