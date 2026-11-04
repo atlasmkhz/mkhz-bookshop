@@ -8,7 +8,7 @@ main = "src/index.js"
 compatibility_date = "2025-06-01"
 
 [vars]
-ALLOWED_ORIGINS = "https://atlasmkhz.github.io,http://localhost:8765,http://127.0.0.1:8765,http://localhost:8000"
+ALLOWED_ORIGINS = "https://bookshop.mkhz.kr,https://atlasmkhz.github.io,http://localhost:8765,http://127.0.0.1:8765,http://localhost:8000"
 # 벽 수 · 한 작품 최소 전시 시간(분) · 자동으로 내리는 신고 수 · 하루에 올릴 수 있는 장 수
 SLOTS = "30"
 SLOT_MINUTES = "60"
