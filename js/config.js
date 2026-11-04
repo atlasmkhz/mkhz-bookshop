@@ -66,7 +66,7 @@ export const CONFIG = {
   // 고양이서가 스마트스토어 — 카운터 한켠의 작은 안내판에서만 엽니다 (캣타워 카드에는 넣지 않음)
   store: { name: '고양이서가', url: 'https://smartstore.naver.com/withindesign' },
   // 카운터의 「💌 응원하기」: 만든 사람 개인 카카오페이 송금 링크 (qr.kakaopay.com/…). 비어 있으면 단추가 보이지 않음. 금액은 보내는 사람 마음대로, 횟수 제한 없음
-  support: { kakao: '' },
+  support: { kakao: 'https://qr.kakaopay.com/FQ5DKk2OL' },
 
   // 카운터에서 빌리는 고양이 장난감 (무료). 들고 있으면 고양이 · 캣타워에서 놀아 줄 수 있어요
   toys: [
