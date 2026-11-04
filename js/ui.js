@@ -493,12 +493,30 @@ export class UI {
       <div class="row">
         <button class="btn primary" id="gGift" type="button">☕ 음료 선물</button>
         <button class="btn" id="gWave" type="button">👋 인사</button>
+        ${g.blocked ? '' : '<button class="btn" id="gWalk" type="button">🚶 같이 산책</button>'}
         <button class="btn ghost" id="gBlock" type="button">${g.blocked ? '가리기 풀기' : '가리기'}</button>
       </div>`;
     $('#gGift').addEventListener('click', () => { this.hideCard(); this.openDrinks({ giftTo: g.uid }); });
     $('#gWave').addEventListener('click', () => { h.wave?.(); this.hideCard(); });
+    $('#gWalk')?.addEventListener('click', () => { h.walk?.(); this.hideCard(); });
     $('#gBlock').addEventListener('click', () => { const on = h.block?.(); this.toast(on ? `${g.name} 님을 가렸어요. 말풍선과 모습이 안 보여요` : `${g.name} 님이 다시 보여요`); this.hideCard(); });
     this.openCard();
+  }
+  // 같이 산책 청이 왔을 때 (30초 뒤 저절로 닫힘 — 답하지 않으면 아무것도 보내지 않음)
+  walkInvite(name, yes, no) {
+    $('#paText').innerHTML = `🚶 <b>${esc(name)}</b> 님이 둘레길을 같이 한 바퀴 걷자고 해요`;
+    const box = $('#pairAsk');
+    box.classList.add('show');
+    clearTimeout(this.paT);
+    const done = (f) => { box.classList.remove('show'); clearTimeout(this.paT); $('#paYes').onclick = $('#paNo').onclick = null; f?.(); };
+    $('#paYes').onclick = () => done(yes);
+    $('#paNo').onclick = () => done(no);
+    this.paT = setTimeout(() => done(null), 30000);
+  }
+  pairChip(show, text = '') {
+    if (!this._pcBound) { this._pcBound = true; $('#pcStop').addEventListener('click', () => this.onPairStop?.()); }
+    $('#pcText').textContent = text;
+    $('#pairChip').classList.toggle('show', show);
   }
   openCard() {
     $('#card').classList.add('show');

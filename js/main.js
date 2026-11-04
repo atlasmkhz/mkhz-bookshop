@@ -365,6 +365,7 @@ function standUp() {
   me.seat = null;
 }
 function walkTo(p, pending = null) {
+  if (pair.phase && !pair.internal) endPair(true, '다른 곳으로 걸어가요');
   standUp();
   endArtLook();
   const goal = p.clone();
@@ -384,7 +385,11 @@ function updateMe(dt) {
   cam.yaw += controls.turn() * dt * 1.6;
   let moving = false;
   const SPEED = 2.2;
-  if ((ax || ay) && !typing()) {
+  if ((ax || ay) && !typing() && pair.phase) endPair(true, '내가 걸음을 멈췄어요');
+  if (pair.phase === 'walk' || (pair.phase === 'meet' && Date.now() >= pair.T0)) {
+    pairStep(dt);
+    moving = true;
+  } else if ((ax || ay) && !typing()) {
     if (fires.gaze) exitGaze();
     if (star.on) exitStar();
     if (fwView.on) endFwView();
@@ -479,6 +484,7 @@ function arrive() {
   else if (p.type === 'log') { sendState(true); doToss(p.id); }
   else if (p.type === 'apron') { sendState(true); toggleApron(me.pos.clone().add(new THREE.Vector3(0.9, 0, 0))); }
   else if (p.type === 'art') { sendState(true); lookAtArt(p.slot); }
+  else if (p.type === 'pairMeet') { sendState(true); const r = remotes.get(pair.id); if (r) me.yaw = Math.atan2(r.pos.x - me.pos.x, r.pos.z - me.pos.z); }
   else if (p.type === 'loop') { if (loopWalk.on) loopArrive(); else sendState(true); }
   else sendState(true);
 }
@@ -1129,7 +1135,8 @@ function openGuest(id) {
   const seat = room.seats[r.seat];
   ui.showGuest({ uid: id, name: r.name, drink: r.drink, seat: seat?.name, nook: seat?.nook, blocked: blocked.has(id) }, {
     wave: () => { me.avatar?.wave(); net.send({ t: 'wave' }); },
-    block: () => { const on = blocked.toggle(id); applyBlock(r, id); return on; },
+    walk: () => askPair(id),
+    block: () => { const on = blocked.toggle(id); applyBlock(r, id); if (on && pair.id === id) endPair(true, '가린 손님과는 같이 걷지 않아요'); return on; },
   });
 }
 function applyBlock(r, id) {
@@ -1367,7 +1374,8 @@ function handle(m) {
       fires.toss(f.id, false);
       break;
     }
-    case 'bye': dropRemote(m.uid); break;
+    case 'bye': if (pair.id === m.uid) endPair(false, '짝이 서점을 나갔어요'); dropRemote(m.uid); break;
+    case 'walk': onPairMsg(m); break;
   }
 }
 
@@ -1376,7 +1384,14 @@ function updateRemotes(dt) {
   for (const [id, r] of remotes) {
     if (!usingServer && now - r.last > 20000) { dropRemote(id); continue; }
     const before = r.pos.clone();
-    if (r.path && r.path.length) {
+    if (pair.phase === 'walk' && pair.id === id && Date.now() >= pair.T0) {
+      // 같이 산책하는 짝은 내 화면에서도 같은 시각 · 같은 길로 (둘이 늘 나란히)
+      const q = pairPos(-pair.side);
+      r.path = null; r.seat = -1;
+      if (r.pos.distanceTo(q.pos) < 8) r.pos.copy(q.pos); else r.pos.lerp(q.pos, 0.35);
+      r.yaw = dampAngle(r.yaw, Math.atan2(q.dir.x, q.dir.z), 10, dt);
+      r.tpos.copy(r.pos);
+    } else if (r.path && r.path.length) {
       const tgt = r.path[0];
       const d = tgt.clone().sub(r.pos).setY(0);
       const dist = d.length();
@@ -1522,6 +1537,133 @@ function loopArrive() {
   }
   loopLeg();
 }
+// ---------- 같이 산책하기: 둘레길을 둘이 나란히 한 바퀴 ----------
+// 메시지: 청하기 · 받기(출발 자리와 몇 초 뒤 출발) · 사양 · 그만두기 — 'walk' 한 건씩, 상대 한 명에게만.
+// 걷는 동안 둘의 자리는 「출발 시각 + 같은 길」로 각자 계산 (메시지 0). 다른 손님에게는 6초마다 갈 곳 하나('st')
+const PAIR_V = 2.2;   // 걷는 빠르기 = 다른 손님 화면의 걷기 빠르기
+const pair = { phase: null, id: null, name: '', side: 1, T0: 0, si: 0, route: null, asked: null, askT: 0, cool: new Map(), internal: false, nextSend: 0, said: new Set() };
+function pairRoute(si) {
+  const R = room.ring, pts = [R[si].clone()];
+  for (let k = 1; k <= R.length; k++) {
+    for (const q of findPath(room, R[(si + k - 1) % R.length].clone(), R[(si + k) % R.length].clone())) {
+      const p = q.clone().setY(0);
+      if (p.distanceTo(pts[pts.length - 1]) > 0.05) pts.push(p);
+    }
+  }
+  const lens = [0];
+  for (let i = 1; i < pts.length; i++) lens.push(lens[i - 1] + pts[i].distanceTo(pts[i - 1]));
+  return { pts, lens, L: lens[lens.length - 1] };
+}
+// 출발 뒤 지금 걸은 거리에서의 자리 (side: 왼쪽 -1 · 오른쪽 +1, 0.4 m 옆)
+function pairPos(side, ahead = 0) {
+  const { pts, lens, L } = pair.route;
+  const d = THREE.MathUtils.clamp(Math.max(0, (Date.now() - pair.T0) / 1000) * PAIR_V + ahead, 0, L);
+  let i = 1;
+  while (i < lens.length - 1 && lens[i] < d) i++;
+  const a = pts[i - 1], b = pts[i], seg = Math.max(1e-6, lens[i] - lens[i - 1]);
+  const dir = b.clone().sub(a).normalize();
+  const pos = a.clone().lerp(b, THREE.MathUtils.clamp((d - lens[i - 1]) / seg, 0, 1));
+  pos.addScaledVector(new THREE.Vector3(dir.z, 0, -dir.x), side * 0.4);
+  return { pos, dir, d, L };
+}
+function askPair(id) {
+  const r = remotes.get(id);
+  if (!r || blocked.has(id)) return;
+  if (pair.phase) { ui.toast('지금 같이 걷는 중이에요'); return; }
+  if ((pair.cool.get(id) || 0) > Date.now()) { ui.toast(`${r.name} 님은 다음에 걷자고 했어요 — 조금 있다가 다시 청해 보세요`); return; }
+  if (pair.asked && Date.now() - pair.askT < 30000) { ui.toast('먼저 청한 산책의 답을 기다리는 중이에요'); return; }
+  pair.asked = id; pair.askT = Date.now();
+  net.send({ t: 'walk', k: 'ask', to: id });
+  ui.toast(`🚶 ${r.name} 님에게 같이 산책하자고 했어요`);
+}
+function onPairMsg(m) {
+  if (m.to && m.to !== uid) return;
+  const r = remotes.get(m.uid);
+  if (!r) return;
+  if (m.k === 'ask') {
+    if (blocked.has(m.uid)) return;
+    if (pair.phase || copy.on || craft.on || club.on) { net.send({ t: 'walk', k: 'no', to: m.uid, b: 1 }); return; }
+    ui.walkInvite(r.name, () => acceptPair(m.uid), () => net.send({ t: 'walk', k: 'no', to: m.uid }));
+  } else if (m.k === 'yes') {
+    if (pair.asked !== m.uid || Date.now() - pair.askT > 45000) return;
+    pair.asked = null;
+    startPair(m.uid, (+m.s || 0) % room.ring.length, THREE.MathUtils.clamp(+m.d || 10000, 3000, 90000), -1);
+  } else if (m.k === 'no') {
+    if (pair.asked !== m.uid) return;
+    pair.asked = null;
+    pair.cool.set(m.uid, Date.now() + 10 * 60000);
+    ui.toast(m.b ? `${r.name} 님은 지금 다른 걸 하고 있어요` : `${r.name} 님이 다음에 걷자고 해요`);
+  } else if (m.k === 'end') {
+    if (pair.id === m.uid) endPair(false, `${r.name} 님이 산책을 그만뒀어요`);
+  }
+}
+function acceptPair(id) {
+  const r = remotes.get(id);
+  if (!r || pair.phase) return;
+  const R = room.ring;
+  const mid = me.pos.clone().add(r.pos).multiplyScalar(0.5).setY(0);
+  let si = 0, bd = Infinity;
+  R.forEach((p, i) => { const d = p.distanceTo(mid); if (d < bd) { bd = d; si = i; } });
+  const far = Math.max(R[si].distanceTo(me.pos.clone().setY(0)), R[si].distanceTo(r.pos.clone().setY(0)));
+  const delay = Math.round(THREE.MathUtils.clamp((far / PAIR_V) * 1.4 + 5, 8, 75) * 1000);
+  net.send({ t: 'walk', k: 'yes', to: id, s: si, d: delay });
+  startPair(id, si, delay, 1);
+}
+function startPair(id, si, delayMs, side) {
+  const r = remotes.get(id);
+  if (!r) return;
+  if (loopWalk.on) loopWalk.on = false;
+  Object.assign(pair, { phase: 'meet', id, name: r.name, side, si, T0: Date.now() + delayMs, route: pairRoute(si), nextSend: 0, said: new Set() });
+  const meet = pairPos(side).pos;
+  pair.internal = true; walkTo(meet, { type: 'pairMeet' }); pair.internal = false;
+  ripple(meet);
+  ui.pairChip(true, `🚶 ${r.name} 님과 같이 산책 · 둘레길 들머리에서 만나요`);
+}
+function pairStep(dt) {
+  if (!remotes.get(pair.id)) { endPair(false, '짝이 보이지 않아요'); return; }
+  if (pair.phase === 'meet') { pair.phase = 'walk'; standUp(); me.target = null; me.route = []; me.pending = null; ui.pairChip(true, `🚶 ${pair.name} 님과 나란히 한 바퀴 · 그만두려면 ×`); }
+  const q = pairPos(pair.side);
+  const gap = q.pos.clone().sub(me.pos).setY(0);
+  // 가까우면(3 m 안) 정확히 그 자리 — 시각으로 정해지니 화면이 느린 기기에서도 둘이 어긋나지 않음.
+  // 멀면(늦게 왔으면) 길을 찾아 빠르게 따라붙음 (실제 지난 시간으로, 느린 기기도 따라잡게)
+  const nowMs = performance.now();
+  const realDt = Math.min(0.5, (nowMs - (pair.lastT || nowMs)) / 1000);
+  pair.lastT = nowMs;
+  if (gap.length() > 3) {
+    if (!pair.chase?.length || nowMs > pair.chaseT) { pair.chase = findPath(room, me.pos, q.pos); pair.chaseT = nowMs + 800; }
+    let left = 4.8 * realDt;
+    while (left > 0 && pair.chase?.length) {
+      const d = pair.chase[0].clone().sub(me.pos).setY(0), l = d.length();
+      if (l <= left) { me.pos.add(d); left -= l; pair.chase.shift(); } else { me.pos.addScaledVector(d.normalize(), left); left = 0; }
+    }
+  } else { pair.chase = null; me.pos.copy(q.pos); }
+  me.yaw = dampAngle(me.yaw, Math.atan2(q.dir.x, q.dir.z), 10, dt);
+  me.target = null; me.route = [];
+  // 다른 손님에게: 6초 뒤 내가 있을 곳 하나 (그 사이는 그쪽 화면이 알아서 걸음)
+  if (Date.now() >= pair.nextSend) { pair.nextSend = Date.now() + 6000; sendState(true, pairPos(pair.side, 6 * PAIR_V).pos); }
+  for (const sp of TRAIL_SPOTS) {
+    if (pair.said.has(sp.name) || Math.hypot(sp.to[0] - me.pos.x, sp.to[2] - me.pos.z) > 9) continue;
+    pair.said.add(sp.name); ui.toast(`${sp.ico} ${sp.name} — ${sp.note}`);
+  }
+  if (q.d >= q.L) {
+    const name = pair.name;
+    endPair(false, null);
+    fx.hearts(me.pos.clone().add(new THREE.Vector3(0, 1.4, 0)), 4);
+    ui.toast(`🚶 ${name} 님과 둘레길 한 바퀴를 다 걸었어요`);
+    const r = [...remotes.values()].find((x) => x.name === name);
+    if (r) me.yaw = Math.atan2(r.pos.x - me.pos.x, r.pos.z - me.pos.z);
+  }
+}
+function endPair(tell, why) {
+  if (!pair.phase) return;
+  if (tell && pair.id) net.send({ t: 'walk', k: 'end', to: pair.id });
+  pair.phase = null; pair.id = null; pair.route = null;
+  ui.pairChip(false);
+  if (why) ui.toast(`🚶 같이 산책을 마쳤어요 — ${why}`);
+  sendState(true);
+}
+ui.onPairStop = () => endPair(true, null);
+
 // 내 고양이
 ui.onPhoto = async (file) => extractCatColors(file);
 ui.onAdoptCat = (info) => { me.myCatInfo = info; store.set('mycat', { ...info, swatches: undefined }); spawnMyCat(info, true); net.send(helloMsg()); };
@@ -1789,4 +1931,4 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-window.shop = { club, startClub, handle, renderer, look, setLook, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { pair, askPair, acceptPair, onPairMsg, pairPos, club, startClub, handle, renderer, look, setLook, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };

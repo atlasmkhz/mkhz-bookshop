@@ -327,3 +327,13 @@ body.clubbing #hud *, body.clubbing .panel { backdrop-filter: none !important; -
 .cl-form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--line); background: #fbf6ec; }
 .cl-form input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 9px 13px; border-radius: 13px; border: 1.5px solid var(--line); background: #fffdf9; outline: none; color: var(--ink); }
 body.clubbing .av-bubble { display: none !important; }   /* 모임 방에선 말이 채팅창에 쌓이니 머리 위 말풍선은 숨김 */
+
+/* ---------- 같이 산책하기 ---------- */
+.pair-ask { position: absolute; left: 50%; top: calc(64px + var(--safe-top)); transform: translateX(-50%); width: min(340px, calc(100vw - 24px)); padding: 14px 16px; display: none; pointer-events: auto; z-index: 12; background: #fbf6ec; }
+.pair-ask.show { display: block; animation: up .25s ease-out; }
+.pa-text { font-size: 15px; color: var(--ink); margin-bottom: 10px; line-height: 1.45; }
+.pa-text b { color: var(--wood-dark); }
+.pair-chip { position: absolute; left: 50%; bottom: calc(84px + var(--safe-bot)); transform: translateX(-50%); display: none; align-items: center; gap: 8px; max-width: calc(100vw - 24px); padding: 8px 8px 8px 15px; border-radius: 999px; background: rgba(55, 36, 22, 0.82); color: #fbf1e2; font-size: 13.5px; pointer-events: auto; white-space: nowrap; }
+.pair-chip.show { display: flex; }
+.pair-chip span { overflow: hidden; text-overflow: ellipsis; }
+.pair-chip button { border: 0; width: 28px; height: 28px; border-radius: 50%; background: rgba(255, 255, 255, 0.18); color: #fff; font-size: 17px; cursor: pointer; flex: none; }

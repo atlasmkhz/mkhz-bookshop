@@ -254,6 +254,17 @@ export class BookRoom extends DurableObject {
         for (const w of this.sockets()) if (w.deserializeAttachment()?.uid === to) { try { w.send(msg); } catch { /* 무시 */ } }
         break;
       }
+      case 'walk': {
+        // 같이 산책: 청하기 · 받기 · 사양 · 그만두기 — 상대 한 명에게만, 1초에 한 번까지
+        if (now - (r.walk || 0) < 1000) return;
+        r.walk = now;
+        const k = clean(m.k, 4);
+        if (!['ask', 'yes', 'no', 'end'].includes(k)) return;
+        const to = clean(m.to, 16);
+        const msg = JSON.stringify({ t: 'walk', uid: att.uid, to, k, s: m.s | 0, d: Math.max(0, Math.min(90000, m.d | 0)), b: m.b ? 1 : 0 });
+        for (const w of this.sockets()) if (w.deserializeAttachment()?.uid === to) { try { w.send(msg); } catch { /* 무시 */ } }
+        break;
+      }
       case 'pet': case 'treat': case 'wave':
         this.broadcast(m, ws);
         break;
