@@ -11,7 +11,7 @@ MAX_ROOMS = "5"
 # 말풍선이 전해지는 거리 (m). 화면에서는 9m 안쪽만 보여 줌
 CHAT_RANGE = "12"
 # 접속을 허용할 사이트 주소 (쉼표로 여러 개)
-ALLOWED_ORIGINS = "https://atlasmkhz.github.io,http://localhost:8765,http://127.0.0.1:8765,http://localhost:8000"
+ALLOWED_ORIGINS = "https://bookshop.mkhz.kr,https://atlasmkhz.github.io,http://localhost:8765,http://127.0.0.1:8765,http://localhost:8000"
 # 건의함 열쇠(ADMIN_KEY)는 비밀값이라 여기 적지 않음 — GitHub 비밀값 ADMIN_KEY 를 넣으면 워크플로가 올려 줌
 
 [[durable_objects.bindings]]

@@ -5,7 +5,7 @@
 핵심은 "숨는 곳"과 "돌아다니는 맛" — 탁 트인 광장이 아니라, 가려진 구석이 곳곳에 있고 길이 갈래로 갈라집니다.
 고양이서가 카페(캣타워 · 고양이 · 내 고양이)를 이 안으로 합쳤습니다.
 
-주소: https://atlasmkhz.github.io/mkhz-bookshop/ · 서점지기 건의함: https://atlasmkhz.github.io/mkhz-bookshop/admin.html
+주소: https://bookshop.mkhz.kr/ · 서점지기 건의함: https://bookshop.mkhz.kr/admin.html
 
 - 고양이서가 카페 엔진을 가져와 다시 지음: Three.js 3D, Cloudflare 방 서버(방 하나 100명), 서버가 막히면 P2P 자동 전환, 낮 · 밤, 앉기, 고양이, 톡 · 끌기 · 꾹 누르기 · 키보드 조작
 - 책 84권 · 960편 (역사 57 · 철학 7 · 과학 12 · 정치 8). 앉을 자리 211곳, 그중 숨은 자리 79곳
