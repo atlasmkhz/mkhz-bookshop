@@ -10,7 +10,7 @@ export const CONFIG = {
   // Cloudflare 방 서버 주소 (예: 'https://mkhz-bookshop.내아이디.workers.dev')
   // 비워 두면 PeerJS(P2P, 손님끼리 직접 연결)로 동작합니다.
   // "Deploy bookshop server" 워크플로가 배포한 뒤 이 자리에 주소를 자동으로 적어 넣습니다.
-  serverUrl: new URLSearchParams(location.search).get('server') || '',
+  serverUrl: new URLSearchParams(location.search).get('server') || 'https://mkhz-bookshop.hyosoonpark2477.workers.dev',
 
   // 서버가 막혀 P2P 로 넘어갔을 때 한 무리(방장 한 명에게 붙는 사람 수). 넘치면 다음 무리로.
   p2pCap: 20,
