@@ -543,6 +543,7 @@ function pick(x, y) {
   if (o.userData.artKiosk) return { kind: 'kiosk', point: h.point };
   if (o.userData.artSlot != null) return { kind: 'art', slot: o.userData.artSlot, point: h.point };
   if (o.userData.store) return { kind: 'store', point: h.point };
+  if (o.userData.support) return { kind: 'support', point: h.point };
   if (o.userData.fwbox) return { kind: 'fwbox', point: h.point };
   if (o.userData.fireId) return { kind: 'fire', id: o.userData.fireId, point: h.point };
   for (let p = o; p; p = p.parent) if (p.userData.product) return { kind: 'product', key: p.userData.product, point: h.point };
@@ -576,6 +577,7 @@ function onTap(x, y) {
   if (hit.kind === 'kiosk') { openArtUpload(); return; }
   if (hit.kind === 'art') { openArt(hit.slot); return; }
   if (hit.kind === 'store') { ui.showStore(); return; }
+  if (hit.kind === 'support') { ui.showSupport(); return; }
   if (hit.kind === 'fwbox') { openFireworks(); return; }
   if (fires.gaze) exitGaze();
   if (hit.kind === 'follower') { fx.hearts(hit.point, 3); sound.purr(3.5); ui.toast(hit.obj.userData.followerOf === me.name ? '우리 집 고양이가 골골거려요' : `${hit.obj.userData.followerOf} 님의 고양이예요`); return; }

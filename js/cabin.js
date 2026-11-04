@@ -625,7 +625,7 @@ export function buildCabin(scene, books) {
     for (const xx of [cxp - 0.9, cxp + 0.9]) pendant(scene, room, xx, 2.4, CABIN.maxZ - 0.5);
     room.benchSpots.push(V(cxp + 1.2, 1.05, CABIN.maxZ - 0.5));
     toyBasket(scene, cxp - 1.25, Hh, CABIN.maxZ - 0.5);
-    storeStand(scene, cxp + 1.32, Hh, CABIN.maxZ - 0.62);
+    if (CONFIG.support?.kakao) supportStand(scene, cxp + 1.32, Hh, CABIN.maxZ - 0.62);   // 카운터 오른쪽 끝: 서점지기 응원
   }
 
   // ---------- 도구 손수레 (현관 옆) ----------
@@ -651,6 +651,7 @@ export function buildCabin(scene, books) {
     scene.add(g);
     obst(footprint(-6.6, CABIN.maxZ - 0.35, 0.5, 0.4));
     room.suggest = V(-6.6, 0, CABIN.maxZ - 0.95);
+    storeStand(scene, -6.6, 1.41, CABIN.maxZ - 0.33);   // 건의함 위: 고양이서가 안내판
   }
 
   // ---------- 비밀 서재 (남서쪽, 책장 문 뒤) ----------
@@ -1418,6 +1419,37 @@ function storeStand(scene, x, y, z) {
   g.position.set(x, y, z);
   g.rotation.y = 0.25 + Math.PI;
   g.traverse((o) => { o.userData.store = true; });
+  scene.add(g);
+}
+
+// 카운터 오른쪽 끝 작은 판: 「서점지기 응원하기」 (누르면 카카오페이 송금 카드)
+function supportStand(scene, x, y, z) {
+  const g = new THREE.Group();
+  const c = document.createElement('canvas'); c.width = 256; c.height = 320;
+  const draw = () => {
+    const p = c.getContext('2d');
+    p.fillStyle = '#f4ecdf'; p.fillRect(0, 0, 256, 320);
+    p.strokeStyle = '#d98a9a'; p.lineWidth = 6; p.strokeRect(6, 6, 244, 308);
+    p.fillStyle = '#b24a5e'; p.textAlign = 'center';
+    p.font = '700 32px "Gowun Batang", serif'; p.fillText('서점지기', 128, 70); p.fillText('응원하기', 128, 112);
+    p.font = '22px "Gowun Dodum", sans-serif'; p.fillStyle = '#6d4630';
+    ['커피 한 잔으로', '서점을 응원해요', '', '눌러서 응원하기'].forEach((s2, i) => p.fillText(s2, 128, 158 + i * 32));
+    // 하트
+    p.fillStyle = '#e0607a';
+    p.beginPath(); p.moveTo(128, 300); p.bezierCurveTo(96, 276, 104, 250, 128, 266); p.bezierCurveTo(152, 250, 160, 276, 128, 300); p.fill();
+  };
+  draw();
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  document.fonts?.ready.then(() => { draw(); tex.needsUpdate = true; });
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.275), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+  board.position.set(0, 0.16, 0.012); board.rotation.x = -0.12;
+  g.add(board);
+  g.add(mesh(rbox(0.24, 0.3, 0.018, 0.006), M.woodMid(), 0, 0.16, 0));
+  const leg = mesh(rbox(0.03, 0.22, 0.02, 0.005), M.woodMid(), 0, 0.12, -0.08); leg.rotation.x = 0.35; g.add(leg);
+  g.position.set(x, y, z);
+  g.rotation.y = 0.25 + Math.PI;
+  g.scale.setScalar(1.5);   // 눈에 띄게 크게
+  g.traverse((o) => { o.userData.support = true; });
   scene.add(g);
 }
 

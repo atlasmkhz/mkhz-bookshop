@@ -233,6 +233,7 @@ body.gazing .star-chip, body.gazing .game-bar { opacity: 0 !important; visibilit
 .store-line { margin-top: 16px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 12.5px; }
 .store-line a { color: var(--wood-dark); }
 
+.tab2.support-tab { display: inline-block; text-decoration: none; color: #fff; background: #d9607a; border-color: #d9607a; font-weight: 700; box-shadow: 0 3px 10px rgba(217, 96, 122, 0.35); }
 .tab2.store-tab { display: inline-block; text-decoration: none; color: var(--wood-dark); background: #f6ead6; border-color: #d8b88c; }
 
 /* ---------- 필사 ---------- */

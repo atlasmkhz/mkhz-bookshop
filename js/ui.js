@@ -278,10 +278,19 @@ export class UI {
     this.cardCat = null;
     const st = CONFIG.store || {};
     $('#cardBody').innerHTML = `
-      <div class="card-kicker">카운터 한켠</div>
+      <div class="card-kicker">건의함 위</div>
       <div class="card-title">${esc(st.name || '고양이서가')}</div>
       <div class="card-desc">이 서점의 캣타워 여섯 가지(집사4호 · 커스텀B · 벨라4호 · 계단형 숨숨집 · 오르미 · 월스텝 선반)는 모두 고양이서가에서 만든 원목 캣타워예요. 고양이들이 매일 오르내리며 써 보고 있어요.</div>
       <a class="btn" href="${esc(st.url || '#')}" target="_blank" rel="noopener" style="width:100%">고양이서가 둘러보기 ↗</a>`;
+    this.openCard();
+  }
+  showSupport() {
+    this.cardCat = null;
+    $('#cardBody').innerHTML = `
+      <div class="card-kicker">카운터 한켠</div>
+      <div class="card-title">💗 서점지기 응원하기</div>
+      <div class="card-desc">커피 한 잔으로 서점을 응원해 주세요.</div>
+      <a class="btn primary" href="${esc(CONFIG.support?.kakao || '#')}" target="_blank" rel="noopener" style="width:100%">카카오페이로 응원하기 ↗</a>`;
     this.openCard();
   }
   // 놀이 안내 막대 (숨은 아깽이 찾기)
@@ -735,7 +744,7 @@ export class UI {
     this.sheetKind = 'drinks';
     const guests = this.nearbyGuests?.() || [];
     let target = giftTo;
-    const tabs = (on) => giftTo ? '' : `<div class="tabs"><button type="button" class="tab2 ${on === 'drinks' ? 'on' : ''}" data-ct="drinks">☕ 음료</button><button type="button" class="tab2 ${on === 'toys' ? 'on' : ''}" data-ct="toys">🧸 고양이 장난감 대여</button><a class="tab2 store-tab" href="${esc(CONFIG.store?.url || '#')}" target="_blank" rel="noopener">🐈 고양이서가 캣타워 둘러보기 ↗</a>${CONFIG.support?.kakao ? `<a class="tab2 store-tab" href="${esc(CONFIG.support.kakao)}" target="_blank" rel="noopener">💗 서점지기 응원하기 ↗</a>` : ''}</div>`;
+    const tabs = (on) => giftTo ? '' : `<div class="tabs"><button type="button" class="tab2 ${on === 'drinks' ? 'on' : ''}" data-ct="drinks">☕ 음료</button><button type="button" class="tab2 ${on === 'toys' ? 'on' : ''}" data-ct="toys">🧸 고양이 장난감 대여</button>${CONFIG.support?.kakao ? `<a class="tab2 support-tab" href="${esc(CONFIG.support.kakao)}" target="_blank" rel="noopener">💗 서점지기 응원하기 ↗</a>` : ''}</div>`;
     const storeLine = giftTo ? '' : '<p class="note store-line">🐈 이 서점의 캣타워는 모두 고양이서가 원목 캣타워예요.</p>';
     const renderToys = () => {
       const mine = this.getToy?.();
@@ -780,7 +789,8 @@ export class UI {
       <p class="note">들여놓았으면 하는 책, 고쳤으면 하는 곳, 그냥 하고 싶은 말. 서점지기만 읽어요.</p>
       <label class="field" style="margin:10px 0"><span>이름</span><input id="sgName" maxlength="20" placeholder="비워 두면 익명" value="${esc(this.myName || '')}" /></label>
       <textarea id="sgText" maxlength="600" placeholder="여기에 적어 주세요 (600자까지)">${esc(draft)}</textarea>
-      <p style="display:flex;gap:8px;align-items:center;margin:10px 0 0"><button class="btn primary" type="button" id="sgSend">건의함에 넣기</button><span class="note" id="sgStatus"></span></p>`);
+      <p style="display:flex;gap:8px;align-items:center;margin:10px 0 0"><button class="btn primary" type="button" id="sgSend">건의함에 넣기</button><span class="note" id="sgStatus"></span></p>
+      <a class="tab2 store-tab" style="margin-top:14px" href="${esc(CONFIG.store?.url || '#')}" target="_blank" rel="noopener">🐈 고양이서가 캣타워 둘러보기 ↗</a>`);
     const ta = $('#sgText');
     ta.addEventListener('input', () => store.set('suggestDraft', ta.value));
     $('#sgSend').addEventListener('click', async () => {
