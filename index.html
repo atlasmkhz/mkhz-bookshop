@@ -66,6 +66,7 @@
       <div id="cardBody"></div>
     </div>
     <div id="chatLog" class="chat-log"></div>
+    <div id="spaceTag" class="space-tag"></div>
     <form id="chatBar" class="chat-bar hidden" autocomplete="off">
       <input id="chatInput" maxlength="80" placeholder="가까이 있는 사람에게만 보여요" enterkeyhint="send" />
       <button class="btn primary" type="submit">말하기</button>
@@ -109,6 +110,8 @@
       <div class="cr-meter" aria-hidden="true"><i class="zone"></i><i id="crNeedle" class="needle"></i></div>
       <div class="cp-prog"><i id="crProg"></i></div>
       <div class="cr-row"><span id="crCombo" class="cr-combo">초록 칸에서 누르면 「좋아요!」 — 두 칸씩</span><button id="crHit" class="btn primary cr-hit" type="button">🪚 쓱싹</button></div>
+      <div class="cr-chat" id="crChat"></div>
+      <form id="crForm" class="cr-form" autocomplete="off"><input id="crInput" maxlength="80" placeholder="이 테이블 사람들에게 한마디" enterkeyhint="send" /><button class="btn" type="submit">말하기</button></form>
       <div class="cr-foot"><span id="crMade"></span><button id="crGaze" class="cr-link" type="button">👀 공방지기 구경 (목공 멍)</button></div>
     </div>
     <div id="copyPanel" class="copy-panel panel" role="dialog" aria-label="필사">

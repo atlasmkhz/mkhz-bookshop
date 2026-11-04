@@ -176,6 +176,7 @@ export function buildWoodshop(scene, room, { obst, excl }) {
     for (const [sx, sz, rot] of [[-0.42, 0.78, Math.PI], [0.42, 0.78, Math.PI], [-0.42, -0.78, 0], [0.42, -0.78, 0]]) {
       const st = stool(scene, room, tx + sx, tz + sz, rot, 0.62, ['#c98f6b', '#a9bba0', '#e6cf9c', '#7f97a8'][(k * 2 + seats.length) % 4], { name: `작업 테이블 ${k + 1}`, appr: -0.42 });
       st.wood = true;
+      st.table = k;   // 같은 테이블 사람끼리 대화 (main.js 공간 채팅)
       seats.push(st);
     }
   };

@@ -1211,7 +1211,7 @@ function sendState(force = false, goal = null) {
   const st = [+me.pos.x.toFixed(2), +me.pos.z.toFixed(2), +me.yaw.toFixed(2), +me.pos.y.toFixed(2)];
   const seatIdx = me.seat ? me.seat.idx : -1;
   const g = goal ? [+goal.x.toFixed(2), +goal.z.toFixed(2), +goal.y.toFixed(2)] : null;
-  const c = me.seat?.club ? 1 : 0;   // 독서 모임 방 의자 (서버가 채팅을 방 안끼리만 전하게)
+  const c = mySpace();   // 지금 있는 공간 (서버가 채팅을 같은 공간끼리만 전하게)
   const key = JSON.stringify([st, seatIdx, g, c]);
   if (!force && key === lastSent) return;
   lastSent = key;
@@ -1307,6 +1307,7 @@ function handle(m) {
         } else { r.path = null; r.tpos.copy(p); }
       }
       r.seat = Number.isInteger(m.s) && room.seats[m.s] ? m.s : -1;
+      r.c = Math.max(0, Math.min(9, m.c | 0));
       break;
     }
     case 'chat': {
@@ -1314,10 +1315,12 @@ function handle(m) {
       if (!r || blocked.has(m.uid)) break;
       const text = cleanText(m.m);
       if (!text) break;
-      // 독서 모임 방 말은 방 안끼리만, 방 밖 말은 방 안으로 들어오지 않음
-      const fromClub = !!m.c || inClubSeat(r);
-      if (fromClub !== club.on) break;
-      if (club.on) { r.avatar.say(text); ui.clubLine(r.name, text); break; }
+      // 공간(모임 방 · 작업 테이블 · 미술관) 안의 말은 그 공간끼리만, 밖의 말은 안으로 들어오지 않음
+      const fromSp = m.c != null ? (m.c | 0) : remoteSpace(r);
+      const sp = mySpace();
+      if (fromSp !== sp) break;
+      if (sp === 1) { r.avatar.say(text); ui.clubLine(r.name, text); break; }
+      if (sp) { r.avatar.say(text); ui.chatLine(r.name, text); if (craft.on) ui.craftChat(r.name, text); break; }
       if (near(r) > CONFIG.chatRange) break;
       r.avatar.say(text);
       ui.chatLine(r.name, text);
@@ -1436,14 +1439,17 @@ ui.onChatSend = (raw) => {
   const err = limiter.check(text);
   if (err) return err;
   me.avatar.say(text);
-  if (club.on) {
-    // 독서 모임 방: 이 방 의자에 앉은 사람에게만 (멀리 있어도 같은 방이면)
-    ui.clubLine(me.name, text, 'me');
-    if (clubMembers().length) net.send({ t: 'chat', m: text, c: 1 });
+  const sp = mySpace();
+  if (sp) {
+    // 공간 채팅: 같은 공간 사람에게만 (멀리 있어도 같은 공간이면)
+    if (sp === 1) ui.clubLine(me.name, text, 'me');
+    else { ui.chatLine(me.name, text, 'me'); if (craft.on) ui.craftChat(me.name, text, 'me'); }
+    if (spaceMates(sp).length) net.send({ t: 'chat', m: text, c: sp });
+    else if (sp !== 1) ui.chatLine('', `${SPACE_NAME[sp]}에 아직 아무도 없어요`, 'sys');
     return null;
   }
   ui.chatLine(me.name, text, 'me');
-  const anyone = [...remotes.values()].some((r) => !inClubSeat(r) && near(r) <= CONFIG.chatRange + 2);
+  const anyone = [...remotes.values()].some((r) => !remoteSpace(r) && near(r) <= CONFIG.chatRange + 2);
   if (anyone) net.send({ t: 'chat', m: text });
   else if (remotes.size) ui.chatLine('', '가까이 아무도 없어서 혼잣말이 되었어요', 'sys');
   return null;
@@ -1706,6 +1712,36 @@ async function flushSuggestions() {
 // 메시지: 따로 없음. 'st' 의 c 칸(앉은 의자가 모임 방인지)과 채팅 'chat' 의 c 칸만. 누가 앉았는지는 이미 아는 자리로 각자 셈
 const club = { on: false, t: 0, saved: null, members: new Set(), seenAt: new Map(), names: new Map(), signN: -1, warnT: 0 };
 const inClubSeat = (r) => !!room.seats[r.seat]?.club;
+// ---------- 공간 채팅: 1 독서 모임 방 · 2 · 3 목공방 작업 테이블 1 · 2 · 4 미술관 안 · 0 그 밖(가까운 사람끼리) ----------
+const SPACE_NAME = { 1: '독서 모임 방', 2: '작업 테이블 1', 3: '작업 테이블 2', 4: '미술관 안' };
+function spaceOf(seat, pos) {
+  if (seat?.club) return 1;
+  if (seat?.table != null) return 2 + seat.table;
+  if (pos && inHall(pos)) return 4;
+  return 0;
+}
+const mySpace = () => (me.entered ? spaceOf(me.seat, me.pos) : 0);
+const remoteSpace = (r) => (r.c != null ? r.c : spaceOf(room.seats[r.seat], r.pos));
+const spaceMates = (sp) => [...remotes.entries()].filter(([id, r]) => remoteSpace(r) === sp && !blocked.has(id));
+const space = { cur: 0, t: 0 };
+function updateSpace(dt) {
+  const sp = mySpace();
+  if (sp !== space.cur) {
+    const was = space.cur;
+    space.cur = sp;
+    // 공간이 바뀌면 바로 알림 (걷는 중이면 갈 곳도 같이 — 다른 손님 화면에서 멈추지 않게)
+    const goal = me.route?.length ? me.route[me.route.length - 1] : me.target;
+    sendState(true, goal || null);
+    if (sp >= 2) ui.chatLine('', sp === 4 ? '🖼️ 미술관 안 — 여기서 한 말은 미술관 안 사람에게만 가요' : `🪚 ${SPACE_NAME[sp]} — 여기서 한 말은 이 테이블 사람에게만 가요`, 'sys');
+    else if (was >= 2 && !sp) ui.chatLine('', '다시 가까운 사람과 이야기해요', 'sys');
+  }
+  space.t -= dt;
+  if (space.t <= 0) {
+    space.t = 1;
+    const n = sp >= 2 ? spaceMates(sp).length + 1 : 0;
+    ui.spaceTag(sp >= 2 ? `${sp === 4 ? '🖼️' : '🪚'} ${SPACE_NAME[sp]} 대화 · ${n}명` : '');
+  }
+}
 const clubMembers = () => [...remotes.entries()].filter(([id, r]) => inClubSeat(r) && !blocked.has(id));
 function todayTopic() {
   const n = copy.notes || [];
@@ -1877,6 +1913,7 @@ function frame() {
   updateCopy(dt);
   updateWood(dt);
   updateClub(dt);
+  updateSpace(dt);
   if (me.entered) gallery.update(dt, me.pos);
   updateRemotes(dt);
   updateDoors(dt);

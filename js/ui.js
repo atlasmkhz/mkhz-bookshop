@@ -352,12 +352,22 @@ export class UI {
       $('#crClose').addEventListener('click', () => this.onCraftExit?.());
       $('#crHit').addEventListener('pointerdown', (e) => { e.preventDefault(); this.onCraftHit?.(); });
       $('#crGaze').addEventListener('click', () => this.onCraftGaze?.());
+      $('#crForm').addEventListener('submit', (e) => { e.preventDefault(); const err = this.onChatSend?.($('#crInput').value); if (err) this.toast(err); else $('#crInput').value = ''; });
     }
     $('#crTools').innerHTML = crafts.map((c) => `<button type="button" data-k="${c.id}" class="${c.id === craft.kind ? 'on' : ''}">${c.ico} ${c.name}</button>`).join('');
     document.querySelectorAll('#crTools [data-k]').forEach((b) => b.addEventListener('click', () => this.onCraftKind?.(b.dataset.k)));
     p.classList.add('show');
     this.craftUpdate(craft);
   }
+  craftChat(name, text, kind = '') {
+    const box = $('#crChat');
+    const d = document.createElement('div');
+    if (kind) d.className = kind;
+    d.innerHTML = `<b>${esc(name)}</b>${esc(text)}`;
+    box.appendChild(d);
+    while (box.children.length > 4) box.firstChild.remove();
+  }
+  spaceTag(text) { const t = $('#spaceTag'); t.textContent = text; t.classList.toggle('show', !!text); }
   craftUpdate(craft, res = null) {
     const d = craft.def;
     $('#crTitle').textContent = `${d.name} · ${d.job}`;

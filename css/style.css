@@ -337,3 +337,16 @@ body.clubbing .av-bubble { display: none !important; }   /* 모임 방에선 말
 .pair-chip.show { display: flex; }
 .pair-chip span { overflow: hidden; text-overflow: ellipsis; }
 .pair-chip button { border: 0; width: 28px; height: 28px; border-radius: 50%; background: rgba(255, 255, 255, 0.18); color: #fff; font-size: 17px; cursor: pointer; flex: none; }
+
+/* ---------- 공간 채팅 (목공방 작업 테이블 · 미술관 안) ---------- */
+.space-tag { position: absolute; left: 10px; top: calc(60px + var(--safe-top)); padding: 5px 12px; border-radius: 999px; background: rgba(55, 36, 22, 0.78); color: #fbf1e2; font-size: 12.5px; pointer-events: none; display: none; }
+.space-tag.show { display: block; }
+body.clubbing .space-tag, body.copying .space-tag, body.gazing .space-tag { display: none; }
+.cr-chat { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; max-height: 76px; overflow: hidden; justify-content: flex-end; }
+.cr-chat:empty { display: none; }
+.cr-chat div { font-size: 13px; line-height: 1.35; color: var(--ink); }
+.cr-chat div b { color: var(--wood-dark); margin-right: 5px; }
+.cr-chat div.me b { color: #3f7a3a; }
+.cr-form { display: flex; gap: 6px; margin-top: 6px; }
+.cr-form input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 7px 11px; border-radius: 12px; border: 1.5px solid var(--line); background: #fffdf9; outline: none; color: var(--ink); }
+.cr-form .btn { padding: 7px 12px; }

@@ -217,7 +217,7 @@ export class BookRoom extends DurableObject {
         this.broadcast(att.hi, ws);
         break;
       case 'st':
-        att.st = { t: 'st', uid: att.uid, p: Array.isArray(m.p) ? m.p.slice(0, 4) : null, s: Number.isInteger(m.s) ? m.s : -1, g: Array.isArray(m.g) ? m.g.slice(0, 3) : null, c: m.c ? 1 : 0 };
+        att.st = { t: 'st', uid: att.uid, p: Array.isArray(m.p) ? m.p.slice(0, 4) : null, s: Number.isInteger(m.s) ? m.s : -1, g: Array.isArray(m.g) ? m.g.slice(0, 3) : null, c: Math.max(0, Math.min(9, m.c | 0)) };
         ws.serializeAttachment(att);
         this.broadcast(att.st, ws);
         break;
@@ -231,15 +231,16 @@ export class BookRoom extends DurableObject {
         r.chat = now;
         const text = cleanText(m.m);
         if (!text) return;
-        // 독서 모임 방(의자에 앉은 사람, st 의 c 칸): 방 안끼리만, 거리 상관없이. 방 밖 말은 방 안으로 보내지 않음
-        const inClub = !!att.st?.c;
-        const msg = JSON.stringify({ t: 'chat', uid: att.uid, m: text, c: inClub ? 1 : 0 });
+        // 공간(st 의 c 칸: 1 독서 모임 방 · 2 · 3 목공방 작업 테이블 · 4 미술관 안): 같은 공간끼리만, 거리 상관없이.
+        // 공간 밖 말은 공간 안으로 보내지 않음 (c 0 은 지금처럼 가까운 사람에게만)
+        const sp = att.st?.c | 0, inClub = sp > 0;
+        const msg = JSON.stringify({ t: 'chat', uid: att.uid, m: text, c: sp });
         const me = this.where(att);
         for (const w of this.sockets()) {
           if (w === ws) continue;
           const a = w.deserializeAttachment();
           if (!a?.uid) continue;
-          if (!!a.st?.c !== inClub) continue;
+          if ((a.st?.c | 0) !== sp) continue;
           if (inClub) { try { w.send(msg); } catch { /* 무시 */ } continue; }
           const p = this.where(a);
           if (me && p && Math.hypot(p[0] - me[0], p[1] - me[1]) + Math.abs(p[2] - me[2]) * 2 > (att.range || 12)) continue;
