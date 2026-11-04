@@ -36,9 +36,9 @@ export const CONFIG = {
     imageBase: '',
   },
 
-  // 필사 소리 종류 (js/audio.js 의 PENCILS): hb · soft4b · coarse · sharp · asmr · fountain
-  // 서점지기가 일곱 후보를 직접 듣고 만년필(fountain)을 골랐어요
-  pencil: 'fountain',
+  // 필사 소리 종류 (js/audio.js 의 PENCILS): hb · soft4b · coarse · sharp · asmr · fountain · real
+  // 2026-11-04 서점지기가 준 연필 녹음(freesound_community 「pencil」)으로 바꿈: real (audio/pencil-strokes.mp3, 못 불러오면 fountain)
+  pencil: 'real',
 
   music: {
     day: 'audio/bgm-day.mp3',

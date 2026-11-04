@@ -11,6 +11,8 @@ export const PENCILS = {
   coarse: { name: '서걱서걱 · 거친 종이', density: 900,  tau: 0.9,  grit: 3.0, hiss: 0.04, stroke: [80, 170],  shape: 0.7, curve: 0.3,  per: [2, 3], gap: [12, 30], charGap: [30, 60], hp: 550,  lp: 4200, peak: 1800, peakGain: 5, vol: 1.05, jitter: 0.3 },
   sharp:  { name: '가는 샤프',           density: 1500, tau: 0.22, grit: 1.2, hiss: 0.06, stroke: [45, 100],  shape: 1.0, curve: 0.25, per: [2, 4], gap: [8, 22],  charGap: [20, 45], hp: 1400, lp: 6500, peak: 3200, peakGain: 2, vol: 0.75, jitter: 0.3 },
   asmr:   { name: '아주 작게 · 속삭이듯', density: 3200, tau: 0.5,  grit: 1.0, hiss: 0.14, stroke: [90, 190],  shape: 0.6, curve: 0.4,  per: [2, 3], gap: [15, 35], charGap: [35, 70], hp: 300,  lp: 3600, peak: 900,  peakGain: 5, vol: 0.5,  jitter: 0.2 },
+  // 녹음한 연필 소리 (audio/pencil-strokes.mp3: 연필로 쓴 녹음을 획 하나씩 잘라 0.12초 틈을 두고 이어 붙인 것). 못 불러오면 fallback 종류로
+  real:   { name: '녹음 연필 · 사각사각', file: 'audio/pencil-strokes.mp3', fallback: 'fountain', two: 0.3, gap: [10, 30], charGap: [20, 50], vol: 1.2, jitter: 0.12 },
   fountain: { name: '만년필 · 사르륵',   density: 300,  tau: 0.4,  grit: 0.5, hiss: 0.55, stroke: [90, 220],  shape: 0.5, curve: 0.5,  per: [1, 2], gap: [20, 45], charGap: [40, 80], hp: 900,  lp: 3400, peak: 2000, peakGain: 6, vol: 0.7,  jitter: 0.15 },
 };
 
@@ -336,8 +338,10 @@ export class Sound {
   // 진짜 연필 소리 = 종이 결에 흑연이 걸리는 아주 작은 '톡'들이 촘촘히 이어진 것(알갱이) + 옅은 마찰 쉬익.
   // 한 획 안에서 손이 빨라졌다 느려지는 만큼 소리도 커졌다 작아짐 (속도 곡선, 굽은 획은 두 번 부풂)
   pencilBufs() {
-    const P = PENCILS[this.pencil] || PENCILS.hb;
-    if (this._pencil && this._pencilKey === this.pencil) return this._pencil;
+    const P0 = PENCILS[this.pencil] || PENCILS.hb;
+    const key = P0.file ? P0.fallback : this.pencil;   // 녹음 연필은 받는 동안 · 실패했을 때 이 합성 소리로
+    const P = PENCILS[key];
+    if (this._pencil && this._pencilKey === key) return this._pencil;
     const ctx = this.ctx, sr = ctx.sampleRate, out = [];
     for (let v = 0; v < 10; v++) {
       const dur = (P.stroke[0] + Math.random() * (P.stroke[1] - P.stroke[0])) / 1000;
@@ -364,14 +368,16 @@ export class Sound {
       for (let i = 0; i < n; i++) d[i] *= 0.12 / rms;
       out.push(b);
     }
-    this._pencilKey = this.pencil;
+    this._pencilKey = key;
     return (this._pencil = out);
   }
 
   // 연필 소리: 글자 하나에 두세 획. 빨리 써도 소리가 겹쳐 쌓이지 않게 차례로 이어 붙임
   pen(n = 1) {
     if (!this.enabled || !this.ctx) return;
-    const P = PENCILS[this.pencil] || PENCILS.hb;
+    const P0 = PENCILS[this.pencil] || PENCILS.hb;
+    if (P0.file && this.realPencil(P0)) { this.penReal(n, P0); return; }
+    const P = P0.file ? PENCILS[P0.fallback] : P0;
     const ctx = this.ctx, bufs = this.pencilBufs();
     const now = ctx.currentTime;
     let t = Math.max(now + 0.005, this.penUntil || 0);
@@ -394,11 +400,62 @@ export class Sound {
     }
     this.penUntil = t;
   }
+  // 녹음 연필: 처음 한 번 받아 조용한 틈(0.06초 넘게)을 기준으로 획 하나씩 나눠 둠. 받는 동안 · 실패하면 null (합성 소리로)
+  realPencil(P) {
+    if (this._real) return this._real;
+    if (this._realLoading || this._realFailed) return null;
+    this._realLoading = true;
+    fetch(P.file).then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then((ab) => new Promise((ok, no) => this.ctx.decodeAudioData(ab, ok, no)))
+      .then((buf) => {
+        const d = buf.getChannelData(0), sr = buf.sampleRate, gap = Math.floor(sr * 0.06), out = [];
+        let start = -1, last = -1;
+        const cut = (a, b) => {
+          const pad = Math.floor(sr * 0.004), s0 = Math.max(0, a - pad), e0 = Math.min(d.length, b + pad);
+          if (e0 - s0 < sr * 0.04) return;
+          const nb = this.ctx.createBuffer(1, e0 - s0, sr); nb.copyToChannel(d.slice(s0, e0), 0); out.push(nb);
+        };
+        for (let i = 0; i < d.length; i++) {
+          if (Math.abs(d[i]) > 0.004) { if (start < 0) start = i; last = i; }
+          else if (start >= 0 && i - last > gap) { cut(start, last); start = -1; }
+        }
+        if (start >= 0) cut(start, last);
+        if (out.length) this._real = out; else this._realFailed = true;
+      })
+      .catch((e) => { console.warn('연필 녹음을 못 불러와 합성 소리로 써요', e); this._realFailed = true; })
+      .finally(() => { this._realLoading = false; });
+    return null;
+  }
+  // 녹음 연필 소리: 글자 하나에 획 하나(가끔 둘). 빨리 써도 겹쳐 쌓이지 않게 차례로
+  penReal(n, P) {
+    const ctx = this.ctx, bufs = this._real, now = ctx.currentTime;
+    let t = Math.max(now + 0.005, this.penUntil || 0);
+    if (t > now + 0.5) return;
+    for (let c = 0; c < n; c++) {
+      const strokes = Math.random() < P.two ? 2 : 1;
+      for (let k = 0; k < strokes; k++) {
+        let i = Math.floor(Math.random() * bufs.length);
+        if (i === this._lastStroke) i = (i + 1) % bufs.length;   // 같은 획이 연달아 나오지 않게
+        this._lastStroke = i;
+        const src = ctx.createBufferSource(); src.buffer = bufs[i];
+        src.playbackRate.value = 1 + (Math.random() - 0.5) * P.jitter;
+        const low = ctx.createBiquadFilter(); low.type = 'highpass'; low.frequency.value = 160; low.Q.value = 0.6;
+        const g = ctx.createGain(); g.gain.value = (0.8 + Math.random() * 0.35) * P.vol * this.penVol;
+        src.connect(low).connect(g).connect(this.fxOut);
+        src.start(t);
+        t += bufs[i].duration / src.playbackRate.value + (P.gap[0] + Math.random() * (P.gap[1] - P.gap[0])) / 1000;
+      }
+      t += (P.charGap[0] + Math.random() * (P.charGap[1] - P.charGap[0])) / 1000;
+    }
+    this.penUntil = t;
+  }
   // 마침표 · 쉼표: 연필 끝을 종이에 콕
   penDot() {
     if (!this.enabled || !this.ctx) return;
-    const P = PENCILS[this.pencil] || PENCILS.hb;
-    const ctx = this.ctx, b = this.pencilBufs()[0];
+    const P0 = PENCILS[this.pencil] || PENCILS.hb;
+    const real = P0.file ? this.realPencil(P0) : null;
+    const P = P0.file ? { ...PENCILS[P0.fallback], vol: real ? P0.vol : PENCILS[P0.fallback].vol } : P0;
+    const ctx = this.ctx, b = real ? real[0] : this.pencilBufs()[0];
     const t = Math.max(ctx.currentTime + 0.005, this.penUntil || 0);
     const src = ctx.createBufferSource(); src.buffer = b; src.playbackRate.value = 1.5;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(P.lp, 2600);
@@ -409,7 +466,11 @@ export class Sound {
     this.penUntil = t + 0.08;
   }
   // 필사 · 불멍 · 별멍처럼 한곳에 마음 두는 동안 배경 소리를 낮춤 (0 = 평소, 1 = 많이 낮춤)
-  setFocus(k) { this.focus = k; this.mix(); }
+  setFocus(k) {
+    this.focus = k; this.mix();
+    const P = PENCILS[this.pencil];
+    if (k && P?.file && this.ctx) this.realPencil(P);   // 필사를 시작할 때 녹음 연필을 미리 받아 둠
+  }
 
   // 목공방 소리 (임시 — 나중에 후보를 들려 드리고 고름). kind: plane 대패 · saw 톱 · sand 사포 · chisel 끌
   wood(kind, vol = 1) {

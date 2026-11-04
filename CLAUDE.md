@@ -60,7 +60,7 @@
 소리 규칙
 - 효과음(필기 · 책장 · 야옹 · 장작 · 폭죽 …)은 audio.js 의 fxOut 으로, 배경 소리(벽난로 · 비 · 자연 · 시냇물 · 바다)는 각자의 Gain 으로 master 에 잇는다. 새 효과음은 fxOut 에 이어야 배경에 묻히지 않는다. 마지막에 limiter 가 큰 소리를 눌러 준다.
 - 필사 · 불멍처럼 한곳에 마음 두는 동안은 sound.setFocus(1) 로 배경 소리를 낮춘다.
-- 필사 소리는 서점지기가 후보 일곱을 직접 듣고 고른 「만년필 · 사르륵」(config.js pencil: 'fountain')이다. 종류별 설정은 audio.js 의 PENCILS, 전체 크기는 penVol. 소리를 바꿀 때는 먼저 후보를 녹음해 들려 드리고 고른 뒤에 배포한다.
+- 필사 소리는 서점지기가 준 연필 녹음(freesound_community 「pencil」, Pixabay)을 획 하나씩 잘라 모은 audio/pencil-strokes.mp3 다(config.js pencil: 'real', 2026-11-04). 획 사이에 0.12초 조용한 틈을 두고 이어 붙였고, audio.js realPencil 이 그 틈으로 나눠 글자마다 하나(가끔 둘)를 튼다. 못 받으면 예전 합성 소리 「만년필 · 사르륵」(fountain)으로. 종류별 설정은 audio.js 의 PENCILS, 전체 크기는 penVol. 소리를 바꿀 때는 먼저 후보를 녹음해 들려 드리고 고른 뒤에 배포한다.
 - 아이폰: 화면을 누를 때마다 sound.unlock() 이 멈춘 소리를 다시 켜고, 무음 스위치와 상관없이 들리게 「재생」 오디오로 둔다. 이 연결을 지우지 않는다.
 
 거친 말 목록은 js/chat.js 와 server/src/filter.js 두 곳에 있다. 한쪽을 고치면 다른 쪽도 같이 고친다.
