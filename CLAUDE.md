@@ -15,6 +15,7 @@
 - 아틀라스에 새 코너가 생기면 scripts/build_books.py 의 해당 load_* 에 읽는 법을 더한다. 분야를 더하려면 FIELDS 와 js/cabin.js 의 책장 · 도서목록 판도 같이 고친다.
 - 각 편 주소는 아틀라스 글 파일의 canonical 주소를 그대로 쓴다. 주소를 지어 내지 않는다.
 - 책상 자리 「필사하기」의 문장은 철학아틀라스 data/copynote.js(「오늘의 필사」)를 scripts/build_books.py 가 data/copynote.json 으로 옮긴 것이다. 손으로 고치거나 문장을 지어 넣지 않는다. 오늘 편은 철학아틀라스와 같은 규칙(한국 날짜 일련번호 % 편수). 책상 있는 자리는 addSeat 의 desk: { h: 책상 높이, d: 공책까지 거리 } 로 표시한다.
+- 서점 히어로 그림은 assets/hero/ (서점지기가 미드저니로 뽑은 디오라마 원본을 줄인 것: hero.webp 1600 · hero-small.webp 900 · og.jpg 1200 × 630 링크 미리 보기). 들어가기 화면(넓은 화면은 배경 가득 · 휴대폰은 판 위 띠)과 불러오기 화면에 쓴다. 바꿀 때는 세 파일을 같이 다시 만든다.
 - 표지 그림은 assets/covers/ 에 줄여 복사한 것이다. 그림 아래 출처(coverNote)는 라이선스 조건이니 빼지 않는다.
 - 배경 음악은 고양이서가 카페의 audio/bgm-day.mp3 · bgm-night.mp3 를 복사해 온 것이다(카페 저장소는 읽기만). 오른쪽 위 🎵 단추로 음악만 켜고 끄며, 이 기기에 기억한다(store 'music'). 다른 소리는 🔊 단추가 따로 맡는다.
 - 야외 영화관 상영 목록은 data/program.json. items 가 비어 있으면 채널 올린 영상(playlist)을 차례로 튼다. 3D 스크린 예고 영상 자리는 video/screen-loop.mp4 (없어도 동작).

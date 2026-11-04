@@ -8,6 +8,16 @@
   <meta name="theme-color" content="#e9dcc6" />
   <meta property="og:title" content="엠케이아틀라스 서점" />
   <meta property="og:description" content="숲속 오두막 독립서점. 책장 사이 막다른 골목, 다락 구석, 나무 위 오두막에 숨어서 읽어요." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://atlasmkhz.github.io/mkhz-bookshop/" />
+  <meta property="og:image" content="https://atlasmkhz.github.io/mkhz-bookshop/assets/hero/og.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="숲속 통나무 독립서점 모형 — 루프탑 유리 방과 전구 줄, 창마다 책장, 현관 계단에 앉은 노란 고양이" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://atlasmkhz.github.io/mkhz-bookshop/assets/hero/og.jpg" />
+  <link rel="preload" as="image" href="assets/hero/hero-small.webp" media="(max-width: 819px)" />
+  <link rel="preload" as="image" href="assets/hero/hero.webp" media="(min-width: 820px)" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📚%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -23,11 +33,12 @@
 </head>
 <body>
   <canvas id="scene"></canvas>
-  <div id="loading">서점 문을 여는 중…</div>
+  <div id="loading"><span>서점 문을 여는 중…</span></div>
 
   <!-- 입장 -->
   <div id="entry">
     <form id="enterForm" class="panel" autocomplete="off">
+      <img class="hero-band" src="assets/hero/hero-small.webp" alt="숲속 통나무 독립서점 모형 — 루프탑 유리 방과 전구 줄, 창마다 책장, 현관 계단에 앉은 노란 고양이" width="900" height="506" decoding="async" />
       <div class="logo">엠케이아틀라스 <span>서점</span></div>
       <p class="sub">숲속 오두막 독립서점. 책장 골목과 비밀 서재, 루프탑,<br />캠핑장과 숲속 영화관, 계곡을 지나면 바닷가까지.</p>
       <label class="field">
