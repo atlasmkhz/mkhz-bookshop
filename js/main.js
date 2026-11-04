@@ -1670,11 +1670,15 @@ function frame() {
   if (look.on) {
     // 흐림의 초점: 내 캐릭터(또는 카메라가 보는 곳)의 화면 높이. 별멍 · 작품 보기 · 필사 땐 흐림을 줄임
     const fx = look.fx || (look.fx = new Diorama(renderer));
-    const f = (me.entered && !copy.on && !craft.on && !artLook.on ? me.pos.clone().setY(me.pos.y + 0.8) : cam.target.clone()).project(camera);
+    const fp = me.entered && !copy.on && !craft.on && !artLook.on ? me.pos.clone().setY(me.pos.y + 0.8) : cam.target.clone();
     const u = fx.mat.uniforms;
+    u.focusDist.value += (camera.position.distanceTo(fp) - u.focusDist.value) * Math.min(1, dt * 4);
+    const f = fp.project(camera);
     u.focus.value += ((THREE.MathUtils.clamp(f.y * 0.5 + 0.5, 0.25, 0.75)) - u.focus.value) * Math.min(1, dt * 4);
-    const want = star.on || fwView.on ? 0 : copy.on || artLook.on ? 0.8 : craft.on ? 1.6 : 3.2;
+    const want = star.on || fwView.on ? 0 : copy.on || artLook.on ? 0.3 : craft.on ? 0.55 : 1.0;
     u.blur.value += (want - u.blur.value) * Math.min(1, dt * 3);
+    u.bloom.value = 0.12 + dayNight.night * 0.55;   // 밤에 등불 · 모닥불이 더 번지게
+    u.time.value = t % 1000;
     diorama.render(scene, camera);
   } else renderer.render(scene, camera);
   // 느린 기기: 들어온 뒤 2~8초 사이 평균이 초당 24장보다 적으면 디오라마를 끔 (직접 고른 적이 있으면 그대로)
