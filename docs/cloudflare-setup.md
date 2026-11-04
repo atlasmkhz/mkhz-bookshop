@@ -5,7 +5,7 @@
 
 ## 지금 상태 (2026-11-05 기준)
 
-- 서점 사이트: GitHub Pages 로 이미 열려 있음 — https://atlasmkhz.github.io/mkhz-bookshop/
+- 서점 사이트: https://bookshop.mkhz.kr/ (2026-11-04 주소 옮김, 옛 주소 https://atlasmkhz.github.io/mkhz-bookshop/ 는 새 주소로 넘어감)
   (저장소 atlasmkhz/mkhz-bookshop, main 에 올리면 gh-pages 로 저절로 옮겨져 배포됨. 이 부분은 할 일 없음)
 - 서점 채팅 서버(Cloudflare Worker 이름 mkhz-bookshop)와 미술관 서버(Worker 이름 mkhz-gallery)는 아직 한 번도 올라가지 않았음.
   원인: 저장소에 Cloudflare 비밀값(CLOUDFLARE_API_TOKEN · CLOUDFLARE_ACCOUNT_ID)이 없음. 그래서 지금 서점은 손님끼리 직접 잇는 P2P 로만 돌아감.
@@ -60,9 +60,9 @@
 
 먼저 서점지기에게 쓸 주소를 정해 받는다 (추천: bookshop.mkhz.kr. 다른 아틀라스와 같은 mkhz.kr 아래).
 
-1. Cloudflare 대시보드 → mkhz.kr 사이트 → DNS → Records → Add record
-   - Type: CNAME, Name: bookshop (정한 이름의 앞부분), Target: atlasmkhz.github.io
-   - Proxy status: DNS only (회색 구름). 처음엔 꼭 회색으로 — GitHub 가 인증서를 발급받아야 함.
+1. (2026-11-04 완료) mkhz.kr 의 DNS 는 Cloudflare 가 아니라 가비아(dns.gabia.com)에 있다. 가비아 DNS 관리 → mkhz.kr 설정 → 레코드 수정 → 레코드 추가
+   - 타입: CNAME, 호스트: bookshop, 값/위치: atlasmkhz.github.io. , TTL 600
+   - 다른 아틀라스 줄(atlas · philo · politics · science · studio)은 건드리지 않는다.
 2. 서점지기가 Claude Code 에게 이렇게 말한다 (1번 DNS 를 만든 바로 뒤에):
    「서점 주소를 https://bookshop.mkhz.kr 로 바꿀 거야. CNAME 파일을 만들고, 서버 두 곳의 ALLOWED_ORIGINS, 링크 미리 보기 주소(og:url · og:image), README 를 새 주소로 고쳐서 올려 줘」
    - 꼭 Claude Code 가 저장소에 CNAME 파일을 넣어야 한다. 이 저장소는 올릴 때마다 main 을 gh-pages 로 통째로 덮어써서,
