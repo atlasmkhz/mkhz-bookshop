@@ -1,4 +1,4 @@
-// 엠케이아틀라스 서점 방 서버 (Cloudflare Workers + Durable Objects)
+// 고양이책과방 방 서버 (Cloudflare Workers + Durable Objects)
 // Durable Object = 방(호점) 하나를 맡는 작은 서버. 방마다 손님 목록과 메시지 전달을 맡습니다.
 // - 고양이 움직임은 방 안의 손님 한 명(가장 먼저 들어온 사람) 브라우저가 정하고,
 //   "어디로 간다 · 무엇을 한다"는 계획(cq, cs)만 서버를 거쳐 나눠 줍니다.

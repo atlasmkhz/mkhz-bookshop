@@ -8,7 +8,7 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export class UI {
-  init({ name, look, night, server, rain, lib }) {
+  init({ name, look, firstLook, night, server, rain, lib }) {
     this.look = { ...look };
     this.server = server;
     this.lib = lib;
@@ -42,6 +42,13 @@ export class UI {
     this.chips('#btChips', LOOKS.bottomStyles, 'bt');
     this.chips('#acChips', LOOKS.accs, 'ac');
     this.startPreview();
+    // 꾸미기는 접어 두고(미리 보기만 작게), 「🎨 꾸미기」를 누르면 펼침
+    $('#lookNote').textContent = firstLook ? '처음 모습은 알아서 골라 두었어요' : '지난번 모습 그대로예요';
+    $('#btnCustom').addEventListener('click', () => {
+      const open = $('#lookBox').classList.toggle('closed') === false;
+      $('#btnCustom').textContent = open ? '🎨 접기' : '🎨 꾸미기';
+      $('#btnCustom').setAttribute('aria-expanded', String(open));
+    });
     $('#enterForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const n = $('#nameInput').value.trim().slice(0, 12);
@@ -65,6 +72,10 @@ export class UI {
     $('#btnDrink').addEventListener('click', () => this.onDrinkButton?.());
     $('#btnChat').addEventListener('click', () => this.toggleChat());
     $('#cardClose').addEventListener('click', () => this.hideCard());
+    $('#gGo').addEventListener('click', () => this.onGuideGo?.());
+    $('#gSkip').addEventListener('click', () => this.onGuideSkip?.());
+    $('#gStop').addEventListener('click', () => this.onGuideStop?.());
+    $('#guideAgain').addEventListener('click', () => this.onGuideAgain?.());
     $('#sheetClose').addEventListener('click', () => this.closeSheet());
     $('#sheetBody').addEventListener('scroll', (e) => { if (this.sheetKind === 'basket') this.scrollKeep = e.target.scrollTop; }, { passive: true });
     $('#sheet').addEventListener('click', (e) => { if (e.target.id === 'sheet') this.closeSheet(); });
@@ -185,7 +196,7 @@ export class UI {
     }
   }
   reopenEntry() { $('#hud').classList.add('hidden'); $('#entry').classList.remove('gone'); this.refreshRooms(); }
-  setRoom(n) { $('#roomNo').textContent = n ? `${n}호점` : ''; }
+  setRoom(n) { $('#roomNo').innerHTML = n ? `${n}호<span class="long">점</span>` : ''; }   // 휴대폰에선 「1호」
   setLook(on) { $('#btnLook').classList.toggle('off', !on); $('#btnLook').title = on ? '디오라마 끄기 (기본 화면)' : '디오라마 화면 켜기'; }
   setRain(on) { $('#btnRain').classList.toggle('off', !on); $('#btnRain').title = on ? '비 그치게 하기' : '빗소리'; }
   setNight(on) { $('#btnNight').textContent = on ? '🌙' : '☀️'; $('#btnNight').title = on ? '밤 (누르면 낮)' : '낮 (누르면 밤)'; }
@@ -199,10 +210,21 @@ export class UI {
     setTimeout(() => $('#btnSound').classList.remove('pulse'), 3000);
   }
   setStatus(s) { this.status = s; $('#statusDot').className = 'dot ' + s; this.renderCount(); }
+  // 첫 방문 길잡이 카드 (그림 위 · 위쪽 가운데)
+  guideShow({ n, total, title, line, done }) {
+    $('#gStep').textContent = done ? '끝' : `${n}/${total}`;
+    $('#gTitle').textContent = title;
+    $('#gLine').textContent = line;
+    $('#gStop').textContent = done ? '닫기' : '그만 보기';
+    $('#guide').classList.toggle('done', !!done);
+    $('#guide').classList.add('show');
+    document.body.classList.add('guiding');
+  }
+  guideHide() { $('#guide').classList.remove('show'); document.body.classList.remove('guiding'); }
   setCount(n) { this.count = n; this.renderCount(); }
   renderCount() {
     const s = this.status;
-    $('#count').textContent = s === 'offline' ? '혼자 읽는 중' : s === 'reconnecting' ? '연결 중…' : `${this.count}명`;
+    $('#count').innerHTML = s === 'offline' ? '혼자<span class="long"> 읽는 중</span>' : s === 'reconnecting' ? '<span class="long">연결 중</span>…' : `${this.count}명`;
   }
 
   showHint(lines) {
@@ -496,11 +518,65 @@ export class UI {
     if (atBottom || kind === 'me') list.scrollTop = list.scrollHeight;
   }
 
+  // 내 필사 공책: 이어 쓴 날 · 달력 도장 · 편 수와 글자 수 · 글로 복사하기 (이 기기에만, 메시지 0건)
   openCopybook(list) {
     this.sheetKind = 'copybook';
+    const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    const dayOf = (k) => new Date(Date.parse(today) + k * 86400000).toISOString().slice(0, 10);
+    const per = {};
+    for (const e of list) if (e.day) per[e.day] = (per[e.day] || 0) + 1;
+    // 이어 쓴 날: 오늘(오늘 아직 안 썼으면 어제)부터 거꾸로 하루도 빠지지 않은 날 수
+    let streak = 0;
+    for (let k = per[today] ? 0 : -1; per[dayOf(k)]; k--) streak++;
+    const chars = list.reduce((a, e) => a + (e.chars || 0), 0);
+    let ym = today.slice(0, 7);
+    if (!per[today] && list[0]?.day && !Object.keys(per).some((d) => d.startsWith(ym))) ym = list[0].day.slice(0, 7);
     this.openSheet(`<h2>📓 내 필사 공책</h2>
-      <p class="note">책상 자리에서 끝까지 따라 쓴 「오늘의 필사」가 여기에 남아요. 이 기기에만 저장돼요. 문장은 철학아틀라스의 「오늘의 필사」에서 왔어요.</p>
-      ${list.length ? `<ol class="toc">${list.map((e) => `<li><a href="${esc(e.url)}" target="_blank" rel="noopener"><b style="font-weight:400">${esc(e.ko)}</b><br><small style="color:var(--ink-soft)">${esc(e.day)} · ${esc(e.src)} · ${e.min}분 · 정확도 ${e.acc}%</small></a></li>`).join('')}</ol>` : '<div class="empty">아직 끝까지 쓴 편이 없어요. 한 편을 다 쓰면 여기에 남아요.</div>'}`);
+      <div class="cb-keep">💾 이 기기에만 저장돼요. 기기를 바꾸거나 방문 기록을 지우면 사라지니, 가끔 글로 복사해 두세요. 200편이 넘으면 오래된 편부터 사라져요.</div>
+      ${list.length ? `<div class="cb-stats">
+        <div class="cb-streak">${streak ? `🔥 ${streak}일째 이어 쓰는 중` : '🔥 오늘 한 편 쓰면 1일째가 돼요'}</div>
+        <div class="cb-total">지금까지 <b>${list.length}</b>편 · <b>${chars.toLocaleString('ko-KR')}</b>자</div>
+      </div>
+      <div class="cb-cal" id="cbCal"></div>
+      <p style="margin:10px 0 4px"><button id="cbCopy" class="btn small" type="button">📋 글로 복사하기</button></p>
+      <div id="cbText" class="hidden"><p class="note">복사가 안 되는 브라우저예요. 아래 글을 길게 눌러 모두 골라 복사해 주세요.</p><textarea class="cb-text" readonly></textarea></div>
+      <ol class="toc">${list.map((e) => `<li><a href="${esc(e.url)}" target="_blank" rel="noopener"><span><b style="font-weight:400">${esc(e.ko)}</b><br><small style="color:var(--ink-soft)">${esc(e.day)} · ${esc(e.src)} · ${e.min}분 · 정확도 ${e.acc}%</small></span></a></li>`).join('')}</ol>` : '<div class="empty">아직 끝까지 쓴 편이 없어요. 한 편을 다 쓰면 여기에 남고, 쓴 날마다 달력에 도장이 찍혀요.</div>'}
+      <p class="note">문장은 철학아틀라스의 「오늘의 필사」에서 왔어요.</p>`);
+    if (!list.length) return;
+    const draw = () => {
+      const [y, m] = ym.split('-').map(Number);
+      const first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+      const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      const cells = [];
+      for (let i = 0; i < first; i++) cells.push('<span></span>');
+      for (let d = 1; d <= days; d++) {
+        const key = `${ym}-${String(d).padStart(2, '0')}`;
+        const n = per[key] || 0;
+        cells.push(`<span class="${n ? 'ink' : ''}${key === today ? ' today' : ''}" style="${n ? `--r:${(d * 47) % 50 - 25}deg` : ''}" title="${n ? `${n}편` : ''}">${d}${n > 1 ? `<i>${n}</i>` : ''}</span>`);
+      }
+      const inMonth = Object.keys(per).filter((k) => k.startsWith(ym)).length;
+      $('#cbCal').innerHTML = `<div class="cb-cal-head"><button type="button" class="cb-nav" data-d="-1" aria-label="지난달">‹</button><b>${y}년 ${m}월</b><small>${inMonth}일 씀</small><button type="button" class="cb-nav" data-d="1" aria-label="다음 달">›</button></div>
+        <div class="cb-grid cb-week">${['일', '월', '화', '수', '목', '금', '토'].map((w) => `<span>${w}</span>`).join('')}</div>
+        <div class="cb-grid">${cells.join('')}</div>`;
+      $('#cbCal').querySelectorAll('.cb-nav').forEach((b) => b.addEventListener('click', () => {
+        const dt = new Date(Date.UTC(y, m - 1 + Number(b.dataset.d), 1));
+        ym = dt.toISOString().slice(0, 7);
+        draw();
+      }));
+    };
+    draw();
+    $('#cbCopy').addEventListener('click', async () => {
+      const text = `📓 내 필사 공책 · ${CONFIG.brand.name}\n\n` + [...list].reverse().map((e) => `${e.day}\n${e.ko}\n— ${e.src || ''}${e.theme ? ` · ${e.theme}` : ''}\n${e.url || ''}`).join('\n\n') + '\n';
+      try {
+        await navigator.clipboard.writeText(text);
+        this.toast(`📋 ${list.length}편을 글로 복사했어요. 메모나 카톡에 붙여 넣어 두세요`);
+      } catch {
+        $('#cbText').classList.remove('hidden');
+        const ta = $('#cbText textarea');
+        ta.value = text;
+        ta.focus(); ta.select();
+      }
+    });
   }
 
   openMyCat() {
@@ -790,7 +866,8 @@ export class UI {
       <label class="field" style="margin:10px 0"><span>이름</span><input id="sgName" maxlength="20" placeholder="비워 두면 익명" value="${esc(this.myName || '')}" /></label>
       <textarea id="sgText" maxlength="600" placeholder="여기에 적어 주세요 (600자까지)">${esc(draft)}</textarea>
       <p style="display:flex;gap:8px;align-items:center;margin:10px 0 0"><button class="btn primary" type="button" id="sgSend">건의함에 넣기</button><span class="note" id="sgStatus"></span></p>
-      <a class="tab2 store-tab" style="margin-top:14px" href="${esc(CONFIG.store?.url || '#')}" target="_blank" rel="noopener">🐈 고양이서가 캣타워 둘러보기 ↗</a>`);
+      <a class="tab2 store-tab" style="margin-top:14px" href="${esc(CONFIG.store?.url || '#')}" target="_blank" rel="noopener">🐈 고양이서가 캣타워 둘러보기 ↗</a>
+      <p class="tiny legal" style="margin-top:12px"><a href="privacy.html" target="_blank" rel="noopener">개인정보 안내</a></p>`);
     const ta = $('#sgText');
     ta.addEventListener('input', () => store.set('suggestDraft', ta.value));
     $('#sgSend').addEventListener('click', async () => {

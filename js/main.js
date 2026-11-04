@@ -1,13 +1,13 @@
-// 엠케이아틀라스 서점 — 시작 파일
+// 고양이책과방 — 시작 파일
 // 고양이서가 카페 엔진(Three.js · 방 서버 · P2P 대체 · 낮밤 · 앉기 · 고양이 · 조작)을 가져와 서점으로 다시 지었습니다.
 import * as THREE from 'three';
-import { CONFIG, store } from './config.js';
+import { CONFIG, store, brandHTML } from './config.js';
 import { IS_MOBILE } from './kit.js';
 import { CABIN, WORLD, SEA_Z, pushOut, findPath, buildNav, isOutdoor, inCabin, levelOf, platformById } from './nav.js';
 import { buildCabin } from './cabin.js';
 import { buildForest, updateCanopies } from './forest.js';
 import { Program } from './cinema.js';
-import { setAtlases, finalizeBooks } from './shelves.js';
+import { setAtlases, finalizeBooks, bookSpots } from './shelves.js';
 import { BookCats } from './cats.js';
 import { Puppies } from './dogs.js';
 import { Fires } from './fire.js';
@@ -20,7 +20,7 @@ import { Workshop, SHOP_CAP, inShop } from './woodshop.js';
 import { GalleryClient, inHall } from './gallery.js';
 import { Craft, CRAFTS } from './craft.js';
 import { Diorama } from './diorama.js';
-import { Avatar, LOOKS, placeTags } from './avatar.js';
+import { Avatar, LOOKS, placeTags, randomLook } from './avatar.js';
 import { FX } from './fx.js';
 import { Sound } from './audio.js';
 import { Net } from './net.js';
@@ -29,6 +29,10 @@ import { Controls } from './controls.js';
 import { UI } from './ui.js';
 import { cleanText, ChatLimiter, blocked } from './chat.js';
 import { extractCatColors, FollowerCat } from './myCat.js';
+
+// ---------- 이름 (config brand 한곳에서) ----------
+document.querySelectorAll('[data-brand="name"]').forEach((el) => { el.innerHTML = brandHTML(); });
+document.querySelectorAll('[data-brand="tagline"]').forEach((el) => { el.textContent = CONFIG.brand.tagline; });
 
 // ---------- 책 목록 · 상영표 ----------
 let LIB = { atlases: [], shelves: [], books: [], count: 0 };
@@ -104,7 +108,7 @@ const uid = store.get('uid', null) || Math.random().toString(36).slice(2, 10);
 store.set('uid', uid);
 const me = {
   name: store.get('name', ''),
-  look: store.get('look', { top: LOOKS.tops[Math.floor(Math.random() * LOOKS.tops.length)], hair: LOOKS.hairs[0], skin: LOOKS.skins[0] }),
+  look: store.get('look', null) || randomLook(),
   drink: CONFIG.drinks.find((d) => d.id === store.get('drink', null)) || null,
   myCat: null, myCatInfo: store.get('mycat', null), toy: CONFIG.toys.some((t) => t.id === store.get('toy', null)) ? store.get('toy', null) : null,
   avatar: null, pos: room.spawn.clone(), yaw: Math.PI, route: [], target: null, seat: null, pending: null, speed: 0, hold: null, entered: false,
@@ -472,6 +476,7 @@ function arrive() {
     else if (p.seat.cinema) { ui.showPlayer(program.embedUrl(), program.now().kind === 'item' ? program.now().title : (program.data.channelName || '채널') + ' 상영 중'); ui.toast('🎬 영화관 — 화면 위 영상이 켜져요'); }
     else if (p.seat.name) ui.toast(p.seat.nook ? `🤫 ${p.seat.name} — 잘 안 보이는 자리예요` : `${p.seat.name}에 앉았어요`);
     sendState(true);
+    if (guide.on && fires.list.some((f) => fireSeatNear(f))) guideEvent('fire');
   } else if (p.type === 'faceCat') {
     const c = cats.find(p.id);
     if (c) me.yaw = Math.atan2(c.pos.x - me.pos.x, c.pos.z - me.pos.z);
@@ -934,6 +939,7 @@ async function startCopy() {
   copy.t = 0;
   const ok = await copy.open(me.seat);
   if (!ok) { ui.toast('필사 문장을 불러오지 못했어요'); return; }
+  guideEvent('copy');
   if (me.avatar) me.avatar.root.visible = false;
   sound.setFocus(1);   // 배경 소리를 낮춰 필기 소리가 또렷하게
   ui.hideCard();
@@ -958,6 +964,92 @@ copy.onFinish = (n, r) => {
 copy.onNotebook = (list) => ui.openCopybook(list);
 document.querySelector('#copyChip').addEventListener('click', () => startCopy());
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && copy.on) exitCopy(); });
+// ---------- 첫 방문 길잡이 ----------
+// 이 기기에서 처음 온 손님에게만 세 걸음 (store 'guide': 'done' 다 봄 · 'off' 그만 보기). 이미 있는 걸어가기를 그대로 씀. 메시지 0건
+const guide = { on: false, step: 0 };
+const GUIDE = [
+  { ev: 'book', title: '책 한 권 꺼내 보기', line: '📚 가까운 책장 앞으로 데려다 드릴게요. 책등(책의 옆면)을 눌러 보세요', go: () => guideGoBook() },
+  { ev: 'copy', title: '한 문장 옮겨 적기', line: '✍️ 책상 자리에 앉아 「✍️ 필사하기」를 눌러 보세요. 끝까지 쓰지 않아도 돼요', go: () => guideGoDesk() },
+  { ev: 'fire', title: '모닥불 가에서 쉬기', line: '🔥 불 곁 의자에 앉아 잠깐 쉬어 가요', go: () => guideGoFire() },
+];
+const nearOf = (list) => list.reduce((a, b) => (!a || b.d < a.d ? b : a), null);
+const farOf = (p, from) => Math.hypot(p.x - from.x, p.z - from.z) + Math.abs(p.y - from.y) * 4;   // 층이 다르면 계단을 돌아가니 멀게
+// 길잡이가 데려갈 곳 (길찾기 시험에서도 씀)
+function guideSpots(from = me.pos) {
+  // 1. 가장 가까운 1층 책: 책 둘레 여덟 방향 중 걸을 수 있는 자리 (같은 안 · 밖, 책에서 1.1 m 안)
+  const books = bookSpots().filter((b) => b.y < 2.4).map((b) => ({ b, d: Math.hypot(b.x - from.x, b.z - from.z) })).sort((a, b) => a.d - b.d).slice(0, 6);
+  let book = null;
+  for (const { b } of books) {
+    const inside = inCabin(b);
+    const cands = [];
+    for (let k = 0; k < 8; k++) {
+      const a = k / 8 * Math.PI * 2;
+      const p = new THREE.Vector3(b.x + Math.cos(a) * 0.8, 0, b.z + Math.sin(a) * 0.8);
+      pushOut(room, p, 0.22);
+      const db = Math.hypot(p.x - b.x, p.z - b.z);
+      if (db < 1.1 && db > 0.35 && inCabin(p) === inside) cands.push({ p, d: p.distanceTo(from) });
+    }
+    const c = nearOf(cands);
+    if (c) { book = c.p; break; }
+  }
+  // 2. 가장 가까운 필사 책상 의자 (걸상 · 바 자리는 빼고)
+  const desk = nearOf(room.seats.filter((s) => s.desk && !s.taken && !seatTakenByOther(s) && !/걸상|바$/.test(s.name || '')).map((s) => ({ s, d: farOf(s.appr, from) })))?.s || null;
+  // 3. 가장 가까운 불 곁 빈 의자
+  let fire = null;
+  for (const f of fires.list) {
+    const w = f.world();
+    for (const s of room.seats) {
+      if (s.taken || seatTakenByOther(s) || Math.abs(s.fy - w.y) > 1 || s.pos.distanceTo(w) >= 3.3) continue;
+      const d = farOf(s.appr, from);
+      if (!fire || d < fire.d) fire = { s, f, d };
+    }
+  }
+  return { book, desk, fire };
+}
+function guideGoBook() {
+  const { book } = guideSpots();
+  if (!book) { ui.toast('📚 책장은 서점 안 곳곳에 있어요'); return; }
+  walkTo(book); ripple(book);
+}
+function guideGoDesk() {
+  const { desk } = guideSpots();
+  if (!desk) { ui.toast('✍️ 빈 책상 자리가 없어요. 조금 뒤에 다시 눌러 보세요'); return; }
+  walkTo(desk.appr, { type: 'seat', seat: desk }); ripple(desk.appr);
+}
+function guideGoFire() {
+  const { fire } = guideSpots();
+  if (!fire) { ui.toast('🔥 불 곁 자리가 모두 찼어요'); return; }
+  walkTo(fire.s.appr, { type: 'seat', seat: fire.s }); ripple(fire.s.appr);
+  ui.toast(`🔥 ${fire.f.name} 곁으로 가요`);
+}
+function guideShowStep() {
+  const g = GUIDE[guide.step];
+  ui.guideShow({ n: guide.step + 1, total: GUIDE.length, title: g.title, line: g.line });
+}
+function guideStart() {
+  guide.on = true; guide.step = 0;
+  guideShowStep();
+  GUIDE[0].go();
+}
+function guideNext() {
+  guide.step++;
+  if (guide.step < GUIDE.length) { guideShowStep(); return; }
+  guide.on = false;
+  store.set('guide', 'done');
+  ui.guideShow({ done: true, title: '다 둘러봤어요', line: '🐾 이제 마음대로 돌아다녀 보세요. 🧭 가볼 곳에서 영화관 · 바닷가 · 루프탑으로도 가요' });
+  setTimeout(() => { if (!guide.on) ui.guideHide(); }, 10000);
+}
+function guideEvent(ev) { if (guide.on && GUIDE[guide.step]?.ev === ev) guideNext(); }
+ui.onGuideGo = () => { if (guide.on) GUIDE[guide.step].go(); };
+ui.onGuideSkip = () => { if (guide.on) guideNext(); };
+ui.onGuideStop = () => {
+  const wasOn = guide.on;
+  guide.on = false;
+  ui.guideHide();
+  if (wasOn) { store.set('guide', 'off'); ui.toast('🧭 길잡이는 오른쪽 위 「길잡이 다시 보기」로 언제든 다시 볼 수 있어요'); }
+};
+ui.onGuideAgain = () => { if (me.entered) guideStart(); };
+
 // ---------- 목공방: 앞치마 · 10명 · 목공 멍 ----------
 function shopCount() { let n = 0; for (const r of remotes.values()) if (inShop(r.pos)) n++; return n; }
 function toggleApron(point) {
@@ -1478,7 +1570,7 @@ ui.onGift = (to, d) => {
   if (r) fx.hearts(r.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 3);
   return true;
 };
-ui.onBookOpen = () => { sound.ensure(); sound.pageTurn(); };
+ui.onBookOpen = () => { sound.ensure(); sound.pageTurn(); guideEvent('book'); };
 ui.canWalkTo = (id) => !!shelfBooks?.where.get(id);
 ui.onWalkToBook = (id) => {
   const p = shelfBooks.where.get(id);
@@ -1823,6 +1915,7 @@ ui.onEnter = async ({ name, look, soundOn, room: roomChoice }) => {
     ui.setRoom(n);
     if (ok) { net.stopped = false; net.failures = 0; net.start(n); } else switchToP2P();
   } else net.start(me.roomNo ? `s${me.roomNo}` : undefined);
+  if (store.get('guide', null) == null) { guideStart(); return; }   // 이 기기에서 처음 온 손님: 길잡이 (힌트 · 첫 걸음 대신)
   ui.showHint(IS_MOBILE
     ? ['톡: 걸어가기 · 의자를 누르면 앉아요', '책등을 누르면 책이 펼쳐져요', '🧭 가볼 곳에서 영화관 · 바닷가 · 루프탑으로', '숲으로 난 문은 오른쪽(동쪽), 현관은 아래(남쪽)']
     : ['바닥을 누르면 걸어가요 (WASD도 돼요)', '책등을 누르면 책이 펼쳐져요 · Enter 로 말하기', '🧭 가볼 곳에서 영화관 · 바닷가 · 루프탑으로', '숲으로 난 문은 오른쪽(동쪽), 현관은 아래(남쪽)']);
@@ -1849,7 +1942,7 @@ ui.onToggleMusic = () => {
 for (const ev of ['pointerdown', 'touchend', 'keydown']) window.addEventListener(ev, () => sound.unlock(), { capture: true, passive: true });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) sound.unlock(); });
 ui.onWave = () => { if (!me.entered) return; me.avatar?.wave(); net.send({ t: 'wave' }); };
-ui.init({ name: me.name, look: me.look, night: dayNight.target > 0.5, server: SERVER, rain: store.get('rain', false), lib: LIB });
+ui.init({ name: me.name, look: me.look, firstLook: !store.get('look', null), night: dayNight.target > 0.5, server: SERVER, rain: store.get('rain', false), lib: LIB });
 room.rainOn = cats.rain = store.get('rain', false);
 sound.setRain(room.rainOn);
 document.getElementById('loading').classList.add('gone');
@@ -1971,4 +2064,4 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-window.shop = { pair, askPair, acceptPair, onPairMsg, pairPos, club, startClub, handle, renderer, look, setLook, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { guide, guideSpots, guideStart, guideEvent, pair, askPair, acceptPair, onPairMsg, pairPos, club, startClub, handle, renderer, look, setLook, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };

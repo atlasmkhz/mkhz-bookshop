@@ -1,9 +1,19 @@
 // =============================================================
-//  엠케이아틀라스 서점 — 설정 파일
+//  고양이책과방 — 설정 파일
 //  서버 주소, 방 인원, 음료, 고양이, 캣타워 제품, 영화관은 여기만 고치면 됩니다.
 // =============================================================
 
 export const CONFIG = {
+  // 서점 이름 (화면에 나오는 이름은 모두 여기서). mark 는 로고에서 작게 · 주황으로 쓰는 글자(말장난: 고양이 책방 · 고양이와 책과 방)
+  // 이름을 바꿀 때는 index.html 의 title · description · og 칸 · noscript, README, admin.html, privacy.html 도 같이 고친다
+  brand: {
+    name: '고양이책과방',
+    mark: '과',
+    tagline: '책을 읽는 사람들의 작은 숲',
+    desc: '고양이가 사는 숲속 책방',
+    credit: '책은 엠케이아틀라스의 역사 · 철학 · 과학 · 정치 아틀라스에서 왔어요',
+  },
+
   // 같은 room 이름으로 들어온 사람끼리 만납니다 (서버가 없을 때 P2P 방 이름 앞머리)
   roomPrefix: 'mkhz-bookshop-v2',
 
@@ -101,6 +111,13 @@ export const CONFIG = {
 };
 
 // 책바구니 · 이름 · 설정을 이 브라우저에 저장
+// 로고 글자: mark 글자만 <i> 로 감싸 작게 · 주황으로 (css .brand-name i)
+export function brandHTML(b = CONFIG.brand) {
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const i = b.mark ? b.name.indexOf(b.mark) : -1;
+  return i < 0 ? esc(b.name) : esc(b.name.slice(0, i)) + '<i>' + esc(b.mark) + '</i>' + esc(b.name.slice(i + b.mark.length));
+}
+
 export const store = {
   get(k, d) { try { const v = localStorage.getItem('mkhzbook.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem('mkhzbook.' + k, JSON.stringify(v)); } catch { /* 무시 */ } },

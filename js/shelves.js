@@ -236,6 +236,9 @@ function shelfLabelOne(g, text, w, h, d, s, color) {
   g.add(m);
 }
 
+// 진짜 책이 꽂힌 자리 (첫 방문 길잡이가 가까운 책장을 찾을 때)
+export function bookSpots() { return real.map((r) => new THREE.Vector3().setFromMatrixPosition(r.matrix)); }
+
 // ---------- 다 놓은 뒤 한 번에 그리기 ----------
 const CW = 32, CH = 256, AW = 1024, AH = 4096, COLS = AW / CW;   // 책등 512권까지
 export function finalizeBooks(scene) {

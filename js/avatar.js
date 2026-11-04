@@ -12,6 +12,11 @@ export const LOOKS = {
   accs: [['none', '없음'], ['glasses', '안경'], ['beanie', '털모자'], ['beret', '베레모'], ['cap', '야구모자'], ['ribbon', '리본']],
 };
 const pick = (list, v) => (list.some(([k]) => k === v) ? v : list[0][0]);
+// 처음 온 손님의 모습: 목록 안에서 칸마다 따로 고르게 섞음 (성별을 가정하지 않음)
+export function randomLook() {
+  const any = (l) => l[Math.floor(Math.random() * l.length)];
+  return { top: any(LOOKS.tops), hair: any(LOOKS.hairs), skin: any(LOOKS.skins), bc: any(LOOKS.bottoms), hs: any(LOOKS.hairStyles)[0], bt: any(LOOKS.bottomStyles)[0], ac: any(LOOKS.accs)[0] };
+}
 
 const std = (c, r = 0.8) => new THREE.MeshStandardMaterial({ color: c, roughness: r });
 const lerp = THREE.MathUtils.lerp;

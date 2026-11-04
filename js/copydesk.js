@@ -10,6 +10,8 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const norm = (s) => String(s || '').replace(/\s+/g, '');
 const $ = (q) => document.querySelector(q);
 export const kstDay = (now = Date.now()) => Math.floor((now + 9 * 3600 * 1000) / 86400000);
+// 한국 날짜 'YYYY-MM-DD' (kstDay 와 같은 기준). 필사 공책의 day 칸 — 한국 새벽 0~9시에 쓴 편도 그날로 찍힘
+export const kstDate = (now = Date.now()) => new Date(now + 9 * 3600 * 1000).toISOString().slice(0, 10);
 
 const PW = 1024, PH = 640;   // 공책 그림 크기 (양쪽 면)
 
@@ -53,7 +55,7 @@ export class CopyDesk {
     $('#cpNext').addEventListener('click', () => this.go(this.ni + 1));
     $('#cpToday').addEventListener('click', () => this.go(this.todayIndex()));
     $('#cpMode').addEventListener('click', () => this.setAuto(!this.auto));
-    $('#cpBook').addEventListener('click', () => this.onNotebook?.(this.saved()));
+    $('#cpBook').addEventListener('click', () => this.onNotebook?.(this.withChars(this.saved())));
     const ta = $('#cpInput');
     ta.addEventListener('input', () => this.typed());
     ta.addEventListener('keydown', (e) => e.stopPropagation());
@@ -164,13 +166,21 @@ export class CopyDesk {
     const ok = this.done.reduce((a, d, i) => { const t = norm(n.bodyKo[i]), u = norm(d); let c = 0; for (let k = 0; k < t.length; k++) if (u[k] === t[k]) c++; return a + c; }, 0);
     const min = Math.max(1, Math.round((performance.now() - this.startT) / 60000));
     if (!this.auto) {
-      list.unshift({ id: n.id, no: n.no, ko: n.ko, src: n.srcKo, theme: n.themeKo, url: n.url, day: new Date().toISOString().slice(0, 10), acc: Math.round(ok / chars * 100), min });
+      list.unshift({ id: n.id, no: n.no, ko: n.ko, src: n.srcKo, theme: n.themeKo, url: n.url, day: kstDate(), acc: Math.round(ok / chars * 100), min, chars });
       store.set('copybook', list.slice(0, 200));
     }
     this.onFinish?.(n, this.auto ? null : { acc: Math.round(ok / chars * 100), min, count: list.length });
     this.setAuto(false, true);
   }
   saved() { const v = store.get('copybook', []); return Array.isArray(v) ? v : []; }
+  // 글자 수 칸이 없는 지난 기록은 원문 길이로 채워 보여 줌 (저장은 그대로)
+  withChars(list) {
+    return list.map((e) => {
+      if (e.chars) return e;
+      const n = this.notes.find((x) => x.id === e.id);
+      return { ...e, chars: n ? norm((n.bodyKo || []).join('')).length : norm(e.ko).length };
+    });
+  }
 
   // 소리만 듣기: 저절로 써 내려감
   setAuto(on, quiet = false) {

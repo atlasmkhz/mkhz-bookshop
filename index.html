@@ -3,21 +3,23 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-  <title>엠케이아틀라스 서점</title>
-  <meta name="description" content="역사 · 철학 · 과학 · 정치 아틀라스의 자료실 시리즈가 한 권씩 책이 된 숲속 오두막 독립서점. 숨어서 읽는 자리, 루프탑, 캠핑장, 숲속 영화관, 계곡과 바닷가가 있어요." />
+  <title>고양이책과방 · 고양이가 사는 숲속 책방</title>
+  <meta name="description" content="책을 읽는 사람들의 작은 숲. 고양이와 진돗개가 돌아다니는 숲속 독립서점에서 책을 꺼내 읽고, 문장을 옮겨 적고, 모닥불 가에서 쉬어 가요. 책은 엠케이아틀라스의 역사 · 철학 · 과학 · 정치 아틀라스에서 왔어요." />
   <meta name="theme-color" content="#e9dcc6" />
-  <meta property="og:title" content="엠케이아틀라스 서점" />
-  <meta property="og:description" content="숲속 오두막 독립서점. 책장 사이 막다른 골목, 다락 구석, 나무 위 오두막에 숨어서 읽어요." />
+  <meta property="og:title" content="고양이책과방 · 고양이가 사는 숲속 책방" />
+  <meta property="og:description" content="책을 읽는 사람들의 작은 숲. 고양이와 진돗개가 돌아다니는 숲속 독립서점에서 책을 꺼내 읽고, 문장을 옮겨 적고, 모닥불 가에서 쉬어 가요. 책은 엠케이아틀라스의 역사 · 철학 · 과학 · 정치 아틀라스에서 왔어요." />
   <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="엠케이아틀라스 서점" />
+  <meta property="og:site_name" content="고양이책과방" />
   <meta property="og:locale" content="ko_KR" />
   <meta property="og:url" content="https://bookshop.mkhz.kr/" />
-  <meta property="og:image" content="https://bookshop.mkhz.kr/assets/hero/og.jpg?v=2" />
+  <meta property="og:image" content="https://bookshop.mkhz.kr/assets/hero/og.jpg?v=3" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="숲속 통나무 독립서점 모형 — 루프탑 유리 방과 전구 줄, 창마다 책장, 현관 계단에 앉은 노란 고양이" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image" content="https://bookshop.mkhz.kr/assets/hero/og.jpg?v=2" />
+  <meta name="twitter:title" content="고양이책과방 · 고양이가 사는 숲속 책방" />
+  <meta name="twitter:description" content="책을 읽는 사람들의 작은 숲. 고양이와 진돗개가 돌아다니는 숲속 독립서점에서 책을 꺼내 읽고, 문장을 옮겨 적고, 모닥불 가에서 쉬어 가요. 책은 엠케이아틀라스의 역사 · 철학 · 과학 · 정치 아틀라스에서 왔어요." />
+  <meta name="twitter:image" content="https://bookshop.mkhz.kr/assets/hero/og.jpg?v=3" />
   <link rel="preload" as="image" href="assets/hero/hero-small.webp" media="(max-width: 819px)" />
   <link rel="preload" as="image" href="assets/hero/hero.webp" media="(min-width: 820px)" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📚%3C/text%3E%3C/svg%3E" />
@@ -35,43 +37,57 @@
 </head>
 <body>
   <canvas id="scene"></canvas>
-  <div id="loading"><span>서점 문을 여는 중…</span></div>
+  <div id="loading"><span><b class="brand-name" data-brand="name">고양이책<i>과</i>방</b> 문을 여는 중…</span></div>
 
   <!-- 입장 -->
   <div id="entry">
     <form id="enterForm" class="panel" autocomplete="off">
       <img class="hero-band" src="assets/hero/hero-small.webp" alt="숲속 통나무 독립서점 모형 — 루프탑 유리 방과 전구 줄, 창마다 책장, 현관 계단에 앉은 노란 고양이" width="900" height="506" decoding="async" />
-      <div class="logo">엠케이아틀라스 <span>서점</span></div>
-      <p class="sub">숲속 오두막 독립서점. 책장 골목과 비밀 서재, 루프탑,<br />캠핑장과 숲속 영화관, 계곡을 지나면 바닷가까지.</p>
+      <h1 class="logo brand-name" data-brand="name">고양이책<i>과</i>방</h1>
+      <p class="tagline" data-brand="tagline">책을 읽는 사람들의 작은 숲</p>
+      <p class="sub">책을 꺼내 읽고, 책상에서 한 문장을 옮겨 적고, 모닥불 가에 앉아 쉬어 가는 곳이에요. 혼자 와도 괜찮아요.</p>
       <label class="field">
         <span>닉네임</span>
         <input id="nameInput" maxlength="12" placeholder="서점에서 쓸 이름" enterkeyhint="go" />
       </label>
-      <div class="look-box">
+      <div class="look-box closed" id="lookBox">
         <canvas id="lookPreview" class="look-preview" width="180" height="230" aria-label="내 모습 미리 보기"></canvas>
-        <div class="look-fields">
+        <div class="look-side">
+          <div class="look-head"><span id="lookNote" class="look-note">처음 모습은 알아서 골라 두었어요</span><button type="button" id="btnCustom" class="btn ghost small" aria-expanded="false" aria-controls="lookMore">🎨 꾸미기</button></div>
+          <div class="look-fields">
           <div class="field"><span>윗옷</span><div id="topSwatches" class="swatches"></div></div>
           <div class="field"><span>아래옷</span><div id="bcSwatches" class="swatches"></div></div>
           <div class="field"><span>머리</span><div id="hairSwatches" class="swatches"></div></div>
           <div class="field"><span>피부</span><div id="skinSwatches" class="swatches"></div></div>
+          </div>
         </div>
       </div>
-      <div class="field"><span>머리형</span><div id="hsChips" class="chips"></div></div>
-      <div class="field"><span>아래옷</span><div id="btChips" class="chips"></div></div>
-      <div class="field"><span>소품</span><div id="acChips" class="chips"></div></div>
-      <div class="field hidden" id="roomField"><span>방</span>
-        <select id="roomSelect"><option value="">빈자리 있는 방으로</option></select>
+      <div class="look-more" id="lookMore">
+        <div class="field"><span>머리형</span><div id="hsChips" class="chips"></div></div>
+        <div class="field"><span>아래옷</span><div id="btChips" class="chips"></div></div>
+        <div class="field"><span>소품</span><div id="acChips" class="chips"></div></div>
+        <div class="field hidden" id="roomField"><span>방</span>
+          <select id="roomSelect"><option value="">빈자리 있는 방으로</option></select>
+        </div>
       </div>
       <label class="check"><input type="checkbox" id="soundOnEnter" checked /> 음악 · 장작 · 책장 소리와 함께</label>
       <button class="btn primary big" type="submit">서점 문 열고 들어가기</button>
       <p class="tiny" id="entryInfo">가입 없이 닉네임만 · 같은 시간에 온 손님들과 함께 보여요</p>
+      <details class="about">
+        <summary>이곳은 어떤 곳인가요</summary>
+        <p>고양이책과방은 고양이가 사는 숲속 책방, 가입 없이 닉네임만 정하고 들어가는 3D 온라인 독립서점이에요.</p>
+        <p>책장 골목과 비밀 서재에서 책을 꺼내 읽고, 필사 책상에서 한 문장을 옮겨 적고, 루프탑 독서 모임 방에 둘러앉아요.</p>
+        <p>모닥불 가에서 불멍, 밤에는 별 보기. 고양이와 진돗개가 돌아다니고, 혼자 와도 괜찮은 곳이에요.</p>
+        <p>책은 엠케이아틀라스의 <a href="https://atlas.mkhz.kr/">역사아틀라스</a> · <a href="https://philo.mkhz.kr/">철학아틀라스</a> · <a href="https://science.mkhz.kr/">과학아틀라스</a> · <a href="https://politics.mkhz.kr/">정치아틀라스</a>에서 왔어요.</p>
+      </details>
+      <p class="tiny legal"><a href="privacy.html">개인정보 안내</a></p>
     </form>
   </div>
 
   <!-- 화면 위 UI -->
   <div id="hud" class="hidden">
     <div class="topbar">
-      <div class="chip brand"><b>MK 서점</b><em id="roomNo"></em><i id="statusDot" class="dot"></i><span id="count">혼자 머무는 중</span></div>
+      <div class="chip brand"><b class="brand-name" data-brand="name">고양이책<i>과</i>방</b><em id="roomNo"></em><i id="statusDot" class="dot"></i><span id="count">1명</span></div>
       <div class="buttons">
         <button id="btnLook" class="round" title="디오라마 화면 켜기 · 끄기" type="button" aria-label="디오라마 화면">🎞️</button>
         <button id="btnMyCat" class="round" title="우리 집 고양이 입장시키기" type="button" aria-label="우리 집 고양이">🐾</button>
@@ -89,6 +105,13 @@
     </div>
     <div id="chatLog" class="chat-log"></div>
     <div id="spaceTag" class="space-tag"></div>
+    <!-- 첫 방문 길잡이 (이 기기에서 처음 온 손님에게만, 메시지 0건) -->
+    <div id="guide" class="guide panel" role="dialog" aria-label="길잡이">
+      <div class="g-head"><span id="gStep" class="g-step"></span><b id="gTitle"></b></div>
+      <p id="gLine" class="g-line"></p>
+      <div class="g-btns"><button id="gGo" class="btn primary small" type="button">🧭 데려다 주기</button><button id="gSkip" class="btn ghost small" type="button">건너뛰기</button><button id="gStop" class="btn ghost small" type="button">그만 보기</button></div>
+    </div>
+    <button id="guideAgain" class="guide-again" type="button">🧭 길잡이 다시 보기</button>
     <form id="chatBar" class="chat-bar hidden" autocomplete="off">
       <input id="chatInput" maxlength="80" placeholder="가까이 있는 사람에게만 보여요" enterkeyhint="send" />
       <button class="btn primary" type="submit">말하기</button>
@@ -174,7 +197,14 @@
     </div>
   </div>
 
-  <noscript>이 서점은 자바스크립트가 필요해요.</noscript>
+  <noscript>
+    <div class="noscript panel">
+      <p><b>고양이책과방</b> · 책을 읽는 사람들의 작은 숲. 고양이가 사는 숲속 책방이에요.</p>
+      <p>가입 없이 닉네임만 정하고 들어가는 3D 온라인 독립서점. 책장 골목과 비밀 서재, 필사 책상, 루프탑 독서 모임 방, 모닥불과 별 보기, 돌아다니는 고양이와 진돗개가 있어요. 혼자 와도 괜찮아요.</p>
+      <p>책은 엠케이아틀라스의 <a href="https://atlas.mkhz.kr/">역사아틀라스</a> · <a href="https://philo.mkhz.kr/">철학아틀라스</a> · <a href="https://science.mkhz.kr/">과학아틀라스</a> · <a href="https://politics.mkhz.kr/">정치아틀라스</a>에서 왔어요.</p>
+      <p>서점에 들어가려면 브라우저의 자바스크립트를 켜 주세요.</p>
+    </div>
+  </noscript>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
