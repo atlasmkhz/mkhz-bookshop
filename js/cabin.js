@@ -334,6 +334,14 @@ export function buildCabin(scene, books) {
       { x: -3.9, w: 1.6, h: 1.3, rows: Math.max(2, ar.length), spec: ar, label: '예술', color: '#3e8e5a' },
     ];
     for (const u of shelvesUp) bookcase(loft, room, { ...lc, x: u.x, w: u.w, h: u.h, rows: u.rows, rowSpec: [u.spec], label: u.label, labelColor: u.color });
+    // 다락 서가 도서목록 이젤 (철학 책장과 문학 책장 사이 벽): 세 칸을 누르면 그 분야 서가 목록
+    const cnt = (f) => books.filter((b) => b.field === f).length;
+    const eraLine = (rows) => [...new Set(rows.map((r) => ERA_NAME[r.era]))].join(' · ');
+    loftCatalog(loft, room, -11.97, -9.28, LY, [
+      { field: 'philo', title: `철학 · ${cnt('philo')}권`, line: eraLine(ph), color: '#1f2c4d' },
+      { field: 'literature', title: `문학 · ${cnt('literature')}권`, line: eraLine(li), color: '#8a4b6b' },
+      { field: 'art', title: `예술 · ${cnt('art')}권`, line: eraLine(ar), color: '#3e8e5a' },
+    ]);
   }
   // 다락 구석: 커튼 친 담요 굴 (서쪽 끝)
   {
@@ -1246,6 +1254,47 @@ export { boxUV };
 void CONFIG;
 
 // 도서목록 판: 책장 옆에 세워 둔 액자. 누르면 그 분야의 서가 목록이 열림
+// 다락 도서목록 이젤: 한 판에 분야 세 칸, 칸마다 누르면 그 분야 서가 목록
+function loftCatalog(host, room, x, z, fy, parts) {
+  const g = new THREE.Group();
+  g.add(mesh(rbox(0.86, 1.32, 0.05, 0.015), M.woodDark(), 0, 1.22, 0));
+  const top = mesh(new THREE.PlaneGeometry(0.78, 0.16), new THREE.MeshStandardMaterial({ map: labelTex('2층 다락 서가', '#3b2a20', '#f7ecd8', 34), roughness: 0.9 }), 0, 1.79, 0.03);
+  g.add(top);
+  parts.forEach((pt, i) => {
+    const c = document.createElement('canvas'); c.width = 384; c.height = 176;
+    const draw = () => {
+      const p = c.getContext('2d');
+      p.fillStyle = '#f3e6cf'; p.fillRect(0, 0, 384, 176);
+      p.fillStyle = pt.color; p.fillRect(0, 0, 14, 176);
+      p.fillStyle = pt.color; p.font = '700 40px "Gowun Batang", serif'; p.textBaseline = 'middle'; p.fillText(pt.title, 34, 52);
+      p.fillStyle = '#3f2c20'; p.font = '24px "Gowun Dodum", sans-serif';
+      p.fillText(pt.line.length > 18 ? pt.line.slice(0, 17) + '…' : pt.line, 34, 102);
+      p.fillStyle = '#7d6553'; p.font = '20px "Gowun Dodum", sans-serif'; p.fillText('눌러서 도서목록 보기 ›', 34, 146);
+    };
+    draw();
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    document.fonts?.ready.then(() => { draw(); t.needsUpdate = true; });
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.357), new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }));
+    face.position.set(0, 1.5 - i * 0.375, 0.03);
+    face.userData.catalog = pt.field;
+    g.add(face);
+  });
+  for (const s of [-0.3, 0.3]) { const leg = mesh(rbox(0.04, 0.6, 0.04, 0.01), M.woodDark(), s, 0.3, -0.1); leg.rotation.x = 0.3; g.add(leg); g.add(mesh(rbox(0.04, 0.6, 0.04, 0.01), M.woodDark(), s, 0.3, 0.0)); }
+  g.traverse((o) => { if (o.isMesh && !o.userData.catalog) o.userData.catalog = parts[0].field; });
+  g.position.set(x, fy, z);
+  host.add(g);
+  const ob = footprint(x, z, 0.86, 0.3, 0); ob.lv = 1;
+  room.obstacles.push(ob);
+}
+function labelTex(text, bg, fg, size) {
+  const c = document.createElement('canvas'); c.width = 384; c.height = 80;
+  const draw = () => { const p = c.getContext('2d'); p.fillStyle = bg; p.fillRect(0, 0, 384, 80); p.fillStyle = fg; p.textAlign = 'center'; p.textBaseline = 'middle'; p.font = `700 ${size}px "Gowun Batang", serif`; p.fillText(text, 192, 42); };
+  draw();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  document.fonts?.ready.then(() => { draw(); t.needsUpdate = true; });
+  return t;
+}
+
 export function catalogBoard(scene, room, x, z, rotY, field, title, lines = [], color = '#3b2a20') {
   const g = new THREE.Group();
   const c = document.createElement('canvas'); c.width = 384; c.height = 512;
