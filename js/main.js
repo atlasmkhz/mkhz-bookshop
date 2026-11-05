@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { CONFIG, store, brandHTML } from './config.js';
 import { IS_MOBILE } from './kit.js';
-import { CABIN, WORLD, SEA_Z, pushOut, findPath, buildNav, isOutdoor, inCabin, levelOf, platformById } from './nav.js';
+import { CABIN, WORLD, SEA_Z, pushOut, findPath, buildNav, isOutdoor, inCabin, levelOf, platformById, insideObstacle } from './nav.js';
 import { buildCabin } from './cabin.js';
 import { buildForest, updateCanopies } from './forest.js';
 import { Program } from './cinema.js';
@@ -372,11 +372,27 @@ cats.getGuests = () => {
 };
 
 // ---------- 앉기 · 걷기 ----------
+// 일어설 자리: 보통은 다가온 자리(appr). 그곳이 막혔거나 집 안 · 밖이 바뀌면 의자 둘레에서 걸을 수 있는 빈자리를 찾음
+function standSpot(seat) {
+  const lv = seat.lv || 0, g = room.grids?.get(lv);
+  const ok = (p) => inCabin(p) === inCabin(seat.pos) && !insideObstacle(room, p, 0.2, lv) && (!g || g.ok(g.cx(p.x), g.cz(p.z)));
+  const p = seat.appr.clone();
+  pushOut(room, p, 0.22);
+  if (ok(p)) return p;
+  for (const r of [0.7, 0.95, 1.2]) {
+    for (let k = 0; k < 12; k++) {
+      const a = seat.rotY + (k / 12) * Math.PI * 2;
+      const q = new THREE.Vector3(seat.pos.x + Math.sin(a) * r, seat.fy, seat.pos.z + Math.cos(a) * r);
+      if (ok(q)) return q;
+    }
+  }
+  return p;
+}
 function standUp() {
   if (!me.seat) return;
   if (copy.on) exitCopy();
   if (craft.on) exitCraft();
-  me.pos.copy(me.seat.appr);
+  me.pos.copy(standSpot(me.seat));
   pushOut(room, me.pos, 0.22);
   me.seat.taken = null;
   if (me.seat.cinema) ui.hidePlayer();

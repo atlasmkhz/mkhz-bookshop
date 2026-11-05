@@ -482,8 +482,9 @@ export function buildCabin(scene, books) {
     obst({ minX: lx - 0.3, maxX: lx + 0.3, minZ: -9.5, maxZ: z0 + 0.08 });
     room.climbs.push({ key: 'ladder', rotY: 0, path: [V(lx + 0.55, 0, -8.55), rungs[2], rungs[5], rungs[8], rungs[11], V(5.4, 4.83, CABIN.minZ + 0.25), V(1.6, 4.83, CABIN.minZ + 0.25)] });
     // 창가 독서 의자 (동쪽 창)
-    armchair(scene, room, 7.2, -7.7, Math.PI / 2, '#8a5a44', { name: '창가 독서 의자', nook: true, blanket: '#c9b6e4' });
-    armchair(scene, room, 7.2, -6.3, Math.PI / 2, '#a7865f', { name: '창가 독서 의자', nook: true });
+    // 창을 등지고 방 쪽을 봄 (창을 보고 놓으면 다가가는 자리가 벽에 붙어, 집 밖으로 돌아가거나 의자와 벽 사이에 끼었음)
+    armchair(scene, room, 7.4, -7.7, -Math.PI / 2, '#8a5a44', { name: '창가 독서 의자', nook: true, blanket: '#c9b6e4' });
+    armchair(scene, room, 7.4, -6.3, -Math.PI / 2, '#a7865f', { name: '창가 독서 의자', nook: true });
     lowTable(scene, room, 7.45, -8.65, 0, 0.45, 0.45, 0.5, { cup: true });
     floorLamp(scene, room, 7.55, -5.4, { light: true });
     room.benchSpots.push(V(7.86, 0.86, -6.9));
