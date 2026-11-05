@@ -8,6 +8,8 @@ export const PALETTES = {
   mackerel: { base: '#8f8a82', dark: '#3d3935', light: '#e2dccf', eye: '#a7b04a' },
   tuxedo:   { base: '#272323', dark: '#1a1717', light: '#fbf7f0', eye: '#d6b43a' },
   black:    { base: '#221e1e', dark: '#141212', light: '#2e2828', eye: '#e3c43a' },
+  white:    { base: '#f7f3ec', dark: '#e4ddd2', light: '#fffdf9', eye: '#86b6dc' },
+  blue:     { base: '#8b95a0', dark: '#6c7580', light: '#a7b0b9', eye: '#a9c95a' },
 };
 
 const tmp = new THREE.Color();

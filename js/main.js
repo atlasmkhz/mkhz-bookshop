@@ -10,6 +10,7 @@ import { Program } from './cinema.js';
 import { setAtlases, finalizeBooks, bookSpots } from './shelves.js';
 import { BookCats } from './cats.js';
 import { Puppies } from './dogs.js';
+import { RedPanda } from './panda.js';
 import { Fires } from './fire.js';
 import { Sky } from './sky.js';
 import { Fireworks, FW_KINDS } from './fireworks.js';
@@ -95,6 +96,7 @@ const fx = new FX(scene);
 const sound = new Sound();
 const cats = new BookCats(scene, room, fx, sound);
 const dogs = new Puppies(scene, room, fx, sound, CONFIG.dogs || []);
+const panda = new RedPanda(scene, room, fx, sound, CONFIG.panda);
 const fires = new Fires(scene, room, fx, sound);
 const sky = new Sky(scene, renderer.getPixelRatio());
 const fw = new Fireworks(scene, sound);
@@ -122,6 +124,7 @@ const gallery = new GalleryClient(room, CONFIG.gallery, uid);
 me.apron = !!store.get('apron', false);
 cats.listener = me.pos;
 dogs.listener = me.pos;
+panda.listener = me.pos;
 fw.listener = me.pos;
 
 // ---------- 카메라 ----------
@@ -348,6 +351,7 @@ function updateDayNight(dt, t) {
   fill.intensity = 0.4 - n * 0.28;
   cats.night = n;
   dogs.night = n;
+  panda.night = n;
   for (const fn of room.nightParts) fn(dt, t, n);
 }
 
@@ -501,7 +505,7 @@ raycaster.camera = camera;
 const ndc = new THREE.Vector2();
 function usable(o) {
   if (o.isSprite || o.isPoints || o.isLine || o.isLineSegments || o.userData.noHit) return false;
-  if (o.userData.catId || o.userData.followerOf || o.userData.dogId) return false;
+  if (o.userData.catId || o.userData.followerOf || o.userData.dogId || o.userData.pandaId) return false;
   for (let p = o; p; p = p.parent) if (!p.visible) return false;
   if (o.material && o.material.visible === false && !o.userData.product) return false;
   return true;
@@ -515,8 +519,8 @@ function followerHits() {
 function pick(x, y) {
   ndc.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-  const animalHit = (o, point) => (o.userData.catId ? { kind: 'cat', id: o.userData.catId } : o.userData.dogId ? { kind: 'dog', id: o.userData.dogId } : { kind: 'follower', obj: o, point });
-  const animals = [...cats.hitObjects(), ...dogs.hitObjects(), ...followerHits()];
+  const animalHit = (o, point) => (o.userData.catId ? { kind: 'cat', id: o.userData.catId } : o.userData.dogId ? { kind: 'dog', id: o.userData.dogId } : o.userData.pandaId ? { kind: 'panda' } : { kind: 'follower', obj: o, point });
+  const animals = [...cats.hitObjects(), ...dogs.hitObjects(), panda.hit, ...followerHits()];
   const catHits = raycaster.intersectObjects(animals, false);
   if (catHits.length) return animalHit(catHits[0].object, catHits[0].point);
   const tol = IS_MOBILE ? 44 : 30;
@@ -577,6 +581,7 @@ function onTap(x, y) {
   if (fwView.on && hit.kind !== 'fwbox') endFwView();
   if (hit.kind === 'cat') { petCat(hit.id); return; }
   if (hit.kind === 'dog') { petDog(hit.id); return; }
+  if (hit.kind === 'panda') { findPanda(); return; }
   if (hit.kind === 'woodpile' || hit.kind === 'fire') { tossLog(hit.id); return; }
   if (hit.kind === 'toys') { goCounter(hit.point, 'toys'); return; }
   if (hit.kind === 'apron') { toggleApron(hit.point); return; }
@@ -647,6 +652,22 @@ function petCat(id) {
   if (!me.seat && d.length() > 1.3 && c.pos.y < 0.5 && levelOf(me.pos) === 0) {
     walkTo(c.pos.clone().setY(0).sub(d.normalize().multiplyScalar(0.75)), { type: 'faceCat', id });
   } else if (!me.seat) me.yaw = Math.atan2(c.pos.x - me.pos.x, c.pos.z - me.pos.z);
+}
+// 레서판다 찾기 — 내 화면에서만 반응. 찾은 날은 이 기기에만 (store 'panda', 메시지 0건)
+let lastPanda = 0;
+function findPanda() {
+  if (performance.now() - lastPanda < 700) return;
+  lastPanda = performance.now();
+  const day = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  const rec = store.get('panda', null) || { days: [], times: 0 };
+  const first = !rec.days.includes(day);
+  if (first) rec.days = [...rec.days, day].slice(-400);
+  rec.times = (rec.times || 0) + 1;
+  store.set('panda', rec);
+  panda.pet(me.pos.clone());
+  ui.showPanda(CONFIG.panda, { first, days: rec.days.length, up: panda.up });
+  if (!sound.enabled) ui.soundNudge();
+  if (!panda.up && !me.seat) me.yaw = Math.atan2(panda.pos.x - me.pos.x, panda.pos.z - me.pos.z);
 }
 // 강아지 쓰다듬기 — 내 화면에서만 반응하고 아무것도 보내지 않음
 let lastDogPet = 0;
@@ -1918,8 +1939,8 @@ ui.onEnter = async ({ name, look, soundOn, room: roomChoice }) => {
   } else net.start(me.roomNo ? `s${me.roomNo}` : undefined);
   if (store.get('guide', null) == null) { guideStart(); return; }   // 이 기기에서 처음 온 손님: 길잡이 (힌트 · 첫 걸음 대신)
   ui.showHint(IS_MOBILE
-    ? ['톡: 걸어가기 · 의자를 누르면 앉아요', '책등을 누르면 책이 펼쳐져요', '🧭 가볼 곳에서 영화관 · 바닷가 · 루프탑으로', '숲으로 난 문은 오른쪽(동쪽), 현관은 아래(남쪽)']
-    : ['바닥을 누르면 걸어가요 (WASD도 돼요)', '책등을 누르면 책이 펼쳐져요 · Enter 로 말하기', '🧭 가볼 곳에서 영화관 · 바닷가 · 루프탑으로', '숲으로 난 문은 오른쪽(동쪽), 현관은 아래(남쪽)']);
+    ? ['톡: 걸어가기 · 의자를 누르면 앉아요', '책등을 누르면 책이 펼쳐져요', '🧭 가볼 곳에서 영화관 · 바닷가 · 루프탑으로', '숲으로 난 문은 오른쪽(동쪽), 현관은 아래(남쪽)', '🍁 숲 어딘가에 레서판다가 혼자 돌아다녀요']
+    : ['바닥을 누르면 걸어가요 (WASD도 돼요)', '책등을 누르면 책이 펼쳐져요 · Enter 로 말하기', '🧭 가볼 곳에서 영화관 · 바닷가 · 루프탑으로', '숲으로 난 문은 오른쪽(동쪽), 현관은 아래(남쪽)', '🍁 숲 어딘가에 레서판다가 혼자 돌아다녀요 — 나무 위도 살펴보세요']);
   walkTo(room.firstWalk);
 };
 ui.loadRooms = SERVER ? fetchRooms : null;
@@ -2019,6 +2040,7 @@ function frame(now) {
   }
   cats.update(dt, t);
   dogs.update(dt);
+  panda.update(dt);
   updateFire(dt);
   updateFwView(dt);
   updateHide(dt);
@@ -2091,4 +2113,4 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-window.shop = { pace, targetFps, guide, guideSpots, guideStart, guideEvent, pair, askPair, acceptPair, onPairMsg, pairPos, club, startClub, handle, renderer, look, setLook, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { panda, pace, targetFps, guide, guideSpots, guideStart, guideEvent, pair, askPair, acceptPair, onPairMsg, pairPos, club, startClub, handle, renderer, look, setLook, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };

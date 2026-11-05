@@ -1,6 +1,8 @@
-// 서점 고양이 네 마리: 책장 위에서 자고, 캣타워를 오르내리고, 정원 바위에서 햇볕 쬐고, 손님 곁에 와서 앉음
+// 서점 고양이 일곱 마리: 책장 위에서 자고, 캣타워를 오르내리고, 정원 바위에서 햇볕 쬐고, 손님 곁에 와서 앉음
 // 돌발행동: 우다다(zoom), 평대 위 책 떨어뜨리기(knock), 나비 쫓기(chase), 벽 보기(stare), 다른 고양이에게 덮치기(pounce),
-//          문 앞에서 야옹(meow), 물 보고 깜짝(splash), 텐트 들어가기(box), 스크린 앞에 앉기(screen)
+//          문 앞에서 야옹(meow), 물 보고 깜짝(splash), 텐트 들어가기(box), 스크린 앞에 앉기(screen),
+//          둘이 술래잡기(tag), 제자리 빙글빙글(spin), 손님 발치 기습(ambush), 혼자 깜짝 놀라 튀기(scare), 발라당(roll)
+// 마중: 손님이 들어오면 눈송이가 다가와 한동안 졸졸 따라다님(follow). 따라가는 모습도 각자 화면이 손님 자리를 보고 그림
 // 행동(계획)은 고양이 담당 브라우저 한 곳에서만 세우고 "어디로 간다 · 무엇을 한다"만 나눠 줌. 걷는 모습은 모두가 각자 그림
 import * as THREE from 'three';
 import { CatModel } from './catModel.js';
@@ -16,11 +18,19 @@ const angDamp = (a, b, k, dt) => {
 };
 const yawTo = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
 
+// 모든 고양이에게 깔리는 돌발행동 · 따라가기 기본값 (아래 TRAITS 가 덮어씀)
+const BASE = { follow: 0.5, tag: 0.7, spin: 0.5, ambush: 0.6, scare: 0.6, roll: 0.6 };
 const TRAITS = {
   cheese:   { climb: 0.8, box: 1.2, spot: 1.4, wander: 1, guest: 2.4, stretch: 0.7, stove: 1.2, sun: 1.6, garden: 1.0, birds: 0.7, zoom: 1.4, knock: 0.6, chase: 0.8, stare: 0.4, pounce: 0.8, meow: 0.8, splash: 0.4, screen: 0.6 },
   tuxedo:   { climb: 2.6, box: 0.6, spot: 0.9, wander: 1, guest: 1.4, stretch: 0.8, stove: 0.8, sun: 1.0, garden: 0.9, birds: 1.2, zoom: 0.6, knock: 0.4, chase: 0.5, stare: 1.2, pounce: 0.5, meow: 0.4, splash: 0.3, screen: 0.8 },
   calico:   { climb: 0.9, box: 0.8, spot: 1.6, wander: 0.8, guest: 1.2, stretch: 0.7, stove: 1.3, sun: 1.4, garden: 1.2, birds: 0.5, zoom: 0.7, knock: 1.8, chase: 0.4, stare: 0.6, pounce: 0.6, meow: 0.6, splash: 0.3, screen: 0.5 },
   mackerel: { climb: 2.2, box: 0.5, spot: 0.7, wander: 1.1, guest: 0.9, stretch: 0.8, stove: 0.6, sun: 0.9, garden: 1.4, birds: 1.5, zoom: 1.0, knock: 0.5, chase: 1.8, stare: 0.5, pounce: 1.0, meow: 0.5, splash: 0.9, screen: 0.5 },
+  // 까망이: 우다다 대장 (밤에 더)
+  black:    { climb: 1.0, box: 0.7, spot: 0.6, wander: 1.0, guest: 0.8, stretch: 0.6, stove: 0.6, sun: 0.6, garden: 1.0, birds: 0.8, zoom: 2.8, knock: 0.8, chase: 1.2, stare: 0.6, pounce: 1.6, meow: 0.4, splash: 0.5, screen: 0.4, tag: 1.6, spin: 1.2, ambush: 1.0, scare: 1.2 },
+  // 눈송이: 마중 고양이 (손님 따라다니기)
+  white:    { climb: 0.6, box: 0.6, spot: 0.8, wander: 0.8, guest: 2.6, stretch: 0.7, stove: 1.0, sun: 1.0, garden: 0.8, birds: 0.5, zoom: 0.7, knock: 0.3, chase: 0.6, stare: 0.4, pounce: 0.5, meow: 0.9, splash: 0.2, screen: 0.6, follow: 3.0, roll: 1.4 },
+  // 구름이: 숨었다 덮치기 · 상자 좋아함
+  blue:     { climb: 1.2, box: 2.0, spot: 0.7, wander: 0.9, guest: 0.8, stretch: 0.7, stove: 0.7, sun: 0.7, garden: 1.0, birds: 0.9, zoom: 1.2, knock: 1.0, chase: 1.0, stare: 0.8, pounce: 1.2, meow: 0.3, splash: 0.6, screen: 0.4, ambush: 2.2, scare: 1.4, spin: 0.8 },
 };
 
 export class BookCats {
@@ -34,7 +44,10 @@ export class BookCats {
     this.reserved = new Set();
     this.getGuests = () => [];
     this.night = 0;
-    const starts = [V(-13.6, 0, 2.6), V(5.4, 4.83, -9.75), V(-2.0, 0, 5.0), V(4.4, 0, 6.2)];
+    const starts = [V(-13.6, 0, 2.6), V(5.4, 4.83, -9.75), V(-2.0, 0, 5.0), V(4.4, 0, 6.2), V(-6.0, 0, 4.5), V(-1.2, 0, 8.4), V(11.5, 0, 3.0)];
+    for (const p of starts) if (p.y < 0.05) pushOut(room, p, 0.15, true);
+    this.greeted = new Set();   // 마중을 받은 손님 (이 방문 동안)
+    this.greetAt = 0;
     CONFIG.cats.forEach((def, i) => {
       const model = new CatModel(def.pattern, null, i + 1, 1.3);
       const hit = new THREE.Mesh(new THREE.SphereGeometry(0.38, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
@@ -46,7 +59,7 @@ export class BookCats {
         def, model, hit, idx: i,
         pos: starts[i % starts.length].clone(), yaw: Math.random() * 6.28,
         queue: [], step: null, loc: { kind: 'floor' }, speed: 0, anim: 'idle',
-        zzz: 0, traits: TRAITS[def.pattern] || TRAITS.cheese,
+        zzz: 0, traits: { ...BASE, ...(TRAITS[def.pattern] || TRAITS.cheese) },
       };
       if (i === 1) {
         const c = room.climbs.find((x) => x.key === 'ladder');
@@ -78,12 +91,17 @@ export class BookCats {
       ['zoom', t.zoom * 0.6], ['knock', t.knock * 0.5], ['chase', (this.night < 0.5 && !this.rain ? t.chase : 0) * 0.6],
       ['stare', t.stare * 0.4], ['pounce', this.cats.length > 1 ? t.pounce * 0.4 : 0], ['meow', t.meow * 0.3],
       ['splash', (!bad ? t.splash : 0) * 0.4], ['screen', (this.night > 0.5 && this.room.screen && !this.rain ? t.screen : 0) * 0.8],
+      // 더 자주 보이는 돌발행동 (2026-11-05: 우다다 · 돌발을 자주) — 밤에는 우다다가 두 배
+      ['zoom2', t.zoom * (0.5 + this.night * 0.9)], ['tag', this.cats.length > 1 ? t.tag * 0.6 : 0], ['spin', t.spin * 0.5],
+      ['ambush', guests.length ? t.ambush * 0.7 : 0], ['scare', t.scare * 0.5], ['roll', t.roll * 0.5],
+      ['follow', guests.length ? t.follow * 0.6 : 0],
     ];
     const sum = choices.reduce((s, c) => s + c[1], 0);
     let r = Math.random() * sum, choice = 'wander';
     for (const [k, w] of choices) { if ((r -= w) <= 0) { choice = k; break; } }
     const out = isOutdoor(cat.pos);
 
+    if (choice === 'zoom2') choice = 'zoom';
     if (choice === 'wander') {
       q.push({ type: 'walk', to: randomFloorPoint(this.room, 0.2, bad ? 'in' : undefined) });
       q.push({ type: 'pose', anim: pick(['sit', 'idle', 'groom', 'sit']), dur: rand(3, 7) });
@@ -115,7 +133,7 @@ export class BookCats {
       q.push({ type: 'walk', to: P[0].clone() });
       for (let i = 1; i <= target; i++) q.push({ type: 'hop', to: P[i].clone() });
       q.push({ type: 'face', yaw: c.rotY + rand(-0.8, 0.8) });
-      q.push({ type: 'pose', anim: pick(['loaf', 'sleep', 'sleep', 'loaf', 'groom']), dur: rand(18, 40) });
+      q.push({ type: 'pose', anim: pick(['loaf', 'sleep', 'sleep', 'loaf', 'groom']), dur: rand(14, 30) });
       q.push({ type: 'loc', loc: { kind: 'path', p: c, index: target, key } });
     } else if (choice === 'box') {
       const free = this.room.boxes.filter((b) => !this.reserved.has(b.key) && !(b.lv) && !(b.outdoor && bad));
@@ -125,7 +143,7 @@ export class BookCats {
       q.push({ type: 'walk', to: b.floor.clone() });
       q.push({ type: 'face', yaw: b.rotY + Math.PI });
       q.push({ type: 'hop', to: b.inside.clone(), keepYaw: true, low: true });
-      q.push({ type: 'pose', anim: 'sleep', dur: rand(18, 40) });
+      q.push({ type: 'pose', anim: 'sleep', dur: rand(14, 30) });
       q.push({ type: 'loc', loc: { kind: 'box', b, key: b.key } });
     } else if (choice === 'spot') {
       const spots = this.room.benchSpots.map((s, i) => ({ s, key: `spot${i}` })).filter((x) => !this.reserved.has(x.key) && !(isOutdoor(x.s) && bad) && x.s.y < 2.5);
@@ -137,7 +155,7 @@ export class BookCats {
       if (s.y > 0.15) q.push({ type: 'hop', to: s.clone() });
       else q.push({ type: 'walk', to: V(s.x, 0, s.z), noCollide: true });
       q.push({ type: 'face', yaw: rand(-3, 3) });
-      q.push({ type: 'pose', anim: pick(['loaf', 'sleep', 'loaf', 'sit']), dur: rand(12, 30) });
+      q.push({ type: 'pose', anim: pick(['loaf', 'sleep', 'loaf', 'sit']), dur: rand(10, 24) });
       q.push({ type: 'loc', loc: { kind: 'spot', s, floorPt, key } });
     } else if (choice === 'sun') {
       const rocks = this.room.sunRocks.map((k, i) => ({ k, key: `rock${i}` })).filter((x) => !this.reserved.has(x.key));
@@ -248,7 +266,97 @@ export class BookCats {
       q.push({ type: 'walk', to });
       q.push({ type: 'face', yaw: yawTo(to, s) });
       q.push({ type: 'pose', anim: pick(['sit', 'loaf']), dur: rand(20, 40) });
+    } else if (choice === 'tag') {
+      // 술래잡기: 내가 먼저 우다다 달아나고, 다른 고양이가 같은 길로 쫓아옴
+      const other = pick(this.cats.filter((c) => c !== cat && c.loc.kind === 'floor' && c.step?.type !== 'hop' && c.pos.distanceTo(cat.pos) < 9));
+      if (!other) return this.plan_wander(cat);
+      const where = out ? 'out' : 'in';
+      const pts = [0, 1, 2, 3].map(() => randomFloorPoint(this.room, 0.2, where));
+      q.push({ type: 'pose', anim: 'jump', dur: 0.4 });
+      for (const p of pts) q.push({ type: 'walk', to: p.clone(), fast: true });
+      q.push({ type: 'pose', anim: 'sit', dur: 1.0 });
+      q.push({ type: 'fx', k: 'puff' });
+      q.push({ type: 'pose', anim: 'groom', dur: rand(3, 6) });
+      this.interrupt(other);
+      const oq = other.queue;
+      oq.push({ type: 'face', yaw: yawTo(other.pos, cat.pos) });
+      oq.push({ type: 'pose', anim: 'stretch', dur: 0.7 });
+      oq.push({ type: 'walk', to: cat.pos.clone().setY(0), fast: true });
+      for (const p of pts) oq.push({ type: 'walk', to: p.clone(), fast: true });
+      oq.push({ type: 'pose', anim: 'jump', dur: 0.5 });
+      oq.push({ type: 'pose', anim: pick(['sit', 'loaf']), dur: rand(3, 6) });
+      this.routeWalks(other);
+      this.emit(other);
+    } else if (choice === 'spin') {
+      // 제 꼬리 잡으려 빙글빙글 → 어질어질
+      const c0 = cat.pos.clone().setY(0);
+      q.push({ type: 'pose', anim: 'stretch', dur: 0.6 });
+      for (let k = 0; k < 10; k++) {
+        const a = cat.yaw + k * 1.25;
+        q.push({ type: 'walk', to: c0.clone().add(V(Math.sin(a) * 0.32, 0, Math.cos(a) * 0.32)), fast: true, noCollide: true });
+      }
+      q.push({ type: 'fx', k: 'dizzy' });
+      q.push({ type: 'pose', anim: 'sit', dur: 2.2 });
+      q.push({ type: 'pose', anim: 'groom', dur: rand(2, 4) });
+    } else if (choice === 'ambush') {
+      // 숨어서 살금살금 → 손님 발치로 와락 → 후다닥 도망
+      const g = pick(guests);
+      const d = cat.pos.clone().sub(g.pos).setY(0);
+      if (d.lengthSq() < 0.01) d.set(1, 0, 0);
+      d.normalize();
+      const hide = g.pos.clone().setY(0).addScaledVector(d, 2.4);
+      pushOut(this.room, hide, 0.15, true);
+      const hit = g.pos.clone().setY(0).addScaledVector(d, 0.45);
+      pushOut(this.room, hit, 0.14, true);
+      const away = g.pos.clone().setY(0).addScaledVector(d.clone().applyAxisAngle(V(0, 1, 0), rand(1.8, 2.6) * (Math.random() < 0.5 ? 1 : -1)), 3.2);
+      pushOut(this.room, away, 0.15, true);
+      q.push({ type: 'walk', to: hide });
+      q.push({ type: 'faceGuest', guest: g.id });
+      q.push({ type: 'pose', anim: 'stretch', dur: rand(2, 3.5) });
+      q.push({ type: 'walk', to: hit, fast: true });
+      q.push({ type: 'pose', anim: 'jump', dur: 0.55 });
+      q.push({ type: 'fx', k: 'boo' });
+      q.push({ type: 'walk', to: away, fast: true });
+      q.push({ type: 'faceGuest', guest: g.id });
+      q.push({ type: 'pose', anim: 'sit', dur: rand(3, 6) });
+    } else if (choice === 'scare') {
+      // 아무것도 없는데 혼자 깜짝 → 옆으로 튀어 달아남
+      const to = cat.pos.clone().setY(0).add(V(rand(-2.8, 2.8), 0, rand(-2.8, 2.8)));
+      pushOut(this.room, to, 0.15, true);
+      q.push({ type: 'pose', anim: 'jump', dur: 0.5 });
+      q.push({ type: 'fx', k: 'eek' });
+      q.push({ type: 'walk', to, fast: true });
+      q.push({ type: 'pose', anim: 'sit', dur: 1.6 });
+      q.push({ type: 'fx', k: 'question' });
+      q.push({ type: 'pose', anim: 'groom', dur: rand(3, 5) });
+    } else if (choice === 'roll') {
+      // 발라당: 바닥에 몸을 비비며 뒹굴
+      q.push({ type: 'pose', anim: 'stretch', dur: 1.4 });
+      q.push({ type: 'pose', anim: 'petted', dur: rand(4, 7) });
+      q.push({ type: 'pose', anim: 'loaf', dur: rand(3, 6) });
+    } else if (choice === 'follow') {
+      const g = pick(guests);
+      q.push({ type: 'follow', guest: g.id, dur: rand(20, 35) });
+      q.push({ type: 'pose', anim: pick(['sit', 'loaf']), dur: rand(3, 6) });
     }
+  }
+  // 마중: 새로 온 손님에게 따라가기 잘하는 고양이가 다가와 야옹, 한동안 졸졸 (고양이 담당 브라우저만 계획)
+  greet(guest) {
+    const now = performance.now();
+    if (now - this.greetAt < 15000) return;
+    const cands = this.cats.filter((c) => c.step?.type !== 'hop' && c.step?.type !== 'follow').sort((a, b) => b.traits.follow - a.traits.follow);
+    const cat = cands[0];
+    if (!cat) return;
+    this.greetAt = now;
+    this.interrupt(cat);
+    if (cat.loc.kind !== 'floor') this.exitSteps(cat);
+    cat.queue.push({ type: 'follow', guest: guest.id, dur: 6, greet: true });
+    cat.queue.push({ type: 'fx', k: 'meow' });
+    cat.queue.push({ type: 'pose', anim: 'petted', dur: 2.5 });   // 발치에 몸을 비빔
+    cat.queue.push({ type: 'follow', guest: guest.id, dur: rand(45, 70) });
+    cat.queue.push({ type: 'pose', anim: 'loaf', dur: rand(4, 8) });
+    this.routeWalks(cat);
+    this.emit(cat);
   }
   plan_wander(cat) {
     cat.queue.push({ type: 'walk', to: randomFloorPoint(this.room, 0.2, 'in') });
@@ -447,6 +555,13 @@ export class BookCats {
   }
 
   update(dt) {
+    if (this.isHost) {
+      for (const g of this.getGuests()) {
+        if (this.greeted.has(g.id)) continue;
+        this.greeted.add(g.id);
+        if (g.pos.y < 0.3) this.greet(g);
+      }
+    }
     for (const cat of this.cats) {
       this.simulate(cat, dt);
       cat.model.root.position.copy(cat.pos);
@@ -518,6 +633,40 @@ export class BookCats {
         cat.yaw = angDamp(cat.yaw, s.yaw, 6, dt);
         if (s.t > 0.5) cat.step = null;
         break;
+      case 'follow': {
+        // 손님을 졸졸: 1.2초마다 길을 다시 찾고, 가까우면 곁에 앉아 올려다봄. 2층 · 다락에 오르면 아래서 기다림
+        const g = this.getGuests().find((x) => x.id === s.guest);
+        if (!g || s.t > s.dur) { cat.step = null; cat.anim = 'idle'; break; }
+        const gp = g.pos;
+        const dist = Math.hypot(gp.x - cat.pos.x, gp.z - cat.pos.z);
+        const near = s.greet ? 0.75 : 1.05;
+        if (gp.y > 0.3 || dist < near) {
+          cat.yaw = angDamp(cat.yaw, yawTo(cat.pos, gp), 6, dt);
+          cat.anim = dist < near + 0.3 ? (s.t % 14 < 9 ? 'sit' : 'loaf') : 'sit';
+          s.route = null;
+          if (s.greet && dist < near) { cat.step = null; }
+          break;
+        }
+        s.re = (s.re || 0) - dt;
+        if (!s.route || !s.route.length || s.re <= 0) {
+          s.route = findPath(this.room, V(cat.pos.x, 0, cat.pos.z), V(gp.x, 0, gp.z));
+          s.re = 1.2;
+        }
+        let tgt = s.route[0];
+        while (tgt && Math.hypot(tgt.x - cat.pos.x, tgt.z - cat.pos.z) < 0.15 && s.route.length > 1) { s.route.shift(); tgt = s.route[0]; }
+        if (!tgt) break;
+        const d = V(tgt.x - cat.pos.x, 0, tgt.z - cat.pos.z);
+        const want = Math.atan2(d.x, d.z);
+        cat.yaw = angDamp(cat.yaw, want, 12, dt);
+        const sp = dist > 3.2 ? 2.5 : dist > 1.8 ? 1.5 : 0.8;
+        const v = sp * Math.max(0.2, Math.cos(want - cat.yaw));
+        cat.pos.addScaledVector(d.normalize(), Math.min(v * dt, Math.hypot(tgt.x - cat.pos.x, tgt.z - cat.pos.z) + 0.01));
+        pushOut(this.room, cat.pos, 0.12, true);
+        cat.pos.y = 0;
+        cat.speed = v;
+        cat.anim = 'walk';
+        break;
+      }
       case 'faceGuest': {
         const g = this.getGuests().find((x) => x.id === s.guest);
         if (g) cat.yaw = angDamp(cat.yaw, yawTo(cat.pos, g.pos), 6, dt);
@@ -556,6 +705,9 @@ export class BookCats {
     else if (k === 'question') this.fx.text(head, '?', '#7d6553');
     else if (k === 'meow') { this.fx.text(head, '야옹', '#c66b3d'); if (cat.pos.distanceTo(this.listener || cat.pos) < 12) this.sound.meow(); }
     else if (k === 'splash') { this.fx.splash(cat.pos.clone().add(V(1.0, 0, 0))); this.fx.text(head, '!', '#4a6a8a'); }
+    else if (k === 'dizzy') this.fx.text(head, '빙글빙글', '#7d6553');
+    else if (k === 'boo') { this.fx.text(head, '냥!', '#c66b3d'); this.fx.puff(cat.pos.clone().setY(cat.pos.y + 0.1)); if (cat.pos.distanceTo(this.listener || cat.pos) < 8) this.sound.meow(); }
+    else if (k === 'eek') this.fx.text(head, '!', '#c0503a');
   }
 
   // 담당 브라우저: 걸어갈 길을 미리 계산해 계획에 넣음 → 다른 손님도 같은 길로 걷는 모습을 그림
@@ -587,11 +739,11 @@ export class BookCats {
       const o = { k: st.type };
       if (st.to) o.to = [r2(st.to.x), r2(st.to.y), r2(st.to.z)];
       if (st.anim) o.a = st.anim;
-      if (st.dur !== undefined && st.type === 'pose') o.d = Math.round(st.dur * 10) / 10;
+      if (st.dur !== undefined && (st.type === 'pose' || st.type === 'follow')) o.d = Math.round(st.dur * 10) / 10;
       if (st.yaw !== undefined && st.type === 'face') o.y = r2(st.yaw);
       if (st.guest) o.g = st.guest;
       if (st.type === 'fx') o.x = st.k;
-      const f = (st.keepYaw ? 1 : 0) | (st.low ? 2 : 0) | (st.fast ? 4 : 0) | (st.noCollide ? 8 : 0) | (st.routed ? 16 : 0);
+      const f = (st.keepYaw ? 1 : 0) | (st.low ? 2 : 0) | (st.fast ? 4 : 0) | (st.noCollide ? 8 : 0) | (st.routed ? 16 : 0) | (st.greet ? 32 : 0);
       if (f) o.f = f;
       q.push(o);
       if (q.length >= 36) break;
@@ -618,8 +770,9 @@ export class BookCats {
       if (f & 4) st.fast = true;
       if (f & 8) st.noCollide = true;
       if (f & 16) st.routed = true;
+      if (f & 32) st.greet = true;
       return st;
-    }).filter((st) => ['walk', 'hop', 'face', 'faceGuest', 'pose', 'fx'].includes(st.type) && (['pose', 'face', 'faceGuest', 'fx'].includes(st.type) || st.to));
+    }).filter((st) => ['walk', 'hop', 'face', 'faceGuest', 'pose', 'fx', 'follow'].includes(st.type) && (['pose', 'face', 'faceGuest', 'fx'].includes(st.type) || st.to || (st.type === 'follow' && st.guest)));
     cat.step = null;
   }
 

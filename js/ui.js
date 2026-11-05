@@ -641,6 +641,15 @@ export class UI {
     $('#dogPetBtn').addEventListener('click', onPet);
     this.openCard();
   }
+  showPanda(def, info) {
+    this.cardCat = null;
+    $('#cardBody').innerHTML = `
+      <div class="card-kicker">숲의 손님 · 레서판다</div>
+      <div class="card-title">${esc(def.name)} <span class="purr">꾸잉?</span></div>
+      <div class="card-desc">${esc(def.desc)}</div>
+      <div class="card-desc" style="margin-top:6px;color:var(--wood-dark)">${info.first ? '🍁 오늘 처음 찾았어요!' : '🍁 오늘 또 만났어요'} · 이 기기에서 ${info.days}일 동안 찾았어요${info.up ? ' · 지금은 나무 위에 있어요' : ''}</div>`;
+    this.openCard();
+  }
   showGuest(g, h) {
     this.cardCat = null;
     $('#cardBody').innerHTML = `

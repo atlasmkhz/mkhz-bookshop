@@ -102,7 +102,12 @@ export const CONFIG = {
     { id: 'meokmul', name: '먹물', pattern: 'tuxedo', desc: '흰 양말 신은 먹물. 책장 꼭대기가 자기 자리' },
     { id: 'samsaek', name: '삼색이', pattern: 'calico', desc: '삼색 얼룩, 서점 터줏대감. 평대 위 책을 떨어뜨린다' },
     { id: 'godeung', name: '고등어', pattern: 'mackerel', desc: '회색 고등어무늬, 캣타워 꼭대기 담당. 나비를 쫓는다' },
+    { id: 'kkamang', name: '까망이', pattern: 'black', desc: '새까만 우다다 대장. 밤이 되면 더 신나서 서점을 가로질러 뛴다' },
+    { id: 'nunsong', name: '눈송이', pattern: 'white', desc: '하얀 마중 고양이. 손님이 들어오면 문까지 마중 나와 졸졸 따라다닌다' },
+    { id: 'gureum', name: '구름이', pattern: 'blue', desc: '회색 장난꾸러기. 숨어 있다가 손님 발치로 와락 덮치고 도망간다' },
   ],
+  // 숲에 혼자 사는 레서판다 한 마리 (js/panda.js). 서점 밖 곳곳을 돌아다니고 가끔 나무 위에서 쉼
+  panda: { id: 'danpung', name: '단풍이', desc: '단풍잎 빛깔 레서판다. 숲 이곳저곳을 혼자 어슬렁거리다 나무 위 잎 사이에서 낮잠을 잔다. 놀라면 뒷발로 번쩍 일어선다' },
   // 서점 밖을 돌아다니는 진돗개 강아지 (coat: white 백구 · fawn 황구). 이름 · 소개는 여기서 바꿉니다.
   dogs: [
     { id: 'baekgu', name: '백구', coat: 'white', desc: '하얀 진돗개 강아지. 형 노릇을 하며 앞장서 걷고, 들꽃 언덕에서 땅 파기를 좋아한다' },

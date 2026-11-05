@@ -816,6 +816,8 @@ export function buildForest(scene, room, program) {
     trees.push([x, z, r() < 0.55 ? 'pine' : 'broad', 0.9 + r() * 0.6, true]);
   }
   for (const [x, z, , s, outside] of trees) if (!outside) obst(x - 0.25 * s, x + 0.25 * s, z - 0.25 * s, z + 0.25 * s);
+  // 걷는 땅 안의 나무 (레서판다가 올라가 숨는 곳, js/panda.js)
+  room.trees = trees.filter((t) => !t[4]).map(([x, z, kind, s]) => ({ x, z, kind, s, h: kind === 'pine' ? 1.4 * s : kind === 'birch' ? 3.0 * s : 2.0 * s }));
   for (let i = 0; i < 1800 && bushes.length < 380; i++) {
     const x = WORLD.minX + 1 + r() * (WORLD.maxX - WORLD.minX - 2), z = WORLD.minZ + 1 + r() * (22 - WORLD.minZ - 1);
     if (x > CABIN.minX - 1.5 && x < CABIN.maxX + 1.5 && z > CABIN.minZ - 1.5 && z < CABIN.maxZ + 2.5) continue;
