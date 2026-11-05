@@ -44,13 +44,15 @@ await program.ready;
 
 // ---------- 렌더러 · 장면 ----------
 const canvas = document.getElementById('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !IS_MOBILE || window.devicePixelRatio < 2, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_MOBILE ? 1.5 : 2));
+// 휴대폰은 덜 뜨겁게: 그리는 점 수를 조금 줄이고(1.3배), 아래 「그리기 빠르기」로 1초에 그리는 장 수도 줄임
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !IS_MOBILE || window.devicePixelRatio < 2, powerPreference: IS_MOBILE ? 'default' : 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_MOBILE ? 1.3 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;   // 그림자는 필요할 때만 다시 계산 (frame 의 shadowTick)
 // 디오라마 화면 (기본으로 켬): 구석 그늘 · 위아래 흐림 · 따뜻한 색 + 조금 좁은 화각
 // 주소 ?look=plain|diorama 가 먼저, 그다음 이 기기에 기억한 것(store 'look'), 없으면 켬. 느린 기기는 처음 몇 초를 재 보고 저절로 끔
 const LOOK_Q = new URLSearchParams(location.search).get('look');
@@ -1989,9 +1991,25 @@ setInterval(() => {
 }, 1000);
 
 // ---------- 그리기 반복 ----------
+// 그리기 빠르기 (1초에 몇 장): 휴대폰은 30장, 가만히 있은 지 6초가 넘으면 20장. 책 · 공책 같은 창이 화면을 덮거나
+// 들어가기 화면일 때는 뒤의 숲이 거의 안 보이니 10장 (PC 도 같음). 화면 장 수가 줄면 휴대폰이 덜 뜨거워짐
 const clock = new THREE.Clock();
-function frame() {
-  const dt = Math.min(0.05, clock.getDelta());
+const pace = { last: 0, idleAt: performance.now(), shadowAt: new THREE.Vector3(1e9, 0, 0), n: 0 };
+for (const ev of ['pointerdown', 'pointermove', 'keydown', 'input', 'wheel', 'touchstart']) window.addEventListener(ev, () => { pace.idleAt = performance.now(); }, { capture: true, passive: true });
+const sheetEl = document.getElementById('sheet');
+function targetFps() {
+  if (!me.entered || !sheetEl.classList.contains('hidden')) return 10;
+  if (!IS_MOBILE) return 0;   // 0 = 화면이 주는 만큼 (보통 60)
+  const busy = me.speed > 0 || me.target || pair.phase || fwView.on || performance.now() - pace.idleAt < 6000;
+  return busy ? 30 : 20;
+}
+function frame(now) {
+  requestAnimationFrame(frame);
+  const want = targetFps();
+  if (want && now - pace.last < 1000 / want - 4) return;   // 이번 장은 건너뜀 (4ms 여유: 60Hz 화면에서 30장이 고르게)
+  pace.last = now;
+  pace.n++;
+  const dt = Math.min(want && want < 30 ? 0.12 : 0.05, clock.getDelta());
   const t = clock.elapsedTime;
   updateDayNight(dt, t);
   updateMe(dt);
@@ -2035,6 +2053,8 @@ function frame() {
   updateStar(dt);
   sun.target.position.set(cam.target.x, 0, cam.target.z);
   sun.position.copy(sun.target.position).add(SUN_OFFSET);
+  // 그림자: 해(카메라가 보는 곳)가 움직였거나, PC 는 매 장 · 휴대폰은 두 장에 한 번
+  if (!IS_MOBILE || pace.n % 2 === 0 || pace.shadowAt.distanceToSquared(sun.target.position) > 0.0004) { renderer.shadowMap.needsUpdate = true; pace.shadowAt.copy(sun.target.position); }
   if (look.on) {
     // 흐림의 초점: 내 캐릭터(또는 카메라가 보는 곳)의 화면 높이. 별멍 · 작품 보기 · 필사 땐 흐림을 줄임
     const fx = look.fx || (look.fx = new Diorama(renderer));
@@ -2050,18 +2070,17 @@ function frame() {
     diorama.render(scene, camera);
   } else renderer.render(scene, camera);
   // 느린 기기: 들어온 뒤 2~8초 사이 평균이 초당 24장보다 적으면 디오라마를 끔 (직접 고른 적이 있으면 그대로)
-  if (me.entered && !look.checked) {
+  if (me.entered && !look.checked && want !== 10) {   // 창이 덮고 일부러 천천히 그리는 동안은 재지 않음
     look.time += dt; look.frames++;
     if (look.time < 2) look.frames = 0;
     else if (look.time > 8) {
       look.checked = true;
       const fps = look.frames / (look.time - 2);
-      if (look.on && !look.chosen && fps < 24) { setLook(false, false); ui.toast('화면이 조금 느려서 디오라마 효과를 껐어요 — 위 🎞️ 단추로 다시 켤 수 있어요'); }
+      if (look.on && !look.chosen && fps < (IS_MOBILE ? 17 : 24)) { setLook(false, false); ui.toast('화면이 조금 느려서 디오라마 효과를 껐어요 — 위 🎞️ 단추로 다시 켤 수 있어요'); }
     }
   }
   placeTags(camera, renderer.domElement.clientWidth || window.innerWidth, renderer.domElement.clientHeight || window.innerHeight, me.entered ? me.pos : cam.target);
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-window.shop = { guide, guideSpots, guideStart, guideEvent, pair, askPair, acceptPair, onPairMsg, pairPos, club, startClub, handle, renderer, look, setLook, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { pace, targetFps, guide, guideSpots, guideStart, guideEvent, pair, askPair, acceptPair, onPairMsg, pairPos, club, startClub, handle, renderer, look, setLook, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
