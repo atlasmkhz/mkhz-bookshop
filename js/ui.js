@@ -641,6 +641,15 @@ export class UI {
     $('#dogPetBtn').addEventListener('click', onPet);
     this.openCard();
   }
+  showDeer(fam, m) {
+    this.cardCat = null;
+    const kids = fam.kids.join(' · ');
+    $('#cardBody').innerHTML = `
+      <div class="card-kicker">숲의 손님 · 꽃사슴 가족</div>
+      <div class="card-title">${esc(m.name)} <span class="purr">${m.fawn ? '아기 사슴' : '엄마 사슴'}</span></div>
+      <div class="card-desc">${esc(fam.name)} — 엄마 ${esc(fam.mom)}와 아기 ${esc(kids)}. 풀밭을 천천히 거닐며 풀을 뜯어요. 너무 가까이 가면 놀라서 몇 걸음 달아나요.</div>`;
+    this.openCard();
+  }
   showPanda(def, info) {
     this.cardCat = null;
     $('#cardBody').innerHTML = `

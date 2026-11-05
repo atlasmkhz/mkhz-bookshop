@@ -106,6 +106,14 @@ export const CONFIG = {
     { id: 'nunsong', name: '눈송이', pattern: 'white', desc: '하얀 마중 고양이. 손님이 들어오면 문까지 마중 나와 졸졸 따라다닌다' },
     { id: 'gureum', name: '구름이', pattern: 'blue', desc: '회색 장난꾸러기. 숨어 있다가 손님 발치로 와락 덮치고 도망간다' },
   ],
+  // 숲속 꽃사슴 다섯 가족 (js/deer.js): 엄마 사슴과 아기 사슴. home 은 가족이 사는 풀밭 한가운데 [x, z]
+  deer: [
+    { id: 'deulkkot', name: '들꽃 언덕 사슴네', home: [41, 10], mom: '들꽃', kids: ['꽃잎'] },
+    { id: 'eoksae', name: '억새 언덕 사슴네', home: [55, 1], mom: '억새', kids: ['바람', '살랑'] },
+    { id: 'yeonmot', name: '연못가 사슴네', home: [45, -21], mom: '연잎', kids: ['물방울'] },
+    { id: 'jajak', name: '자작나무 사슴네', home: [9, -27], mom: '자작', kids: ['솔방울', '도토리'] },
+    { id: 'seojjok', name: '서쪽 숲 사슴네', home: [-22, -14], mom: '이끼', kids: ['새싹'] },
+  ],
   // 숲에 혼자 사는 레서판다 한 마리 (js/panda.js). 서점 밖 곳곳을 돌아다니고 가끔 나무 위에서 쉼
   panda: { id: 'danpung', name: '단풍이', desc: '단풍잎 빛깔 레서판다. 숲 이곳저곳을 혼자 어슬렁거리다 나무 위 잎 사이에서 낮잠을 잔다. 놀라면 뒷발로 번쩍 일어선다' },
   // 서점 밖을 돌아다니는 진돗개 강아지 (coat: white 백구 · fawn 황구). 이름 · 소개는 여기서 바꿉니다.

@@ -11,6 +11,7 @@ import { setAtlases, finalizeBooks, bookSpots } from './shelves.js';
 import { BookCats } from './cats.js';
 import { Puppies } from './dogs.js';
 import { RedPanda } from './panda.js';
+import { DeerHerds } from './deer.js';
 import { Fires } from './fire.js';
 import { Sky } from './sky.js';
 import { Fireworks, FW_KINDS } from './fireworks.js';
@@ -99,6 +100,7 @@ const sound = new Sound();
 const cats = new BookCats(scene, room, fx, sound);
 const dogs = new Puppies(scene, room, fx, sound, CONFIG.dogs || []);
 const panda = new RedPanda(scene, room, fx, sound, CONFIG.panda);
+const deer = new DeerHerds(scene, room, fx, sound, CONFIG.deer || []);
 const fires = new Fires(scene, room, fx, sound);
 const sky = new Sky(scene, renderer.getPixelRatio());
 const fw = new Fireworks(scene, sound);
@@ -127,6 +129,8 @@ me.apron = !!store.get('apron', false);
 cats.listener = me.pos;
 dogs.listener = me.pos;
 panda.listener = me.pos;
+deer.listener = me.pos;
+deer.camera = camera;
 fw.listener = me.pos;
 
 // ---------- 카메라 ----------
@@ -361,6 +365,7 @@ function updateDayNight(dt, t) {
   cats.night = n;
   dogs.night = n;
   panda.night = n;
+  deer.night = n;
   for (const fn of room.nightParts) fn(dt, t, n);
 }
 
@@ -530,7 +535,7 @@ raycaster.camera = camera;
 const ndc = new THREE.Vector2();
 function usable(o) {
   if (o.isSprite || o.isPoints || o.isLine || o.isLineSegments || o.userData.noHit) return false;
-  if (o.userData.catId || o.userData.followerOf || o.userData.dogId || o.userData.pandaId) return false;
+  if (o.userData.catId || o.userData.followerOf || o.userData.dogId || o.userData.pandaId || o.userData.deerId) return false;
   for (let p = o; p; p = p.parent) if (!p.visible) return false;
   if (o.material && o.material.visible === false && !o.userData.product) return false;
   return true;
@@ -544,8 +549,8 @@ function followerHits() {
 function pick(x, y) {
   ndc.set((x / VW()) * 2 - 1, -(y / VH()) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-  const animalHit = (o, point) => (o.userData.catId ? { kind: 'cat', id: o.userData.catId } : o.userData.dogId ? { kind: 'dog', id: o.userData.dogId } : o.userData.pandaId ? { kind: 'panda' } : { kind: 'follower', obj: o, point });
-  const animals = [...cats.hitObjects(), ...dogs.hitObjects(), panda.hit, ...followerHits()];
+  const animalHit = (o, point) => (o.userData.catId ? { kind: 'cat', id: o.userData.catId } : o.userData.dogId ? { kind: 'dog', id: o.userData.dogId } : o.userData.pandaId ? { kind: 'panda' } : o.userData.deerId ? { kind: 'deer', id: o.userData.deerId } : { kind: 'follower', obj: o, point });
+  const animals = [...cats.hitObjects(), ...dogs.hitObjects(), panda.hit, ...deer.hitObjects(), ...followerHits()];
   const catHits = raycaster.intersectObjects(animals, false);
   if (catHits.length) return animalHit(catHits[0].object, catHits[0].point);
   const tol = IS_MOBILE ? 44 : 30;
@@ -607,6 +612,7 @@ function onTap(x, y) {
   if (hit.kind === 'cat') { petCat(hit.id); return; }
   if (hit.kind === 'dog') { petDog(hit.id); return; }
   if (hit.kind === 'panda') { findPanda(); return; }
+  if (hit.kind === 'deer') { meetDeer(hit.id); return; }
   if (hit.kind === 'woodpile' || hit.kind === 'fire') { tossLog(hit.id); return; }
   if (hit.kind === 'toys') { goCounter(hit.point, 'toys'); return; }
   if (hit.kind === 'apron') { toggleApron(hit.point); return; }
@@ -693,6 +699,16 @@ function findPanda() {
   ui.showPanda(CONFIG.panda, { first, days: rec.days.length, up: panda.up });
   if (!sound.enabled) ui.soundNudge();
   if (!panda.up && !me.seat) me.yaw = Math.atan2(panda.pos.x - me.pos.x, panda.pos.z - me.pos.z);
+}
+// 꽃사슴 — 누르면 가족이 나를 쳐다보고 아기는 깡충 (내 화면에서만, 메시지 0건)
+let lastDeer = 0;
+function meetDeer(id) {
+  if (performance.now() - lastDeer < 700) return;
+  lastDeer = performance.now();
+  const f = deer.pet(id, me.pos.clone());
+  if (!f) return;
+  ui.showDeer(f.F.def, f.m);
+  if (!me.seat) me.yaw = Math.atan2(f.m.pos.x - me.pos.x, f.m.pos.z - me.pos.z);
 }
 // 강아지 쓰다듬기 — 내 화면에서만 반응하고 아무것도 보내지 않음
 let lastDogPet = 0;
@@ -2068,6 +2084,7 @@ function frame(now) {
   cats.update(dt, t);
   dogs.update(dt);
   panda.update(dt);
+  deer.update(dt);
   updateFire(dt);
   updateFwView(dt);
   updateHide(dt);
@@ -2140,4 +2157,4 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-window.shop = { panda, pace, targetFps, guide, guideSpots, guideStart, guideEvent, pair, askPair, acceptPair, onPairMsg, pairPos, club, startClub, handle, renderer, look, setLook, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
+window.shop = { deer, panda, pace, targetFps, guide, guideSpots, guideStart, guideEvent, pair, askPair, acceptPair, onPairMsg, pairPos, club, startClub, handle, renderer, look, setLook, workshop, craft, startCraft, exitCraft, craftHit, gallery, artLook, endArtLook, startWood, exitWood, woodView, toggleApron, openArt, openArtUpload, shopCount, sound, copy, startCopy, exitCopy, loopWalk, startLoop, fwView, startFwView, endFwView, scene, camera, room, me, cats, dogs, fires, sky, fw, hs, star, startStar, exitStar, startHide, stopHide, playCat, callCat, fireFw, openFireworks, startGaze, exitGaze, tossLog, get net() { return net; }, cam, dayNight, onTap, pick, remotes, walkTo, switchToP2P, LIB, CABIN, program, ui };
