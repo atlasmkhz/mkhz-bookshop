@@ -45,6 +45,8 @@ await program.ready;
 
 // ---------- 렌더러 · 장면 ----------
 const canvas = document.getElementById('scene');
+// 3D 화면 크기: 사파리 아래 도구 막대 밑까지 그리므로(css #scene 100lvh) 창 크기 대신 그림판 크기를 씀
+const VW = () => canvas.clientWidth || window.innerWidth, VH = () => canvas.clientHeight || window.innerHeight;
 // 휴대폰은 덜 뜨겁게: 그리는 점 수를 조금 줄이고(1.3배), 아래 「그리기 빠르기」로 1초에 그리는 장 수도 줄임
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !IS_MOBILE || window.devicePixelRatio < 2, powerPreference: IS_MOBILE ? 'default' : 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_MOBILE ? 1.3 : 2));
@@ -131,7 +133,7 @@ fw.listener = me.pos;
 const cam = { yaw: 0.3, pitch: 0.8, dist: 15, target: new THREE.Vector3(-4, 1, 2) };
 const fitDist = () => (camera.aspect < 1 ? 9.5 / Math.max(0.6, camera.aspect * 1.2) : 11) * (look?.on ? 1.2 : 1);
 function resize() {
-  const w = window.innerWidth, h = window.innerHeight;
+  const w = VW(), h = VH();
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   // 디오라마는 화각을 조금 좁히고 조금 멀리서 — 책상 위 모형을 내려다보는 느낌
@@ -142,13 +144,20 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 resize();
+// 아이폰 사파리: 「확대 금지」를 적어 둬도 두 손가락 확대를 허락함 → 창 전체가 커지지 않게 막음 (3D 화면 안 확대 · 축소는 controls 가 따로 맡음)
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', (e) => { if (e.touches.length > 1 || e.scale && e.scale !== 1) e.preventDefault(); }, { passive: false });
+// 키보드를 닫은 뒤 사파리가 문서를 밀어 올린 채 두면 아래에 빈칸이 생김 → 제자리로 되돌리고 크기를 다시 잼
+const unshift = () => { if (!document.activeElement?.matches?.('input, textarea')) { window.scrollTo(0, 0); resize(); } };
+document.addEventListener('focusout', () => setTimeout(unshift, 80));
+window.visualViewport?.addEventListener('resize', () => setTimeout(unshift, 80));
 
 function updateCamera(dt) {
   // 독서 모임 방: 테이블을 비스듬히 내려다봄. 아래 채팅창에 가리지 않게 화면을 위로 올림 (처음 2.5초 뒤엔 끌어서 둘러보기)
   if (club.on && room.club) {
     const panelH = document.querySelector('#clubPanel')?.offsetHeight || 0;
     const visH = 2 * cam.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const shift = Math.min(3.2, (panelH / (2 * window.innerHeight)) * visH);
+    const shift = Math.min(3.2, (panelH / (2 * VH())) * visH);
     const toward = new THREE.Vector3(Math.sin(cam.yaw), 0, Math.cos(cam.yaw));
     const w = room.club.center.clone().addScaledVector(toward, shift / Math.max(0.4, Math.sin(cam.pitch)));
     const k = club.t < 1.5 ? 5 : 3;
@@ -170,7 +179,7 @@ function updateCamera(dt) {
     if (w) {
       const panelH = document.querySelector('#craftPanel')?.offsetHeight || 0;
       const visH = 2 * cam.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-      const shift = Math.min(0.45, (panelH / (2 * window.innerHeight)) * visH);
+      const shift = Math.min(0.45, (panelH / (2 * VH())) * visH);
       const fwd = new THREE.Vector3(Math.sin(me.seat.rotY), 0, Math.cos(me.seat.rotY));
       w.y += 0.05; w.addScaledVector(fwd, -shift);
       const k = craftView.t < 1.5 ? 6 : 3;
@@ -193,7 +202,7 @@ function updateCamera(dt) {
   if (copy.on) {
     // 공책이 필사 창 위 빈자리 가운데에 오도록, 카메라는 공책보다 조금 내 쪽을 봄
     const panelH = document.querySelector('#copyPanel')?.offsetHeight || 0;
-    const H = window.innerHeight;
+    const H = VH();
     const visH = 2 * cam.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const shift = Math.min(0.4, (panelH / (2 * H)) * visH);
     const fwd = new THREE.Vector3(Math.sin(me.seat.rotY), 0, Math.cos(me.seat.rotY));
@@ -517,7 +526,7 @@ function followerHits() {
   return list;
 }
 function pick(x, y) {
-  ndc.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+  ndc.set((x / VW()) * 2 - 1, -(y / VH()) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
   const animalHit = (o, point) => (o.userData.catId ? { kind: 'cat', id: o.userData.catId } : o.userData.dogId ? { kind: 'dog', id: o.userData.dogId } : o.userData.pandaId ? { kind: 'panda' } : { kind: 'follower', obj: o, point });
   const animals = [...cats.hitObjects(), ...dogs.hitObjects(), panda.hit, ...followerHits()];
@@ -528,7 +537,7 @@ function pick(x, y) {
   for (const h of animals) {
     const v = h.getWorldPosition(new THREE.Vector3()).project(camera);
     if (v.z > 1) continue;
-    const d = Math.hypot((v.x + 1) / 2 * window.innerWidth - x, (1 - v.y) / 2 * window.innerHeight - y);
+    const d = Math.hypot((v.x + 1) / 2 * VW() - x, (1 - v.y) / 2 * VH() - y);
     if (d < bd) { bd = d; best = h; }
   }
   if (best) return animalHit(best, best.getWorldPosition(new THREE.Vector3()));
@@ -779,7 +788,7 @@ function updateFire(dt) {
   tmpV.copy(f.world()); tmpV.y += 1.35;
   tmpV.project(camera);
   if (tmpV.z > 1) { ui.fireBar(null); return; }
-  ui.fireBar({ id: f.id, x: (tmpV.x + 1) / 2 * window.innerWidth, y: (1 - tmpV.y) / 2 * window.innerHeight });
+  ui.fireBar({ id: f.id, x: (tmpV.x + 1) / 2 * VW(), y: (1 - tmpV.y) / 2 * VH() });
 }
 
 // ---------- 고양이와 놀기 (장난감) ----------
@@ -1281,7 +1290,7 @@ const controls = new Controls(canvas, {
   holdEnd: () => { me.hold = null; },
 });
 function floorAt(x, y) {
-  ndc.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+  ndc.set((x / VW()) * 2 - 1, -(y / VH()) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
   const p = new THREE.Vector3();
   const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -me.pos.y);
@@ -1438,7 +1447,7 @@ function handle(m) {
       if (fromSp !== sp) break;
       if (sp === 1) { r.avatar.say(text); ui.clubLine(r.name, text); break; }
       if (sp) { r.avatar.say(text); ui.chatLine(r.name, text); if (craft.on) ui.craftChat(r.name, text); break; }
-      if (near(r) > CONFIG.chatRange) break;
+      if (near(r) > CONFIG.chatRange && !(pair.phase && pair.id === m.uid)) break;   // 같이 걷는 짝의 말은 거리와 상관없이
       r.avatar.say(text);
       ui.chatLine(r.name, text);
       break;
@@ -1567,7 +1576,9 @@ ui.onChatSend = (raw) => {
   }
   ui.chatLine(me.name, text, 'me');
   const anyone = [...remotes.values()].some((r) => !remoteSpace(r) && near(r) <= CONFIG.chatRange + 2);
-  if (anyone) net.send({ t: 'chat', m: text });
+  // 같이 산책 중이면 짝에게는 거리와 상관없이 (서버가 보는 자리는 6초 뒤 갈 곳이라 멀어 보일 수 있음)
+  const mate = pair.phase && pair.id && remotes.has(pair.id) ? pair.id : null;
+  if (anyone || mate) net.send(mate ? { t: 'chat', m: text, w: mate } : { t: 'chat', m: text });
   else if (remotes.size) ui.chatLine('', '가까이 아무도 없어서 혼잣말이 되었어요', 'sys');
   return null;
 };
@@ -1981,7 +1992,7 @@ function updatePetBubble() {
   tmpV.y += 0.28;
   tmpV.project(camera);
   if (tmpV.z > 1) { ui.petBubble(null); return; }
-  ui.petBubble({ id: best.def.id, name: best.def.name, x: (tmpV.x + 1) / 2 * window.innerWidth, y: (1 - tmpV.y) / 2 * window.innerHeight });
+  ui.petBubble({ id: best.def.id, name: best.def.name, x: (tmpV.x + 1) / 2 * VW(), y: (1 - tmpV.y) / 2 * VH() });
 }
 ui.onPetBubble = (id) => petCat(id);
 
@@ -2109,7 +2120,7 @@ function frame(now) {
       if (h.slow >= 2) setLook(false);
     }
   }
-  placeTags(camera, renderer.domElement.clientWidth || window.innerWidth, renderer.domElement.clientHeight || window.innerHeight, me.entered ? me.pos : cam.target);
+  placeTags(camera, VW(), VH(), me.entered ? me.pos : cam.target);
 }
 requestAnimationFrame(frame);
 

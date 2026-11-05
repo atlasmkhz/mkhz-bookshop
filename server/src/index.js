@@ -236,12 +236,15 @@ export class BookRoom extends DurableObject {
         const sp = att.st?.c | 0, inClub = sp > 0;
         const msg = JSON.stringify({ t: 'chat', uid: att.uid, m: text, c: sp });
         const me = this.where(att);
+        // 같이 산책하는 짝(w 칸): 걷는 동안 알리는 자리가 「6초 뒤 갈 곳」이라 서로 멀어 보일 수 있어 거리와 상관없이 전함.
+        // 받는 쪽은 지금 자기 짝이 보낸 말일 때만 거리를 건너뛰고 보여 줌 (main.js 'chat')
+        const mate = clean(m.w, 16);
         for (const w of this.sockets()) {
           if (w === ws) continue;
           const a = w.deserializeAttachment();
           if (!a?.uid) continue;
           if ((a.st?.c | 0) !== sp) continue;
-          if (inClub) { try { w.send(msg); } catch { /* 무시 */ } continue; }
+          if (inClub || (mate && a.uid === mate)) { try { w.send(msg); } catch { /* 무시 */ } continue; }
           const p = this.where(a);
           if (me && p && Math.hypot(p[0] - me[0], p[1] - me[1]) + Math.abs(p[2] - me[2]) * 2 > (att.range || 12)) continue;
           try { w.send(msg); } catch { /* 무시 */ }

@@ -13,8 +13,12 @@
   --sans: 'Gowun Dodum', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #e9dcc6; color: var(--ink); font-family: var(--sans); }
-#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #e9dcc6; color: var(--ink); font-family: var(--sans); overscroll-behavior: none; }
+/* 아이폰: 문서가 밀려 올라가지 않게 몸통을 화면에 고정, 두 번 톡 확대는 끔 (3D 화면 안 확대 · 축소는 그대로) */
+body { position: fixed; inset: 0; touch-action: manipulation; }
+#scene { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+/* 아이폰 사파리: 아래 도구 막대 밑까지 3D 화면을 그려 베이지 빈칸이 드러나지 않게 (단추들은 보이는 화면 안에 그대로) */
+@supports (height: 100lvh) { #scene { height: 100lvh; } }
 .hidden { display: none !important; }
 button { font: inherit; color: inherit; }
 a { color: inherit; }
@@ -119,6 +123,12 @@ body.gazing .topbar, body.gazing .bottombar, body.gazing .chat-log, body.gazing 
 .chat-log { position: absolute; left: 10px; bottom: calc(92px + var(--safe-bot)); width: min(380px, calc(100vw - 20px)); display: flex; flex-direction: column; gap: 5px; pointer-events: none; transition: bottom .2s; }
 /* 말하기 창을 열면 그 위로 올라감 (창에 가리지 않게) */
 body.chatting .chat-log { bottom: calc(150px + var(--safe-bot)); }
+/* 말하기 창을 연 동안: 같이 산책 띠는 위로, 별멍 · 필사하기 단추는 말하기 창 위로 (입력칸 · 보내기 단추를 가리지 않게) */
+body.chatting .pair-chip { bottom: auto; top: calc(58px + var(--safe-top)); }
+body.chatting .hint, body.chatting .guide-again { opacity: 0 !important; visibility: hidden !important; }
+body.chatting .toast { top: calc(108px + var(--safe-top)); }
+body.chatting .star-chip, body.chatting .copy-chip { bottom: calc(146px + var(--safe-bot)); }
+body.chatting.copying .copy-chip { bottom: calc(196px + var(--safe-bot)); }
 .chat-log div { align-self: flex-start; max-width: 100%; background: rgba(255, 251, 244, 0.97); padding: 7px 13px; border-radius: 15px; font-size: 15px; line-height: 1.45; color: var(--ink); box-shadow: 0 3px 12px rgba(60, 38, 20, 0.18); transition: opacity 1s; overflow-wrap: anywhere; }
 .chat-log div b { color: var(--wood-dark); font-weight: 700; margin-right: 6px; }
 .chat-log div.me { background: rgba(243, 231, 210, 0.97); }

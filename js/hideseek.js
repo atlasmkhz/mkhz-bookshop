@@ -84,7 +84,8 @@ export class HideSeek {
     this.spots.forEach((s, i) => {
       v.copy(s.eyes).project(camera);
       if (v.z > 1) return;
-      const d = Math.hypot((v.x + 1) / 2 * innerWidth - x, (1 - v.y) / 2 * innerHeight - y);
+      const cv = document.getElementById('scene'), W = cv?.clientWidth || innerWidth, H = cv?.clientHeight || innerHeight;
+      const d = Math.hypot((v.x + 1) / 2 * W - x, (1 - v.y) / 2 * H - y);
       if (d < bd) { bd = d; best = i; }
     });
     if (best < 0) return false;
