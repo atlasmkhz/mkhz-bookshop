@@ -53,17 +53,16 @@ renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = false;   // 그림자는 필요할 때만 다시 계산 (frame 의 shadowTick)
-// 디오라마 화면 (기본으로 켬): 구석 그늘 · 위아래 흐림 · 따뜻한 색 + 조금 좁은 화각
-// 주소 ?look=plain|diorama 가 먼저, 그다음 이 기기에 기억한 것(store 'look'), 없으면 켬. 느린 기기는 처음 몇 초를 재 보고 저절로 끔
+// 디오라마 화면: 단추 없이 서점이 알아서 정함 (손님이 고를 일 없음). 주소 ?look=plain|diorama 는 시험용으로만.
+// 켜 두되, 느린 기기(들어온 뒤 2~8초)나 오래 쓰다 휴대폰이 뜨거워져 느려지면(frame 의 heat) 저절로 끔 — 그 방문 동안만
 const LOOK_Q = new URLSearchParams(location.search).get('look');
-const look = { on: LOOK_Q ? LOOK_Q !== 'plain' : store.get('look', 'diorama') !== 'plain', chosen: !!LOOK_Q || store.get('look', null) != null, fx: null, frames: 0, time: 0, checked: false };
+const look = { on: LOOK_Q ? LOOK_Q !== 'plain' : true, chosen: !!LOOK_Q, fx: null, frames: 0, time: 0, checked: false };
 const diorama = { render: (sc, c) => { if (!look.fx) look.fx = new Diorama(renderer); look.fx.render(sc, c); } };
-function setLook(on, remember = true) {
+function setLook(on) {
   look.on = on;
-  if (remember) { store.set('look', on ? 'diorama' : 'plain'); look.chosen = true; }
-  ui.setLook?.(on);
   resize();
 }
+if (typeof store.get('look', null) === 'string') store.set('look', null);   // 예전 🎞️ 단추가 겉모습 칸에 남긴 'plain' · 'diorama' 지움
 
 const scene = new THREE.Scene();
 const DAY_BG = new THREE.Color('#dfe3d2'), NIGHT_BG = new THREE.Color('#121829');
@@ -110,7 +109,7 @@ const uid = store.get('uid', null) || Math.random().toString(36).slice(2, 10);
 store.set('uid', uid);
 const me = {
   name: store.get('name', ''),
-  look: store.get('look', null) || randomLook(),
+  look: (typeof store.get('look', null) === 'object' && store.get('look', null)) || randomLook(),
   drink: CONFIG.drinks.find((d) => d.id === store.get('drink', null)) || null,
   myCat: null, myCatInfo: store.get('mycat', null), toy: CONFIG.toys.some((t) => t.id === store.get('toy', null)) ? store.get('toy', null) : null,
   avatar: null, pos: room.spawn.clone(), yaw: Math.PI, route: [], target: null, seat: null, pending: null, speed: 0, hold: null, entered: false,
@@ -1924,8 +1923,6 @@ ui.onEnter = async ({ name, look, soundOn, room: roomChoice }) => {
   walkTo(room.firstWalk);
 };
 ui.loadRooms = SERVER ? fetchRooms : null;
-ui.onToggleLook = () => { setLook(!look.on); ui.toast(look.on ? '🎞️ 디오라마 화면 — 작은 모형 마을처럼' : '🎞️ 기본 화면 — 더 가볍고 또렷하게'); };
-ui.setLook?.(look.on);
 ui.onToggleRain = () => { room.rainOn = !room.rainOn; cats.rain = room.rainOn; sound.setRain(room.rainOn); store.set('rain', room.rainOn); return room.rainOn; };
 cats.birdsPresent = () => room.birdsPresent?.();
 ui.onToggleNight = () => { dayNight.target = dayNight.target > 0.5 ? 0 : 1; sound.setNight(dayNight.target); return dayNight.target > 0.5; };
@@ -2007,6 +2004,7 @@ function frame(now) {
   requestAnimationFrame(frame);
   const want = targetFps();
   if (want && now - pace.last < 1000 / want - 4) return;   // 이번 장은 건너뜀 (4ms 여유: 60Hz 화면에서 30장이 고르게)
+  pace.realDt = Math.min(1, (now - pace.last) / 1000);   // 실제로 흐른 시간 (발열 판단용)
   pace.last = now;
   pace.n++;
   const dt = Math.min(want && want < 30 ? 0.12 : 0.05, clock.getDelta());
@@ -2076,7 +2074,17 @@ function frame(now) {
     else if (look.time > 8) {
       look.checked = true;
       const fps = look.frames / (look.time - 2);
-      if (look.on && !look.chosen && fps < (IS_MOBILE ? 17 : 24)) { setLook(false, false); ui.toast('화면이 조금 느려서 디오라마 효과를 껐어요 — 위 🎞️ 단추로 다시 켤 수 있어요'); }
+      if (look.on && !look.chosen && fps < (IS_MOBILE ? 17 : 24)) setLook(false);   // 알림 없이 조용히
+    }
+  }
+  // 오래 쓰다 휴대폰이 뜨거워지면 기기가 스스로 느려짐 → 정한 장 수의 75%도 못 그리는 12초가 두 번 이어지면 디오라마를 끔
+  if (IS_MOBILE && look.on && !look.chosen && look.checked && want && want !== 10) {
+    const h = pace.heat || (pace.heat = { t: 0, got: 0, exp: 0, slow: 0 });
+    h.t += pace.realDt; h.got++; h.exp += pace.realDt * want;
+    if (h.t > 12) {
+      h.slow = h.got < h.exp * 0.75 ? h.slow + 1 : 0;
+      h.t = h.got = h.exp = 0;
+      if (h.slow >= 2) setLook(false);
     }
   }
   placeTags(camera, renderer.domElement.clientWidth || window.innerWidth, renderer.domElement.clientHeight || window.innerHeight, me.entered ? me.pos : cam.target);
