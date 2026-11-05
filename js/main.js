@@ -684,6 +684,28 @@ function petCat(id) {
     walkTo(c.pos.clone().setY(0).sub(d.normalize().multiplyScalar(0.75)), { type: 'faceCat', id });
   } else if (!me.seat) me.yaw = Math.atan2(c.pos.x - me.pos.x, c.pos.z - me.pos.z);
 }
+// 레서판다가 새 곳에 닿으면 알림 (4분에 한 번까지, 이미 눈앞에 있거나 다른 일에 몰두할 땐 안 띄움, 메시지 0건)
+let pandaToastAt = -1e9;
+panda.onArrive = (pos, leg) => {
+  const now = performance.now();
+  if (!me.entered || now - pandaToastAt < 240000) return;
+  if (copy.on || craft.on || club.on || fires.gaze || star.on || !document.getElementById('sheet').classList.contains('hidden')) return;
+  if (Math.hypot(pos.x - me.pos.x, pos.z - me.pos.z) < 18) return;
+  let where = inCabin(pos) ? '서점 안' : null;
+  if (!where) {
+    let bd = 1e9;
+    for (const pl of ui.places || []) {
+      if (!pl.to || pl.loop || pl.to[1] > 1) continue;
+      const d = Math.hypot(pl.to[0] - pos.x, pl.to[2] - pos.z);
+      if (d < bd) { bd = d; where = pl.name; }
+    }
+    if (bd > 22) where = '숲속';
+  }
+  pandaToastAt = now;
+  const doing = leg?.act === 'tree' ? '나무 위로 올라갔어요' : leg?.act === 'zoom' ? '신나서 빙글빙글 뛰고 있어요' : '나타났어요';
+  ui.toast(`🍁 레서판다 단풍이가 ${where === '서점 안' || where === '숲속' ? where + '에' : where + ' 근처에'} ${doing}`);
+};
+
 // 레서판다 찾기 — 내 화면에서만 반응. 찾은 날은 이 기기에만 (store 'panda', 메시지 0건)
 let lastPanda = 0;
 function findPanda() {
