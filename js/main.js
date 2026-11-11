@@ -1992,7 +1992,7 @@ ui.onEnter = async ({ name, look, soundOn, room: roomChoice }) => {
   me.avatar.setApron(me.apron);
   scene.add(me.avatar.root);
   me.entered = true;
-  if (soundOn) { sound.setEnabled(true); sound.setNight(dayNight.target); ui.setSound(true); }
+  if (soundOn) { sound.setSfx(store.get('sfx', true)); sound.setEnabled(true); sound.setNight(dayNight.target); ui.setSound(sound.sfxOn); }
   if (me.myCatInfo && !me.myCat) spawnMyCat(me.myCatInfo, false);
   if (usingServer) {
     let n = roomChoice;
@@ -2012,7 +2012,15 @@ ui.loadRooms = SERVER ? fetchRooms : null;
 ui.onToggleRain = () => { room.rainOn = !room.rainOn; cats.rain = room.rainOn; sound.setRain(room.rainOn); store.set('rain', room.rainOn); return room.rainOn; };
 cats.birdsPresent = () => room.birdsPresent?.();
 ui.onToggleNight = () => { dayNight.target = dayNight.target > 0.5 ? 0 : 1; sound.setNight(dayNight.target); return dayNight.target > 0.5; };
-ui.onToggleSound = () => { const on = !sound.enabled; sound.setEnabled(on); sound.setNight(dayNight.target); return on; };
+// 🔊 효과음 · 주변 소리 켜기 · 끄기 (이 기기에 기억, store 'sfx'). 배경 음악(🎵)은 그대로.
+// 소리를 아직 한 번도 켜지 않았으면(아이폰은 누름이 있어야 소리가 남) 소리를 켜면서 효과음도 켬
+ui.onToggleSound = () => {
+  if (!sound.enabled) { sound.setSfx(true); store.set('sfx', true); sound.setEnabled(true); sound.setNight(dayNight.target); return true; }
+  const on = !sound.sfxOn;
+  sound.setSfx(on);
+  store.set('sfx', on);
+  return on;
+};
 // 배경 음악 켜기 · 끄기 (이 기기에 기억). 소리 전체가 꺼져 있으면 함께 켬
 sound.setMusic(store.get('music', true));
 ui.setMusic(sound.musicOn);
@@ -2020,7 +2028,7 @@ ui.onToggleMusic = () => {
   const on = !sound.musicOn;
   sound.setMusic(on);
   store.set('music', on);
-  if (on && !sound.enabled) { sound.setEnabled(true); sound.setNight(dayNight.target); ui.setSound(true); }
+  if (on && !sound.enabled) { sound.setSfx(store.get('sfx', true)); sound.setEnabled(true); sound.setNight(dayNight.target); ui.setSound(sound.sfxOn); }
   return on;
 };
 // 아이폰: 누를 때마다 멈춘 소리를 다시 켜고(잠금 화면 · 다른 앱에서 돌아왔을 때), 무음 스위치와 상관없이 들리게

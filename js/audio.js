@@ -27,6 +27,7 @@ export class Sound {
     this.penVol = 0.16;   // 연필 소리 크기 (배경 위로 은은하게)
     this.pencil = CONFIG.pencil || 'hb';
     this.musicOn = true;
+    this.sfxOn = true;    // 효과음 · 주변 소리 (🔊)
   }
 
   ensure() {
@@ -41,7 +42,10 @@ export class Sound {
     this.limiter.threshold.value = -10; this.limiter.knee.value = 8; this.limiter.ratio.value = 6; this.limiter.attack.value = 0.003; this.limiter.release.value = 0.2;
     this.master.connect(this.limiter).connect(ctx.destination);
     // 효과음(필기 · 책장 · 야옹 · 폭죽 …)은 배경 소리보다 또렷하게 한 단계 크게
-    this.fxOut = ctx.createGain(); this.fxOut.gain.value = 2.2; this.fxOut.connect(this.master);
+    // 효과음 · 주변 소리(장작 · 비 · 새 · 물 · 골골송)는 모두 이 통로(sfx)를 지나 master 로 — 🔊 단추가 이 통로만 끄고 켬.
+    // 배경 음악은 이 통로를 거치지 않아 🎵 단추로 따로
+    this.sfx = ctx.createGain(); this.sfx.gain.value = this.sfxOn ? 1 : 0; this.sfx.connect(this.master);
+    this.fxOut = ctx.createGain(); this.fxOut.gain.value = 2.2; this.fxOut.connect(this.sfx);
 
     // 노이즈 버퍼 (핑크 · 브라운)
     const len = ctx.sampleRate * 3;
@@ -65,29 +69,29 @@ export class Sound {
     this.brownBuf = brown;
 
     // 빗소리
-    this.rainGain = ctx.createGain(); this.rainGain.gain.value = 0; this.rainGain.connect(this.master);
-    this.natureGain = ctx.createGain(); this.natureGain.gain.value = 0; this.natureGain.connect(this.master);
+    this.rainGain = ctx.createGain(); this.rainGain.gain.value = 0; this.rainGain.connect(this.sfx);
+    this.natureGain = ctx.createGain(); this.natureGain.gain.value = 0; this.natureGain.connect(this.sfx);
     const rain = this.loop(pink);
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 400;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600;
     rain.connect(hp).connect(lp).connect(this.rainGain);
     // 장작 (낮은 웅웅 + 탁탁)
-    this.fireGain = ctx.createGain(); this.fireGain.gain.value = 0.35; this.fireGain.connect(this.master);
+    this.fireGain = ctx.createGain(); this.fireGain.gain.value = 0.35; this.fireGain.connect(this.sfx);
     const rumble = this.loop(brown);
     const flp = ctx.createBiquadFilter(); flp.type = 'lowpass'; flp.frequency.value = 320;
     const rg = ctx.createGain(); rg.gain.value = 0.5;
     rumble.connect(flp).connect(rg).connect(this.fireGain);
 
     // 바깥 모닥불 · 화로 (가까이 가면 들림, 불 세기만큼)
-    this.campGain = ctx.createGain(); this.campGain.gain.value = 0; this.campGain.connect(this.master);
+    this.campGain = ctx.createGain(); this.campGain.gain.value = 0; this.campGain.connect(this.sfx);
     this.campFire = 0;
     const rumble2 = this.loop(brown);
     const clp = ctx.createBiquadFilter(); clp.type = 'lowpass'; clp.frequency.value = 520;
     rumble2.connect(clp).connect(this.campGain);
-    this.crackGain = ctx.createGain(); this.crackGain.gain.value = 0; this.crackGain.connect(this.master);
+    this.crackGain = ctx.createGain(); this.crackGain.gain.value = 0; this.crackGain.connect(this.sfx);
 
     // 시냇물 (가까이 가면 들림)
-    this.waterGain = ctx.createGain(); this.waterGain.gain.value = 0; this.waterGain.connect(this.master);
+    this.waterGain = ctx.createGain(); this.waterGain.gain.value = 0; this.waterGain.connect(this.sfx);
     const water = this.loop(pink);
     const wbp = ctx.createBiquadFilter(); wbp.type = 'bandpass'; wbp.frequency.value = 900; wbp.Q.value = 0.7;
     const wlfo = ctx.createOscillator(); wlfo.frequency.value = 0.35;
@@ -96,7 +100,7 @@ export class Sound {
     water.connect(wbp).connect(this.waterGain);
     this.water = 0;
     // 파도 (바닷가 가까이)
-    this.seaGain = ctx.createGain(); this.seaGain.gain.value = 0; this.seaGain.connect(this.master);
+    this.seaGain = ctx.createGain(); this.seaGain.gain.value = 0; this.seaGain.connect(this.sfx);
     const sea = this.loop(brown);
     const slp = ctx.createBiquadFilter(); slp.type = 'lowpass'; slp.frequency.value = 700;
     const swell = ctx.createGain(); swell.gain.value = 0.5;
@@ -106,13 +110,13 @@ export class Sound {
     sea.connect(slp).connect(swell).connect(this.seaGain);
     this.sea = 0;
     // 폭포 (가까이 가면 우르르)
-    this.fallGain = ctx.createGain(); this.fallGain.gain.value = 0; this.fallGain.connect(this.master);
+    this.fallGain = ctx.createGain(); this.fallGain.gain.value = 0; this.fallGain.connect(this.sfx);
     const fall = this.loop(pink);
     const flp2 = ctx.createBiquadFilter(); flp2.type = 'lowpass'; flp2.frequency.value = 1800;
     fall.connect(flp2).connect(this.fallGain);
     this.fall = 0;
 
-    this.purrGain = ctx.createGain(); this.purrGain.gain.value = 0; this.purrGain.connect(this.master);
+    this.purrGain = ctx.createGain(); this.purrGain.gain.value = 0; this.purrGain.connect(this.sfx);
     this.purrUntil = 0;
     this.tick = setInterval(() => this.schedule(), 60);
     this.setupMusic();
@@ -630,6 +634,11 @@ export class Sound {
   setNight(n) { this.night = n; this.mix(); }
   // 배경 음악만 켜고 끄기 (다른 소리는 그대로)
   setMusic(on) { this.musicOn = !!on; this.mix(); }
+  // 효과음 · 주변 소리만 켜고 끄기 (배경 음악은 그대로)
+  setSfx(on) {
+    this.sfxOn = !!on;
+    if (this.ctx) { const now = this.ctx.currentTime; this.sfx.gain.cancelScheduledValues(now); this.sfx.gain.setTargetAtTime(on ? 1 : 0, now, 0.25); }
+  }
   setOutdoor(o) { if (o === this.outdoor) return; this.outdoor = o; this.mix(); }
   setRain(on) { this.rain = on; this.mix(); }
 
