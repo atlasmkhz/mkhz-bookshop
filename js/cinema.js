@@ -172,16 +172,23 @@ export function buildCinema(scene, room, program, cx = 26, cz = 7.5) {
     h.add(mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.3, 12).rotateX(Math.PI / 2), M.color('#4a4036', 0.4, { metalness: 0.5 }), 0, 1.0, -0.7));
     const lens = new THREE.MeshStandardMaterial({ color: '#fff6dd', emissive: '#fff1c8', emissiveIntensity: 0 });
     h.add(mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.04, 12).rotateX(Math.PI / 2), lens, 0, 1.0, -0.86));
-    const beamLen = 8.0;
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 0.08, beamLen, 16, 1, true), new THREE.MeshBasicMaterial({ color: '#fff3d6', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
-    beam.rotation.x = Math.PI / 2 - 0.1;
-    beam.position.set(0, 1.7, -0.9 - beamLen / 2);
-    beam.userData.noHit = true;
-    h.add(beam);
     h.position.set(cx, 0, cz + 9.3);
     scene.add(h);
+    // 빛줄기: 렌즈에서 좁게 나가 스크린(6.2 × 3.5 m) 크기로 퍼지는 네모뿔 (예전엔 넓은 쪽이 영사기 쪽으로 뒤집혀 있었음)
+    const from = new THREE.Vector3(cx, 1.0, cz + 9.3 - 0.88);          // 렌즈
+    const to = new THREE.Vector3(cx, 2.95, cz + 0.08);                // 스크린 한가운데
+    const beamLen = from.distanceTo(to);
+    const bg = new THREE.CylinderGeometry(1, 0.02, beamLen, 4, 1, true);   // 위(+y) = 넓은 쪽 = 스크린
+    bg.translate(0, beamLen / 2, 0);
+    bg.rotateY(Math.PI / 4);
+    bg.scale(3.0 * Math.SQRT2, 1, 1.68 * Math.SQRT2);
+    const beam = new THREE.Mesh(bg, new THREE.MeshBasicMaterial({ color: '#fff3d6', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    beam.position.copy(from);
+    beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
+    beam.userData.noHit = true;
+    scene.add(beam);
     obst(footprint(cx, cz + 9.3, 1.7, 1.3));
-    room.nightParts.push((dt, t, n) => { beam.material.opacity = n * 0.13 * (0.9 + Math.sin(t * 9) * 0.05); lens.emissiveIntensity = n * 2; });
+    room.nightParts.push((dt, t, n) => { beam.material.opacity = n * 0.09 * (0.9 + Math.sin(t * 9) * 0.05); lens.emissiveIntensity = n * 2; });
   }
   // 매표소 · 상영표 (누르면 상영 목록)
   {
